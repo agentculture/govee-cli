@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.1] - 2026-10-20
+
+### Changed
+
+- CLAUDE.md re-initialized from the seed into a full runtime prompt for the govee-cli agent: commands, CLI architecture (registration, CliError contract, --json parse errors, stdout/stderr split, explain catalog, rubric gate), planned Govee domain constraints, harness/identity rules, skills, conventions, worktrees, memory.
+- README.md reframed from the template to govee-cli: status note, Roadmap for the planned Govee device verbs, Development section; template 'Make it your own' steps removed.
+- QWEN.md, AGENTS.colleague.md and AGENTS.override.md rewritten to describe govee-cli and its current scaffold state; .pi/SYSTEM.md tells the read-only associate lane never to change real device state.
+
+### Fixed
+
+- Docs named the console script `govee-cli`, but pyproject.toml installs `govee`, so the README quickstart's `uv run govee-cli whoami` failed; docs now use `uv run govee`.
+
 ## [0.10.0] - 2026-10-06
 
 ### Added

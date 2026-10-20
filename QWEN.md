@@ -2,128 +2,83 @@
 
 This file provides guidance to Qwen Code when working with code in this
 repository. Qwen Code's context loader reads exactly `QWEN.md` and `AGENTS.md`
-in a directory; this repo deliberately ships only `QWEN.md` — there is no
-`AGENTS.md` here (each harness gets its own file; see "Prompt files by
-harness" below), so this file is the sole source of project guidance for a
-Qwen Code session.
+in a directory. This repo deliberately ships only `QWEN.md`, with no
+`AGENTS.md` (each harness gets its own file; see "Prompt files by harness"
+below), so this file is the only project guidance a Qwen Code session gets.
 
 ## What this project is
 
-`govee-cli` is a **clonable template for AgentCulture mesh agents**.
-It is a working, minimal example of the sibling pattern every Culture agent
-follows: an agent-first CLI, a mesh identity, the canonical skill kit, and a
-buildable/deployable package baseline. Clone it, rename the package, edit
-`culture.yaml`, and you have a new agent that `steward doctor` recognizes.
+`govee-cli` is the **govee-cli** AgentCulture mesh agent: an agent-first CLI
+that controls Govee smart lights at home — discover devices, on/off,
+brightness, color, color temperature and scenes — via Govee's official
+Developer API (cloud) and the local LAN API. Writes are safe by default
+(dry-run unless `--apply`), and every command supports `--json`.
 
-It is a sibling to [`guildmaster`](https://github.com/agentculture/guildmaster)
-(the **skills supplier**), [`steward`](https://github.com/agentculture/steward)
-(**alignment** — `steward doctor`, the sibling-pattern baseline), and
-[`teken`](https://github.com/agentculture/teken) (the **afi-cli** "Agent First
-Interface" scaffolder this CLI is cited from) within the Organic Development
-framework.
+**Current state:** the repo was scaffolded from `culture-agent-template` and so
+far ships only the identity/introspection skeleton. **No Govee device code
+exists yet.** The device verbs are planned work.
 
 ## Prompt files by harness
 
-This repo's root carries one prompt file per agent harness, each read by
-exactly one of them — there is no shared base file for them to inherit from:
+This repo's root carries one prompt file per agent harness, and each is read
+by exactly one of them. There is no shared base file to inherit from:
 
-- **Claude Code** → [`CLAUDE.md`](CLAUDE.md) (the fullest write-up; read it
-  first if you are new to the repo).
+- **Claude Code** → [`CLAUDE.md`](CLAUDE.md): the fullest write-up and the
+  mesh resident's prompt. Read it for CLI architecture and workflow details.
 - **Pi / associate** → [`AGENTS.override.md`](AGENTS.override.md) for context,
   plus [`.pi/SYSTEM.md`](.pi/SYSTEM.md) for its system prompt.
 - **colleague** → [`AGENTS.colleague.md`](AGENTS.colleague.md).
 - **Qwen Code** → this file.
 
+Do not add a root `AGENTS.md`: it would shadow the other cascades, and the CI
+harness smoke check fails on it.
+
 ## Identity
 
-Declared in `culture.yaml`:
+`culture.yaml` declares `suffix: govee-cli`, `backend: claude`, so the mesh
+runtime reads `CLAUDE.md`, not this file. A Qwen Code session here is a
+separate, local tool session. It reads `QWEN.md` whatever `culture.yaml`
+declares, and running Qwen Code does not require or change that declaration.
 
-```yaml
-agents:
-- suffix: govee-cli
-  backend: claude
+## Commands
+
+```bash
+uv sync
+uv run pytest -n auto                         # full suite
+uv run pytest tests/test_cli.py::test_whoami_json -v   # single test
+uv run govee whoami                           # the console script is `govee`
+uv run teken cli doctor . --strict            # agent-first rubric gate
 ```
 
-`backend: claude` fixes the *mesh resident* prompt file to `CLAUDE.md` — the
-mesh runtime reads that file, not this one. A Qwen Code session working in a
-clone of this repo is a separate, local tool session; it reads `QWEN.md`
-regardless of what `culture.yaml` declares, and running Qwen Code here neither
-requires nor changes that declaration. The declaration and the resident prompt
-together satisfy the two invariants `steward doctor` verifies:
-**prompt-file-present** and **backend-consistency** (`claude` ↔ `CLAUDE.md`).
-
-## Cloning this template (re-initialization)
-
-When you start a new agent from this template:
-
-1. Rename the package directory `govee_cli/` → `<your_module>/`
-   and replace `govee_cli` (module) / `govee-cli`
-   (CLI and dist name) throughout `pyproject.toml`, the package, `tests/`,
-   `sonar-project.properties`, and `README.md`. The name is hard-coded in
-   ~100 places, so list every occurrence first rather than renaming by hand
-   (`git grep` is portable and skips `.git` / untracked `__pycache__`):
-
-   ```bash
-   git grep -nF -e 'govee-cli' -e 'govee_cli'
-   ```
-
-2. Set your `suffix` (and `backend`) in `culture.yaml`. `whoami` and `doctor`
-   then reflect the new identity with no further code change.
-3. Rewrite `CLAUDE.md` (and this file, and the other two harness files) to
-   describe your agent.
-4. Re-vendor the skill kit you need from guildmaster (see
-   `docs/skill-sources.md`) — keep only the skills your agent uses.
+Lint (CI): `python3 scripts/scan-secrets.py`, then `black --check`,
+`isort --check-only` and `flake8` over `govee_cli tests` (line length 100),
+`bandit -c pyproject.toml -r govee_cli`, and markdownlint.
 
 ## The CLI
 
-The CLI is cited (cite-don't-import) from teken's `python-cli` reference
-(`teken cli cite`), so the runtime package has **no third-party dependencies**;
-`teken` (a.k.a. `afi-cli`) is a dev dependency only. Agent-first verbs:
-
-- `govee-cli whoami` — identity from `culture.yaml`.
-- `govee-cli learn` — structured self-teaching prompt.
-- `govee-cli explain <path>` — markdown docs for any noun/verb.
-- `govee-cli overview` — descriptive snapshot of the agent.
-- `govee-cli doctor` — check the agent-identity invariants.
-- `govee-cli cli overview` — describe the CLI surface itself.
-
-Conventions: every command supports `--json`; results go to stdout, errors and
-diagnostics to stderr (never mixed); exit codes are `0` success, `1` user
-error, `2` environment error, `3+` reserved. The agent-first rubric is
-enforced in CI by `teken cli doctor . --strict`.
-
-## Skills
-
-`.claude/skills/` vendors the **canonical guildmaster skill kit**
-(cite-don't-import). Provenance and the re-sync procedure live in
-`docs/skill-sources.md`. Do not reformat or edit vendored scripts — re-sync
-from guildmaster instead.
+Cited (cite-don't-import) from teken's `python-cli` reference. The runtime
+package has **no third-party dependencies**, so future Govee clients should
+use the stdlib. Verbs today: `whoami`, `learn`, `explain <path>`, `overview`,
+`doctor`, `cli overview`. Every command supports `--json`. Results go to
+stdout and errors/diagnostics to stderr. Exit codes are `0` success, `1` user
+error, `2` environment error, and `3+` reserved. Handlers raise
+`CliError(code, message, remediation)`. New verbs register through a
+`register(sub)` function in `govee_cli/cli/_commands/` and need an `explain`
+catalog entry.
 
 ## Conventions
 
-- **Every PR bumps the version** — even docs/config/CI. Use the
-  `version-bump` skill; the `version-check` CI job blocks merge otherwise.
-- **Tests**: `uv run pytest -n auto`. **Lint**: black, isort, flake8 (line
-  length 100), bandit, markdownlint.
-- **Deploy**: pushing to `main` publishes to PyPI via Trusted Publishing
-  (`.github/workflows/publish.yml`); PRs do a TestPyPI dry-run.
-
-## Layout
-
-```text
-govee_cli/   agent-first CLI (cited from teken's python-cli reference)
-  cli/                    parser, error/output contract, _commands/ (verbs)
-  explain/                markdown catalog for `explain`
-tests/                    pytest smoke + introspection tests
-.claude/skills/           vendored guildmaster skill kit (cite-don't-import)
-docs/skill-sources.md     skill provenance ledger
-culture.yaml              mesh identity (suffix + backend)
-.github/workflows/        tests + deploy (PyPI Trusted Publishing)
-```
+- **Every PR bumps the version** (`version-bump` skill); the `version-check`
+  CI job blocks merge otherwise.
+- The vendored skills under `.claude/skills/` are cited **verbatim** from
+  guildmaster. Don't reformat or edit their scripts; re-sync instead (see
+  `docs/skill-sources.md`).
+- **Never commit a Govee API key.** `scripts/scan-secrets.py` fails CI on
+  credential-shaped strings and on non-localhost URLs in JSON config.
+- **Deploy:** pushing to `main` publishes to PyPI via Trusted Publishing;
+  PRs do a TestPyPI dry-run.
 
 This file describes the repository **as it exists on disk today**. When you
-edit, keep claims grounded in checked-in reality; if a section drifts ahead of
-reality, mark it `(planned)` or move it under a `## Roadmap` heading. For the
-full set of workflow conventions (worktree layout, memory discipline,
-`ask-colleague` usage), see [`CLAUDE.md`](CLAUDE.md) — those conventions apply
-to work in this repo regardless of which harness is doing it.
+edit it, keep claims grounded in checked-in reality and mark anything not yet
+built as `(planned)`. For the full workflow conventions (worktree layout,
+memory discipline, `ask-colleague` usage), see [`CLAUDE.md`](CLAUDE.md).

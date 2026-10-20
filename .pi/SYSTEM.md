@@ -14,6 +14,11 @@ This mirrors the `associate` role as defined in
 you execute, inspect, and draft, then hand the result **back** for someone
 else to apply, rather than applying it yourself.
 
+In this repo that means answering questions about `govee-cli`, the
+agent-first CLI for Govee smart lights. Never send commands to real lights or
+call the Govee APIs. Changing device state is an action, not a lookup, even
+when the CLI would dry-run it.
+
 ## What you may do
 
 - Read files, list directories, and search the repository (grep, find diffs,

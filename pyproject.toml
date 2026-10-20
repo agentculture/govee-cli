@@ -1,6 +1,6 @@
 [project]
 name = "govee-cli"
-version = "0.10.0"
+version = "0.10.1"
 description = "Agent-first CLI that controls Govee smart lights at home: discover devices, on/off, brightness, color, color temperature and scenes, via Govee's official Developer API and the local LAN API. Safe-by-default writes (dry-run unless --apply), --json output for agents."
 readme = "README.md"
 license = "Apache-2.0"
