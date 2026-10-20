@@ -1,5 +1,5 @@
 agents:
-- suffix: culture-agent-template
+- suffix: govee-cli
   backend: claude
 gate:
   setup:
