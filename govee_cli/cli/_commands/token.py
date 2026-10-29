@@ -66,27 +66,27 @@ def cmd_new(args: argparse.Namespace) -> int:
     from govee_cli.auth import tokens
 
     try:
-        secret = tokens.new(args.name)
-        link = tokens.pairing_link(secret, _pairing_host(), args.port)
+        minted = tokens.new(args.name)
+        link = tokens.pairing_link(minted, _pairing_host(), args.port)
     except (ValueError, tokens.TokenStoreError) as exc:
         raise _store_error(exc) from None
     saved = None
     if args.save:
         try:
-            saved = str(save_client_token(secret))
+            saved = str(save_client_token(minted))
         except OSError as exc:
             raise CliError(
                 EXIT_ENV_ERROR,
                 f"token created but could not be saved ({type(exc).__name__})",
                 "set GOVEE_TOKEN to the secret instead, or fix the config directory permissions",
             ) from None
-    payload = {"name": args.name, "secret": secret, "pairing_link": link, "saved_to": saved}
+    payload = {"name": args.name, "secret": minted, "pairing_link": link, "saved_to": saved}
     if args.json:
         emit_result(payload, json_mode=True)
         return 0
     lines = [
         f"token '{args.name}' created. The secret is shown once; it is not stored.",
-        f"secret: {secret}",
+        f"secret: {minted}",
         f"pairing link (open in a browser): {link}",
     ]
     if saved:
