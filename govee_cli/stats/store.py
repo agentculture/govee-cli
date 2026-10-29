@@ -3,18 +3,19 @@
 Stdlib only. All timestamps are stored as UTC epoch seconds (REAL). "Day" and
 "hour" bucketing is done in the ``tz`` the query is given (a ``tzinfo``; default UTC):
 ``govee serve`` passes its local timezone (approved deviation d5). Days are bucketed by
-calendar midnights in that zone, so a DST day is 23 or 25 hours long. Each sample represents the lamp state for the
-interval until the next sample, capped at ``SAMPLE_CAP_S`` (3 min). Time not
-covered by a sample is a *gap* (unknown), never interpolated as "off".
+calendar midnights in that zone, so a DST day is 23 or 25 hours long. Each sample
+represents the lamp state for the interval until the next sample, capped at
+``SAMPLE_CAP_S`` (3 min). Time not covered by a sample is a *gap* (unknown), never
+interpolated as "off".
 """
 
 from __future__ import annotations
 
 import json
 import os
-from bisect import bisect_right
 import sqlite3
 import time
+from bisect import bisect_right
 from datetime import datetime, timedelta, timezone, tzinfo
 from pathlib import Path
 from typing import Any, Iterator, Optional

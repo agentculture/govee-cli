@@ -686,7 +686,7 @@ def make_server(
 
 
 def _pairing_host(host: str) -> str:
-    if host not in ("", "0.0.0.0", "::"):  # nosec B104
+    if host not in ("", "::", DEFAULT_HOST):
         return host
     try:
         return lan.default_route_ip()
