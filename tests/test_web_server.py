@@ -347,6 +347,27 @@ def test_sigterm_takes_the_clean_shutdown_path_and_restores_the_handler(monkeypa
     assert signal.getsignal(signal.SIGTERM) is before
 
 
+def test_slow_body_is_dropped_quickly_not_after_the_request_timeout(srv, monkeypatch):
+    # colleague review: an unauthenticated client trickling a declared body held a handler
+    # thread for the whole 30 s request timeout. Body reads now time out after BODY_TIMEOUT.
+    import socket as _socket
+
+    monkeypatch.setattr(web, "BODY_TIMEOUT", 0.5)
+    s = _socket.create_connection(("127.0.0.1", srv.port), timeout=10)
+    s.sendall(
+        b"POST /api/light HTTP/1.1\r\nHost: 127.0.0.1\r\n"
+        b"Content-Type: application/json\r\nContent-Length: 100\r\n\r\n{"
+    )
+    start = time.monotonic()
+    try:
+        s.recv(4096)  # server answers or closes once the body read times out
+    except OSError:
+        pass
+    finally:
+        s.close()
+    assert time.monotonic() - start < web.BODY_TIMEOUT + 2.0
+
+
 # --- attribution headers honoured only from loopback (d3) -------------------------------------
 
 

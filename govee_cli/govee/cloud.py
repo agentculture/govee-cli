@@ -233,7 +233,7 @@ class CloudTransport:
         kelvin = k if isinstance(k, int) and not isinstance(k, bool) and k > 0 else None
         return LampState(
             on=bool(vals.get(INST_POWER)),
-            brightness=int(vals.get(INST_BRIGHTNESS) or 0),
+            brightness=_brightness(vals.get(INST_BRIGHTNESS)),
             color=color,
             kelvin=kelvin,
         )
@@ -265,3 +265,13 @@ class CloudTransport:
                 raise CloudError(f"unknown scene {scene!r} for {device.name}")
             scene = match
         return self.send(device, scene_command(scene))
+
+
+def _brightness(value: Any) -> int:
+    """Brightness from a state reply, clamped to 0-100; odd types read as 0, never raise."""
+    if isinstance(value, bool):
+        return 0
+    try:
+        return max(0, min(100, int(float(value))))
+    except (TypeError, ValueError):
+        return 0

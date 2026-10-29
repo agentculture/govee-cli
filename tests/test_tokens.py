@@ -173,3 +173,10 @@ def test_pairing_link_puts_secret_in_fragment_only():
 def test_pairing_link_rejects_unsafe_secret(bad):
     with pytest.raises(ValueError):
         tokens.pairing_link(bad, "192.0.2.7")
+
+
+def test_lock_file_is_0600(path):
+    # colleague review: the lock file was created 0664 under the default umask.
+    tokens.new("a", path=path)
+    lock = path.parent / ".tokens.lock"
+    assert stat.S_IMODE(os.stat(lock).st_mode) == 0o600

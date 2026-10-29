@@ -311,3 +311,29 @@ def test_key_never_leaks(fake, key, caplog):
         t.discover()
     except MissingKey as e:
         assert FAKE_KEY not in str(e)
+
+
+@pytest.mark.parametrize("raw", ["50", 50.7, "bogus", None, True])
+def test_get_state_tolerates_odd_brightness_values(fake, key, raw):
+    # colleague review: a non-int brightness raised ValueError out of get_state.
+    caps = [
+        ("online", "devices.capabilities.online", True),
+        ("powerSwitch", "devices.capabilities.on_off", 1),
+        ("brightness", "devices.capabilities.range", raw),
+    ]
+    fake.routes[("POST", "/router/api/v1/device/state")] = (
+        200,
+        {},
+        {
+            "code": 200,
+            "payload": {
+                "capabilities": [
+                    {"type": t, "instance": i, "state": {"value": v}} for i, t, v in caps
+                ]
+            },
+        },
+    )
+    st = _t(fake).get_state(DEV)
+    assert st is not None and 0 <= st.brightness <= 100
+    if raw == "50":
+        assert st.brightness == 50

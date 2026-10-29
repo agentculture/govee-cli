@@ -49,6 +49,7 @@ MAX_BODY = 16 * 1024
 SERVICE_NAME = "govee-serve"
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 REQUEST_TIMEOUT = 30.0  # seconds a client may take to send its request
+BODY_TIMEOUT = 5.0  # seconds to receive a (<= 16 KiB) body; it is read before auth
 MAX_EVENTS = 200
 _MAX_FIELD = 128
 
@@ -472,7 +473,15 @@ class GoveeHandler(BaseHTTPRequestHandler):
                 413, "too_large", f"request body is over {MAX_BODY} bytes", "send a smaller body"
             )
             return
-        data = self.rfile.read(length) if length else b""
+        # The body is read before authentication (so an early 401 never resets the connection),
+        # so an unauthenticated client must not hold this thread for the full REQUEST_TIMEOUT.
+        self.connection.settimeout(BODY_TIMEOUT)
+        try:
+            data = self.rfile.read(length) if length else b""
+        except (TimeoutError, OSError):
+            data = b""
+        finally:
+            self.connection.settimeout(self.timeout)
         if len(data) != length:
             self.close_connection = True
             self._body_error = _bad("request body is shorter than its Content-Length")

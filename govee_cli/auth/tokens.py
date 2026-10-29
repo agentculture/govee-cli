@@ -83,7 +83,10 @@ def _save(path: Path, items: list[dict[str, Any]]) -> None:
 def _locked(path: Path):
     """Serialise read-modify-write cycles across processes (so a verify can't undo a revoke)."""
     path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
-    with open(path.parent / ".tokens.lock", "a") as lock:
+    lock_path = path.parent / ".tokens.lock"
+    fd = os.open(lock_path, os.O_WRONLY | os.O_CREAT, 0o600)
+    os.fchmod(fd, 0o600)  # also tighten a lock file an older version created 0664
+    with os.fdopen(fd, "w") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
         yield
 
