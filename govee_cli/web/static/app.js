@@ -36,11 +36,12 @@
     clear() { try { localStorage.removeItem(TOKEN_KEY); } catch (e) { /* storage blocked */ } },
   };
   // A pairing link looks like http://host:8742/#token=<secret>: keep the secret, drop it from the URL.
+  // The pairing secret in the URL fragment, or null when the fragment carries none.
+  const hashToken = () => new URLSearchParams(location.hash.slice(1)).get("token");
   function takeTokenFromHash() {
-    const h = location.hash;
-    if (!h.startsWith("#token=")) return;
-    const tok = decodeURIComponent(h.slice("#token=".length)).trim();
-    if (tok) store.set(tok);
+    const tok = hashToken();
+    if (tok === null) return;
+    if (tok.trim()) store.set(tok.trim());
     history.replaceState(null, "", location.pathname + location.search);
   }
 
@@ -95,7 +96,7 @@
   }
   window.addEventListener("hashchange", () => {
     // A pairing link opened in a tab that already shows the pairing screen.
-    if (location.hash.startsWith("#token=")) { takeTokenFromHash(); if (!$("#gate").hidden) { $("#gate").hidden = true; $("#boot").hidden = false; boot(); return; } }
+    if (hashToken() !== null) { takeTokenFromHash(); if (!$("#gate").hidden) { $("#gate").hidden = true; $("#boot").hidden = false; boot(); return; } }
     if (started) route();
   });
 
