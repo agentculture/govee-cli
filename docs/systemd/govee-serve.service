@@ -1,0 +1,14 @@
+[Unit]
+Description=govee-cli serve (Govee lamp daemon)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=%h/.local/bin/govee serve
+EnvironmentFile=-%h/.config/govee-cli/env
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target
