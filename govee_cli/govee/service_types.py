@@ -27,7 +27,7 @@ REMEDIATION_NO_DEVICE = (
     "set GOVEE_LAN_INTERFACE to the interface on the lamp's network, or set GOVEE_API_KEY to use "
     "the cloud API"
 )
-REMEDIATION_TOKEN = "govee token new --name <name> --save"
+REMEDIATION_TOKEN = "govee token new --name <name> --save"  # nosec B105 - a hint
 
 
 def parse_hex_color(value: str) -> tuple[int, int, int]:

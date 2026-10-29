@@ -33,7 +33,7 @@ from govee_cli.govee.service_types import (
 from govee_cli.govee.types import Command, Device, LampState
 
 ENV_SERVE_URL = "GOVEE_SERVE_URL"
-ENV_TOKEN = "GOVEE_TOKEN"
+ENV_TOKEN = "GOVEE_TOKEN"  # nosec B105 - an env var name, not a secret
 DEFAULT_SERVE_PORT = 8742
 DEFAULT_SERVE_URL = f"http://127.0.0.1:{DEFAULT_SERVE_PORT}"
 HEALTH_TIMEOUT = 0.3
@@ -91,12 +91,12 @@ def client_token() -> Optional[str]:
             f"chmod 600 {path}",
         )
     try:
-        token = path.read_text(encoding="utf-8").strip()
+        content = path.read_text(encoding="utf-8").strip()
     except OSError as exc:
         raise CliError(
             EXIT_ENV_ERROR, f"cannot read {path} ({type(exc).__name__})", REMEDIATION_TOKEN
         ) from None
-    return token or None
+    return content or None
 
 
 def _opener() -> urllib.request.OpenerDirector:
