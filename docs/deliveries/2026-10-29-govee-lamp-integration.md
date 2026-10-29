@@ -122,7 +122,9 @@ recorded the rest as proposed, and the user reviews them on the PR.
   H6076.
 - behavioural deltas: `b1`, `b3`–`b9`, `b11`–`b13` (`b2` and `b10` are
   superseded).
-- commits: `341ad19..ed3048d` (57 commits on `lamp/integration`).
+- commits: `341ad19..391c778` on `lamp/integration`, including the
+  ask-colleague review fixes in `391c778`. That review raised 6 findings:
+  3 were real and fixed, 3 were checked and rejected.
 - PRs: none yet (the next step is `/cicd`).
 
 ## Delivery Claims
@@ -165,6 +167,5 @@ have since been fixed.
   - after a govee fade-out, the Govee app or the button turn the lamp on at
     1 %;
   - there is no favicon;
-  - `.tokens.lock` is created 0664 (an empty file);
   - fades cannot be cancelled across two CLI processes without serve;
   - the console is not supported behind an HTTPS reverse proxy (`d20`).
