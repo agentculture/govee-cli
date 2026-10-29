@@ -27,6 +27,9 @@ exits 0 — there is nothing to diagnose.
 from __future__ import annotations
 
 import argparse
+import os
+import tempfile
+from typing import Any
 
 from govee_cli.cli._commands.whoami import find_culture_yaml, read_agent_fields
 from govee_cli.cli._output import emit_result
@@ -168,8 +171,129 @@ def _diagnose() -> dict[str, object]:
     return {"healthy": healthy, "checks": checks}
 
 
+# --- environment checks (LAN, cloud key, stats DB) -------------------------------------------
+#
+# Advisory (severity "warning"): a lamp that is off the network must not make the agent identity
+# report unhealthy. They are appended by ``cmd_doctor`` only; ``_diagnose`` stays identity-only.
+
+REMEDIATION_LAN = (
+    "enable LAN Control for the lamp in the Govee Home app, allow inbound UDP 4002 on this host, "
+    "set GOVEE_LAN_INTERFACE to the interface on the lamp's network, and/or set GOVEE_LAN_HOSTS "
+    "to the lamp's IP address (unicast)"
+)
+ENV_NO_SCAN = "GOVEE_DOCTOR_NO_SCAN"
+
+
+def _interface_info() -> dict[str, Any]:
+    from govee_cli.govee.lan import interface_info
+
+    return interface_info()
+
+
+def _lan_scan() -> dict[str, Any]:
+    from govee_cli.govee.lan import LanTransport
+
+    return LanTransport().scan_report()
+
+
+def _check(cid: str, passed: bool, message: str, remediation: str = "", severity: str = "warning"):
+    return {
+        "id": cid,
+        "passed": passed,
+        "severity": severity,
+        "message": message,
+        "remediation": "" if passed else remediation,
+    }
+
+
+def _check_interface() -> dict[str, Any]:
+    from govee_cli.govee.lan import LanError
+
+    try:
+        info = _interface_info()
+    except (LanError, OSError) as exc:
+        return _check(
+            "lan-interface",
+            False,
+            f"cannot pick a LAN interface: {exc}",
+            "set GOVEE_LAN_INTERFACE to the interface name or IPv4 address on the lamp's network",
+        )
+    name = info.get("interface") or "default route"
+    return _check(
+        "lan-interface", True, f"LAN interface {name} ({info.get('ip')}, from {info.get('source')})"
+    )
+
+
+def _check_discovery(scan: bool) -> dict[str, Any]:
+    if not scan or os.environ.get(ENV_NO_SCAN):
+        return _check(
+            "lan-discovery",
+            True,
+            "LAN scan skipped (--no-scan or GOVEE_DOCTOR_NO_SCAN)",
+            severity="info",
+        )
+    report = _lan_scan()
+    tried = ", ".join(report.get("methods_tried") or []) or "none"
+    if report.get("replied"):
+        found = "; ".join(
+            f"{d['name']} ({d['model']}) at {d['ip']} via {d['method']}" for d in report["devices"]
+        )
+        return _check("lan-discovery", True, f"found {found}; methods tried: {tried}")
+    why = f" ({report['error']})" if report.get("error") else ""
+    return _check(
+        "lan-discovery",
+        False,
+        f"no lamp answered on the LAN{why}; methods tried: {tried}",
+        REMEDIATION_LAN,
+    )
+
+
+def _check_api_key() -> dict[str, Any]:
+    present = bool(os.environ.get("GOVEE_API_KEY", "").strip())  # presence only, never the value
+    return _check(
+        "api-key-present",
+        present,
+        (
+            "GOVEE_API_KEY is set"
+            if present
+            else "GOVEE_API_KEY is not set (cloud API and scenes off)"
+        ),
+        "set GOVEE_API_KEY (request a key in the Govee Home app) to enable scenes and the cloud",
+    )
+
+
+def _check_stats_db() -> dict[str, Any]:
+    from govee_cli.stats import store
+
+    path = store.db_path()
+    try:
+        conn = store.connect()
+        conn.close()
+        probe = tempfile.NamedTemporaryFile(dir=path.parent, prefix=".doctor.")
+        probe.close()
+    except Exception as exc:  # noqa: BLE001 - sqlite3.Error, OSError: report, never crash doctor
+        return _check(
+            "stats-db-writable",
+            False,
+            f"stats database {path} is not writable ({type(exc).__name__})",
+            "make the directory writable or point XDG_STATE_HOME at a writable location",
+        )
+    return _check("stats-db-writable", True, f"stats database {path} is writable")
+
+
+def _environment_checks(scan: bool = True) -> list[dict[str, Any]]:
+    return [_check_interface(), _check_discovery(scan), _check_api_key(), _check_stats_db()]
+
+
 def cmd_doctor(args: argparse.Namespace) -> int:
     report = _diagnose()
+    report["checks"] = list(report["checks"]) + _environment_checks(
+        scan=not getattr(args, "no_scan", False)
+    )
+    # Environment checks are advisory; only identity checks decide health.
+    report["healthy"] = all(
+        c["passed"] for c in report["checks"] if c["severity"] != "warning"
+    ) and (report["healthy"])
     json_mode = bool(getattr(args, "json", False))
     if json_mode:
         emit_result(report, json_mode=True)
@@ -191,4 +315,9 @@ def register(sub: argparse._SubParsersAction) -> None:
         help="Check the agent-identity invariants (prompt-file-present, backend-consistency).",
     )
     p.add_argument("--json", action="store_true", help="Emit structured JSON.")
+    p.add_argument(
+        "--no-scan",
+        action="store_true",
+        help="Skip the LAN scan (also: GOVEE_DOCTOR_NO_SCAN=1).",
+    )
     p.set_defaults(func=cmd_doctor)
