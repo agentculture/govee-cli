@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import multiprocessing
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
@@ -209,3 +209,89 @@ def test_concurrent_first_connect_never_raises_locked():
         for t in threads:
             t.join()
     assert errors == []
+
+
+# --- local-timezone bucketing (approved deviation d5) ---------------------------------------
+
+EST = timezone(timedelta(hours=-5))  # local midnight 2026-03-11 = 05:00 UTC
+
+
+def utc(day, h, m=0):
+    return datetime(2026, 3, day, h, m, tzinfo=timezone.utc)
+
+
+def test_tz_defaults_to_utc():
+    store.record_sample(True, 50, None, None, now=utc(11, 4, 59))
+    assert store.hours_per_day(days=2, now=NOW) == store.hours_per_day(
+        days=2, now=NOW, tz=timezone.utc
+    )
+
+
+def test_hours_per_day_buckets_by_local_midnight():
+    store.record_sample(True, 50, None, None, now=utc(11, 4, 59))  # 23:59 local on the 10th
+    in_utc = store.hours_per_day(days=2, now=NOW)
+    local = store.hours_per_day(days=2, now=NOW, tz=EST)
+    assert in_utc[0]["hours"] == 0 and in_utc[1]["hours"] == pytest.approx(3 / 60)
+    assert [d["date"] for d in local] == ["2026-03-10", "2026-03-11"]
+    assert local[0]["hours"] == pytest.approx(1 / 60)
+    assert local[1]["hours"] == pytest.approx(2 / 60)
+
+
+def test_commands_by_source_buckets_by_local_day():
+    store.record_event("cli", "a", "on", None, "sent", now=utc(11, 3))  # 22:00 local on the 10th
+    assert store.commands_by_source(days=2, now=NOW)[1]["cli"] == 1
+    local = store.commands_by_source(days=2, now=NOW, tz=EST)
+    assert local[0] == {"date": "2026-03-10", "cli": 1, "web": 0, "mcp": 0, "rules": 0}
+    assert local[1]["cli"] == 0
+
+
+def test_heatmap_uses_local_weekday_and_hour():
+    store.record_sample(True, 50, None, None, now=utc(11, 5))  # Wed 00:00 local
+    store.record_sample(False, 0, None, None, now=utc(11, 5, 2))
+    cell = {(c["weekday"], c["hour"]): c["minutes"] for c in store.heatmap(now=NOW, tz=EST)}
+    assert cell[(2, 0)] == pytest.approx(2 / 4)
+    assert cell[(2, 5)] == 0
+    utc_cell = {(c["weekday"], c["hour"]): c["minutes"] for c in store.heatmap(now=NOW)}
+    assert utc_cell[(2, 5)] == pytest.approx(2 / 4)
+
+
+def test_tiles_use_local_midnight():
+    store.record_sample(True, 80, None, None, now=utc(11, 4))  # 23:00 local on the 10th
+    store.record_sample(False, 0, None, None, now=utc(11, 4, 3))
+    store.record_sample(True, 20, None, None, now=utc(11, 6))
+    store.record_sample(False, 0, None, None, now=utc(11, 6, 3))
+    assert store.on_today_h(now=NOW) == pytest.approx(6 / 60)
+    assert store.on_today_h(now=NOW, tz=EST) == pytest.approx(3 / 60)
+    assert store.on_week_h(now=NOW, tz=EST) == pytest.approx(6 / 60)
+    assert store.avg_brightness_today(now=NOW) == pytest.approx(50)
+    assert store.avg_brightness_today(now=NOW, tz=EST) == pytest.approx(20)
+
+
+def test_command_counts_use_local_week_start():
+    # 2026-03-05 04:00 UTC is inside the UTC 7-day window but before local midnight of the 5th.
+    store.record_event("mcp", "a", "on", None, "sent", now=utc(5, 4))
+    assert store.commands_7d(now=NOW) == 1 and store.agent_commands_7d(now=NOW) == 1
+    assert store.commands_7d(now=NOW, tz=EST) == 0
+    assert store.agent_commands_7d(now=NOW, tz=EST) == 0
+
+
+def test_day_samples_timestamps_carry_the_local_offset():
+    store.record_sample(True, 50, None, None, now=utc(11, 10))
+    out = store.day_samples(now=NOW, tz=EST)
+    assert all(e["ts"].endswith("-05:00") for e in out)
+    assert out[1]["ts"] == "2026-03-11T05:00:00-05:00"
+
+
+def test_hours_per_day_handles_a_dst_day():
+    zoneinfo = pytest.importorskip("zoneinfo")
+    try:
+        ny = zoneinfo.ZoneInfo("America/New_York")
+    except zoneinfo.ZoneInfoNotFoundError:
+        pytest.skip("no tz database")
+    # DST began 2026-03-08 (a 23 h day). 23:59 local on the 8th is 03:59 UTC on the 9th.
+    store.record_sample(True, 50, None, None, now=utc(9, 3, 59))
+    now = datetime(2026, 3, 9, 12, tzinfo=ny)
+    out = store.hours_per_day(days=2, now=now, tz=ny)
+    assert [d["date"] for d in out] == ["2026-03-08", "2026-03-09"]
+    assert out[0]["hours"] == pytest.approx(1 / 60)
+    assert out[1]["hours"] == pytest.approx(2 / 60)
