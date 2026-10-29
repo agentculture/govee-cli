@@ -11,6 +11,12 @@ from govee_cli.cli import main
 # --- overview -------------------------------------------------------------
 
 
+@pytest.fixture(autouse=True)
+def _no_lan_scan(monkeypatch: pytest.MonkeyPatch) -> None:
+    """doctor would otherwise scan the LAN; these tests are about identity."""
+    monkeypatch.setenv("GOVEE_DOCTOR_NO_SCAN", "1")
+
+
 def test_overview_text(capsys: pytest.CaptureFixture[str]) -> None:
     rc = main(["overview"])
     assert rc == 0

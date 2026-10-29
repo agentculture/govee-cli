@@ -18,7 +18,7 @@ from govee_cli.cli._commands.whoami import report
 from govee_cli.cli._output import emit_result
 
 _ARTIFACTS = [
-    "culture.yaml + AGENTS.colleague.md — mesh identity (suffix + backend)",
+    "culture.yaml + CLAUDE.md — mesh identity (backend claude; CLAUDE.md is the resident prompt)",
     ".claude/skills/ — the canonical guildmaster skill kit (cite-don't-import)",
     "docs/skill-sources.md — skill provenance ledger",
     "pyproject.toml + .github/workflows/ — buildable, deployable package baseline",
@@ -29,7 +29,14 @@ _VERBS = [
     "learn — structured self-teaching prompt",
     "explain <path> — markdown docs for a topic",
     "overview — this descriptive snapshot",
-    "doctor — check the agent-identity invariants",
+    "doctor — identity invariants plus LAN, API-key and stats-db checks",
+    "devices — list Govee devices",
+    "light on|off|brightness|color|temp|scene — change the lamp (dry run unless --apply)",
+    "light state|scenes|fade-status|fade-stop — read the lamp, manage fades",
+    "stats — usage tiles and recent events",
+    "token new|list|revoke — client tokens for serve",
+    "serve — web console and API",
+    "mcp serve — MCP server over stdio",
 ]
 
 
