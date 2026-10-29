@@ -550,3 +550,33 @@ def test_step_plan_lists_offsets_and_commands():
     assert listing[0]["at"] == 0 and listing[0]["commands"][1]["verb"] == "turn"
     assert [s["at"] for s in listing] == sorted(s["at"] for s in listing)
     assert len(listing) == plan.to_dict()["steps"]
+
+
+# --- live finding (t14): a snap-on after a fade-out must not leave the lamp at 1 % -------------
+
+
+def test_snap_on_after_fade_out_restores_the_remembered_brightness():
+    lan = StateLan(ON_RED)
+    svc = make(lan)
+    svc.apply(Change(on=False), apply=True)  # default fade-out: ramps to 1, turns off, remembers 60
+    assert lan.state.on is False and lan.state.brightness == 1
+    lan.sent.clear()
+    result = svc.apply(Change(on=True), apply=True, fade_seconds=0)
+    assert [c.verb for c in result.commands] == ["turn", "brightness"]
+    assert lan.state.on is True and lan.state.brightness == 60
+
+
+def test_snap_on_keeps_the_lamps_own_brightness_when_it_was_not_faded_out():
+    lan = StateLan(LampState(on=False, brightness=45, color=(255, 0, 0)))
+    remember_brightness(LAN_DEV.id, 90)  # stale memory from an older fade-out
+    result = make(lan).apply(Change(on=True), apply=True, fade_seconds=0)
+    assert [c.verb for c in result.commands] == ["turn"]
+    assert lan.state.brightness == 45
+
+
+def test_snap_on_with_an_explicit_brightness_ignores_the_memory():
+    lan = StateLan(LampState(on=False, brightness=1, color=(255, 0, 0)))
+    remember_brightness(LAN_DEV.id, 90)
+    result = make(lan).apply(Change(on=True, brightness=20), apply=True, fade_seconds=0)
+    assert lan.state.brightness == 20
+    assert [c.verb for c in result.commands] == ["turn", "brightness"]

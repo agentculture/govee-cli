@@ -26,7 +26,7 @@ from __future__ import annotations
 import sqlite3
 import threading
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
 from typing import Any, Callable, Optional
 
@@ -287,6 +287,7 @@ class DirectBackend:
         else:
             if seconds > 0 and fade_seconds is not None:
                 warnings.append(fade_mod.CLOUD_FADE_WARNING)
+            change = self._restore_after_fade_out(dev, change)
             commands = lan_commands(change) if dev.ip else cloud_commands(change)
             result = self._run(
                 dev, commands, cli, "light", change.to_dict(), apply, source, actor, change
@@ -294,6 +295,23 @@ class DirectBackend:
         result.warnings = warnings
         result.cancelled_fade = cancelled
         return result
+
+    def _restore_after_fade_out(self, dev: Device, change: Change) -> Change:
+        """A snap turn-on after a fade-out brings back the pre-fade brightness.
+
+        A fade-out leaves the lamp off at brightness 1 (a brightness command would wake it), so a
+        plain turn-on would light it at 1 %. Only applies over LAN, with no explicit brightness,
+        when a fade-out was remembered and the lamp still reports brightness <= 1.
+        """
+        if not (change.on and change.brightness is None and dev.ip):
+            return change
+        remembered = fade_mod.remembered_brightness(dev.id)
+        if not remembered or remembered <= 1:
+            return change
+        state = self._lan_state(dev)
+        if state is None or state.brightness > 1:
+            return change
+        return replace(change, brightness=remembered)
 
     def set_scene(
         self, name: str, *, apply: bool, device: Optional[str], source: str, actor: Any
