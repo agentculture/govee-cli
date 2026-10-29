@@ -1,6 +1,6 @@
 # Delivery Summary — govee lamp integration
 
-plan: `govee-lamp-integration` · run: `partial` · date: `2026-10-29`
+plan: `govee-lamp-integration` · run: `complete` (with user follow-ups, `d26`) · date: `2026-10-29`
 baseline: `devague summary skeleton`
 
 ## Intent
@@ -13,9 +13,10 @@ The run executed the approved split (gate 2, `bd56e16`) on branch
 `lamp/integration`. It went through seven waves with one worktree per task
 under `../.worktrees.govee-cli/`, and every merge passed the tests before and
 after. Two extra work items came from deviations: fades (`d11`, the user's
-requirement) and the LAN discovery fallback (`d15`). The run is **partial**
-for one reason: the user's half of `t14` is still pending (a real phone, a
-visual check of the fades, and the culture-rules import). `t13` is complete;
+requirement) and the LAN discovery fallback (`d15`). Every task is delivered. Three `t14` checks need the user: a real phone, a
+visual check of the fades, and the culture-rules import. Deviation `d26`
+(proposed) moved them to post-merge follow-ups the user owns. If the user
+rejects `d26`, `t14` and the run go back to partial. `t13` is complete;
 every check on PR #3 passed.
 
 ## Planned Work
@@ -55,7 +56,7 @@ Quoted verbatim from the `devague summary` skeleton:
 | `t11` | delivered | `govee_cli/web/poller.py`; merge `1e184b4`. A cloud-quota fix followed in `a5cf8cd`. |
 | `t12` | delivered | README, CLAUDE.md and the three harness files, version 0.11.0 and the changelog; `3d41622` |
 | `t13` | delivered | boundary tests, MCP fade and scene tests, Playwright e2e and two layout fixes (`62cffe6`). On PR #3 every check passed at `d525079`: test (both workflows), lint, harness-smoke, version-check, SonarCloud gate (new-code coverage 80.1 %) and GitGuardian. Getting there took fixes `9a25d3f`, `4536bae` and `d525079` (`d24`, `d25`). |
-| `t14` | partial | The agent's live run is recorded in `docs/live-test-results/2026-10-29-h6076.md` (`ef5689d`); 3 defects were found and fixed. The LAN-address check (`e22`) is done. The user's run is pending: a real phone, a visual check of the fades, and the culture-rules import. |
+| `t14` | delivered (agent part); user checks deferred (`d26`) | The agent's live run is recorded in `docs/live-test-results/2026-10-29-h6076.md` (`ef5689d`); 3 defects were found and fixed. The LAN-address check (`e22`) is done. The real phone, the visual fade check and the culture-rules import are follow-ups for the user (`d26`). |
 | `t15` | delivered | `govee_cli/auth/tokens.py`; merge `e451e9d`. `pairing_link` was added in `d19ba1a`. |
 
 ## Mid-work Decisions
@@ -104,6 +105,7 @@ recorded the rest as proposed, and the user reviews them on the PR.
 | `t5` (`d15`, proposed) | The real lamp never answered multicast. Discovery now goes cache, then `GOVEE_LAN_HOSTS`, then multicast, then a /24 sweep. | acceptable |
 | `t4` / `t12` (`d21`, proposed) | The actor gained `lamp_fade_on`/`lamp_fade_off` (`d11`), and every command passes `--source rules`. | acceptable |
 | `t3` | Two layout defects survived the `t3` merge and were fixed in `t13`: the bulb shifted 22 px when the panes switched, and the controls overflowed at 390 px. | acceptable |
+| `t14` (`d26`, proposed) | The user-only checks were moved to post-merge follow-ups. The agent has no phone and cannot see the lamp, and access to the user's culture-rules token was refused. /assess: `defer_to_gate3` 0.824. | needs-follow-up |
 | `t14` (`d22`, proposed) | A fade-out leaves the lamp off at brightness 1. The Govee app or the button then light it at 1 %; govee itself restores the level. | needs-follow-up |
 
 ## Evidence
@@ -151,9 +153,11 @@ have since been fixed.
 
 ## Remaining Work / Follow-up
 
-- `t14`, the user's run — the phone toggle over the LAN or Tailscale, a
-  visual check of whether the firmware smooths instant changes, and
-  `culture-rules actors create --json` as a dry run. Owner: the user.
+- `t14` follow-ups (`d26`). Owner: the user.
+  - The phone toggle over Wi-Fi or Tailscale.
+  - A visual check of whether the firmware smooths instant changes.
+  - `govee rules actor > /tmp/a.json`, then
+    `culture-rules actors create --body @/tmp/a.json` as a dry run.
 - Adjudication — confirm or reject the proposed deviations (`d1`, `d2`, `d6`,
   `d8`–`d10`, `d12`–`d23`), lapses `l1`–`l6`, evidence `e1`–`e21` and deltas.
   Owner: the user, at gate 3.

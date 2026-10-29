@@ -2,7 +2,7 @@
   "plan_slug": "govee-lamp-integration",
   "schema_version": 2,
   "created": "2026-10-29T06:46:31Z",
-  "updated": "2026-10-29T08:34:24Z",
+  "updated": "2026-10-29T08:41:02Z",
   "deviations": [
     {
       "id": "d1",
@@ -339,6 +339,21 @@
       "status": "proposed",
       "classification": "acceptable",
       "seq": 47
+    },
+    {
+      "id": "d26",
+      "what": "t14's user-only checks move to post-merge follow-up items owned by the user: (1) open the console on a real phone over Wi-Fi/Tailscale, (2) watch whether the H6076 firmware smooths an instant change, (3) culture-rules dry-run import of 'govee rules actor' output. t14 is delivered for its agent part (live run on the real lamp, 3 defects fixed, LAN-address check e22); the run is complete with these follow-ups, pending the user's confirmation of this deviation",
+      "task_ref": "t14",
+      "reason": "the agent has no phone, cannot see the lamp, and access to the user's secrets manager was refused (CULTURE_RULES_TOKEN not set). /assess (general, thor): defer_to_gate3 0.824, keep_waiting 0.162, drop_items 0.013; files in scratchpad assess-t14.*",
+      "affects": [
+        "t14",
+        "c22",
+        "c25"
+      ],
+      "origin": "llm",
+      "status": "proposed",
+      "classification": "needs-follow-up",
+      "seq": 48
     }
   ],
   "evidence": [
