@@ -75,7 +75,7 @@ recorded the rest as proposed, and the user reviews them on the PR.
 - `d11` (approved, the user's requirement) — fades. On and off fade by
   default (1.5 s), `--fade` covers brightness, colour and temperature, and
   serve runs the fades.
-- Proposed `d1`, `d2`, `d6`, `d8`, `d9`, `d10`, `d12`–`d23`. Each record is
+- Proposed `d1`, `d2`, `d6`, `d8`, `d9`, `d10`, `d12`–`d27`. Each record is
   listed by `devague deviate --list`. The notable ones:
   - `d10`: no `SO_REUSEADDR` (the agent's brief was wrong).
   - `d15`: the discovery fallback, after the real lamp ignored multicast
@@ -84,6 +84,11 @@ recorded the rest as proposed, and the user reviews them on the PR.
   - `d21`: `--source rules`.
   - `d22`: after a fade-out the lamp rests at brightness 1.
   - `d23`: the live-test fixes.
+  - `d24`: `govee rules actor` replaces the committed actor JSON (PR CI).
+  - `d25`: the devague records are waived in harness-smoke by exact path.
+  - `d26`: the user-only `t14` checks become follow-ups.
+  - `d27`: the static console is excluded from Sonar's coverage metric only
+    (Python new-code coverage is 92.3 %).
 - **The main agent mislabelled ids, without a record at the time.** In its
   messages, agent briefs, code comments and deltas `b2` and `b10`, it called
   the cloud-key decision "d4" and the systemd follow-up "d3" (lapse `l6`).
@@ -127,7 +132,8 @@ recorded the rest as proposed, and the user reviews them on the PR.
 - commits: `341ad19..391c778` on `lamp/integration`, including the
   ask-colleague review fixes in `391c778`. That review raised 6 findings:
   3 were real and fixed, 3 were checked and rejected.
-- PRs: #3. Every check passed at `d525079`, and it is mergeable.
+- PRs: #3. Every check passed at `9549939` (SonarCloud new-code coverage
+  92.3 %), and it is mergeable.
 
 ## Delivery Claims
 
