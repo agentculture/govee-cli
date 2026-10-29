@@ -131,7 +131,7 @@ def parse_message(data: bytes) -> Optional[tuple[str, dict[str, Any]]]:
 
 
 def _device_from_scan(body: dict[str, Any], sender_ip: Optional[str] = None) -> Optional[Device]:
-    """Build a Device from a scan reply; real lamps send no ``ip`` so the datagram source is used."""
+    """Build a Device from a scan reply; real lamps send no ``ip``, so use the datagram source."""
     dev_id, ip = body.get("device"), body.get("ip") or sender_ip
     if not dev_id or not ip:
         return None
