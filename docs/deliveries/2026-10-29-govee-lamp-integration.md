@@ -15,8 +15,8 @@ under `../.worktrees.govee-cli/`, and every merge passed the tests before and
 after. Two extra work items came from deviations: fades (`d11`, the user's
 requirement) and the LAN discovery fallback (`d15`). Every task is delivered. Three `t14` checks need the user: a real phone, a
 visual check of the fades, and the culture-rules import. Deviation `d26`
-(proposed) moved them to post-merge follow-ups the user owns. If the user
-rejects `d26`, `t14` and the run go back to partial. `t13` is complete;
+(approved) moved them to post-merge follow-ups the user owns. The user
+has since done the visual check at the lamp (`d32`). `t13` is complete;
 every check on PR #3 passed.
 
 ## Planned Work
@@ -61,8 +61,8 @@ Quoted verbatim from the `devague summary` skeleton:
 
 ## Mid-work Decisions
 
-The approved deviations below are quoted from their records. The agent
-recorded the rest as proposed, and the user reviews them on the PR.
+The deviations below are quoted from their records. The user approved
+`d1`–`d31` on 2026-10-30; `d32` is proposed.
 
 - `d3` (approved) — while serve runs, every lamp operation goes through it,
   so only serve holds the key and UDP 4002. The reason: the culture-rules
@@ -75,7 +75,7 @@ recorded the rest as proposed, and the user reviews them on the PR.
 - `d11` (approved, the user's requirement) — fades. On and off fade by
   default (1.5 s), `--fade` covers brightness, colour and temperature, and
   serve runs the fades.
-- Proposed `d1`, `d2`, `d6`, `d8`, `d9`, `d10`, `d12`–`d31`. Each record is
+- Approved on 2026-10-30: `d1`, `d2`, `d6`, `d8`–`d10`, `d12`–`d31`. Each record is
   listed by `devague deviate --list`. The notable ones:
   - `d10`: no `SO_REUSEADDR` (the agent's brief was wrong).
   - `d15`: the discovery fallback, after the real lamp ignored multicast
@@ -96,6 +96,9 @@ recorded the rest as proposed, and the user reviews them on the PR.
     offline, doctor failing while serve runs). Finding 8 (https Origin) is
     already covered by `d20`.
   - `d31`: serve ignores repeat signals during shutdown (found live).
+  - `d32` (proposed): with the user at the lamp, brightness fades stay
+    linear, colour and temperature ease in and out on a sine, and the
+    default on/off fade is 5 s instead of 1.5 s.
 - **The main agent mislabelled ids, without a record at the time.** In its
   messages, agent briefs, code comments and deltas `b2` and `b10`, it called
   the cloud-key decision "d4" and the systemd follow-up "d3" (lapse `l6`).
@@ -114,13 +117,14 @@ recorded the rest as proposed, and the user reviews them on the PR.
 | `t10` (`d7`) | t3 previews each committed control change (10-30/min while adjusting). /assess: `skip_web_previews` 0.496. | acceptable |
 | `t7` (`d11`) | User: fade-in and fade-out are critical for working with the lamp; design choices answered by the user. Govee APIs expose no transition time. | needs-follow-up |
 | `t10` | The plan's loopback-only `/api/lan` proxy was replaced by attribution headers that are honoured only from loopback on the public routes (follows `d3`). | acceptable |
-| `t5` (`d15`, proposed) | The real lamp never answered multicast. Discovery now goes cache, then `GOVEE_LAN_HOSTS`, then multicast, then a /24 sweep. | acceptable |
-| `t4` / `t12` (`d21`, proposed) | The actor gained `lamp_fade_on`/`lamp_fade_off` (`d11`), and every command passes `--source rules`. | acceptable |
+| `t5` (`d15`) | The real lamp never answered multicast. Discovery now goes cache, then `GOVEE_LAN_HOSTS`, then multicast, then a /24 sweep. | acceptable |
+| `t4` / `t12` (`d21`) | The actor gained `lamp_fade_on`/`lamp_fade_off` (`d11`), and every command passes `--source rules`. | acceptable |
 | `t3` | Two layout defects survived the `t3` merge and were fixed in `t13`: the bulb shifted 22 px when the panes switched, and the controls overflowed at 390 px. | acceptable |
-| `t14` (`d26`, proposed) | The user-only checks were moved to post-merge follow-ups. The agent has no phone and cannot see the lamp, and access to the user's culture-rules token was refused. /assess: `defer_to_gate3` 0.824. | needs-follow-up |
-| `t7` / `t9` / `t8` (`d28`–`d30`, proposed) | Code review on PR #3 found concurrency and correctness defects in the delivered fades, MCP server, discovery cache, stats and doctor. | acceptable |
-| `t14` (`d31`, proposed) | The live re-test found serve crashing on a second SIGTERM during shutdown. | acceptable |
-| `t14` (`d22`, proposed) | A fade-out leaves the lamp off at brightness 1. The Govee app or the button then light it at 1 %; govee itself restores the level. | needs-follow-up |
+| `t14` (`d26`) | The user-only checks were moved to post-merge follow-ups. The agent has no phone and cannot see the lamp, and access to the user's culture-rules token was refused. /assess: `defer_to_gate3` 0.824. | needs-follow-up |
+| `t7` / `t9` / `t8` (`d28`–`d30`) | Code review on PR #3 found concurrency and correctness defects in the delivered fades, MCP server, discovery cache, stats and doctor. | acceptable |
+| `t14` (`d31`) | The live re-test found serve crashing on a second SIGTERM during shutdown. | acceptable |
+| `t14` (`d32`, proposed) | The user found fades rough at the lamp; linear brightness won an A/B, colour and temperature got sine easing, and the default on/off fade went from 1.5 s to 5 s. | acceptable |
+| `t14` (`d22`) | A fade-out leaves the lamp off at brightness 1. The Govee app or the button then light it at 1 %; govee itself restores the level. | needs-follow-up |
 
 ## Evidence
 
@@ -134,9 +138,8 @@ recorded the rest as proposed, and the user reviews them on the PR.
   aborted the run without the signal guard.
 - evidence `e23`–`e26` (proposed) file the review-fix tests against `o9`,
   `o12`, `o13` and `o14`, run at `e18f85b`, where every PR check passed and
-  the Sonar gate was OK. Deltas for `d28`–`d31` cannot be filed until those
-  deviations are approved: devague accepts only an approved deviation as a
-  delta's provenance.
+  the Sonar gate was OK. Deltas `b14`–`b17` were filed for `d28`–`d31` once
+  the user approved them.
 - evidence records `e1`–`e21` against obligations `o1`–`o19`. All pass. They
   are filed as proposed, so they await the user's confirmation. The tests
   behind them are named in each record and were run at `ef5689d`.
@@ -184,8 +187,9 @@ have since been fixed.
   - A visual check of whether the firmware smooths instant changes.
   - `govee rules actor > /tmp/a.json`, then
     `culture-rules actors create --body @/tmp/a.json` as a dry run.
-- Adjudication — confirm or reject the proposed deviations (`d1`, `d2`, `d6`,
-  `d8`–`d10`, `d12`–`d31`), lapses `l1`–`l6`, evidence `e1`–`e26` and deltas (then file the `d28`–`d31` deltas).
+- Adjudication — confirm or reject `d32`, lapses `l1`–`l6`, evidence
+  `e1`–`e26` and deltas `b1`–`b17` (`b14`–`b17` were filed once `d28`–`d31`
+  were approved).
   Owner: the user, at gate 3.
 - `d16` — decide whether the devague-added `.gitignore` lines
   (`.devague/reviews/`, `.devague/questions/`) stay.

@@ -133,7 +133,7 @@ The CLI, the MCP server (`govee_cli/mcp/server.py`) and the web server
   commands are planned, so a dry run always equals what `--apply` sends.
 - **Fades** (`govee/fade.py`). Govee has no transition parameter, so fades are
   stepped client-side over LAN (>= 150 ms per step, only when the value
-  changes). On/off fade by default (`GOVEE_FADE_DEFAULT`, 1.5 s); a new
+  changes). On/off fade by default (`GOVEE_FADE_DEFAULT`, 5 s); a new
   command cancels a running fade; over cloud a change applies instantly.
 - **Verified writes and the log.** An applied LAN write is logged `sent`,
   then re-read and updated to `confirmed` or `unconfirmed`. Events and 60 s

@@ -4,7 +4,7 @@ Govee has no native transition parameter, so govee-cli ramps brightness, colour 
 temperature itself: :func:`plan_fade` turns a start state and a target :class:`Change` into timed
 steps of LAN commands, and :class:`FadeRunner` sends them on schedule until done or cancelled.
 
-* ``govee light on/off`` fade by default over ``GOVEE_FADE_DEFAULT`` seconds (1.5); brightness,
+* ``govee light on/off`` fade by default over ``GOVEE_FADE_DEFAULT`` seconds (5); brightness,
   colour and temperature are instant unless a fade is asked for. ``0`` snaps; the maximum is 3600.
 * Fade-in (lamp off): brightness 1, turn on, then ramp up to the explicit brightness, else the
   brightness remembered by the last fade-out, else the off lamp's own brightness, else 100.
@@ -36,7 +36,7 @@ from govee_cli.govee.service_types import Change
 from govee_cli.govee.types import KELVIN_MAX, KELVIN_MIN, Command, LampState, kelvin_to_rgb
 
 ENV_FADE_DEFAULT = "GOVEE_FADE_DEFAULT"
-DEFAULT_FADE_SECONDS = 1.5
+DEFAULT_FADE_SECONDS = 5.0  # 1.5 s looked abrupt on the real lamp (deviation d32)
 MAX_FADE_SECONDS = 3600.0
 MIN_INTERVAL = 0.15
 MAX_TICKS = 2400  # a 3600 s fade then ticks every 1.5 s; steps are emitted only on change
@@ -175,6 +175,11 @@ def _lerp(a: float, b: float, f: float) -> float:
     return a + (b - a) * f
 
 
+def _ease(f: float) -> float:
+    """Sine ease-in-out, as in motion profiles: starts and stops gently (0 -> 0, 1 -> 1)."""
+    return (1 - math.cos(math.pi * f)) / 2
+
+
 def _round_kelvin(k: float) -> int:
     k = int(round(k / KELVIN_ROUND)) * KELVIN_ROUND
     return max(KELVIN_MIN, min(KELVIN_MAX, k))
@@ -204,7 +209,10 @@ class _Ramp:
         last_k = self.kelvin[0] if self.kelvin else None
         last_color_cmd: Optional[Command] = None
         for i in range(1, ticks + 1):
+            # Chosen with the user at the real lamp (deviation d32): brightness steps linearly,
+            # colour and temperature ease in and out on a sine.
             f = i / ticks
+            eased = _ease(f)
             cmds: list[Command] = []
             if self.brightness:
                 b = int(round(_lerp(*self.brightness, f)))
@@ -213,13 +221,13 @@ class _Ramp:
                     last_b = b
             if self.rgb:
                 start, end = self.rgb
-                rgb = tuple(int(round(_lerp(s, e, f))) for s, e in zip(start, end))
+                rgb = tuple(int(round(_lerp(s, e, eased))) for s, e in zip(start, end))
                 if rgb != last_rgb:
                     last_color_cmd = lan_mod.build_color(rgb)  # type: ignore[arg-type]
                     cmds.append(last_color_cmd)
                     last_rgb = rgb  # type: ignore[assignment]
             if self.kelvin:
-                k = _round_kelvin(_lerp(*self.kelvin, f))
+                k = _round_kelvin(_lerp(*self.kelvin, eased))
                 if k != last_k:
                     last_color_cmd = lan_mod.build_kelvin(k)
                     cmds.append(last_color_cmd)

@@ -22,7 +22,7 @@ The runner registry lives in `params.commands`. Each entry has an `argv` list
 | `lamp_fade_on` | `govee light on --fade {seconds}` | `seconds` (int, 0-3600) |
 | `lamp_fade_off` | `govee light off --fade {seconds}` | `seconds` (int, 0-3600) |
 
-`lamp_on` and `lamp_off` already fade over the default 1.5 s. The two fade
+`lamp_on` and `lamp_off` already fade over the default 5 s. The two fade
 commands have a 3660 s timeout so a long fade (a 20-minute wake-up, say) is
 never killed mid-way; with `govee serve` running they return at once anyway.
 

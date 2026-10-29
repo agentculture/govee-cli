@@ -1,7 +1,7 @@
 """``govee light`` — read and change the lamp.
 
 Writes are dry runs unless ``--apply`` is passed: they print the planned commands and exit 0.
-``on``/``off`` fade by default (``GOVEE_FADE_DEFAULT``, 1.5 s); ``--fade SECONDS`` is accepted on
+``on``/``off`` fade by default (``GOVEE_FADE_DEFAULT``, 5 s); ``--fade SECONDS`` is accepted on
 every verb (0 snaps, max 3600) and the other verbs are instant unless it is given. Without
 ``govee serve`` a fade runs in the foreground and Ctrl-C stops it (exit 130).
 """
@@ -18,7 +18,7 @@ from govee_cli.govee.service import Change, parse_hex_color
 EXIT_INTERRUPTED = 130
 
 _VERB_LINES = [
-    "light on|off [--fade S] — power (fades by default, 1.5 s)",
+    "light on|off [--fade S] — power (fades by default, 5 s)",
     "light brightness N — 1-100",
     "light color RRGGBB — hex colour",
     "light temp N — colour temperature in kelvin",
@@ -163,7 +163,7 @@ def _common(p: argparse.ArgumentParser, *, write: bool, fade: bool = True) -> No
             "--fade",
             type=_seconds,
             metavar="SECONDS",
-            help="Fade duration, 0-3600 (0 snaps; on/off default GOVEE_FADE_DEFAULT = 1.5).",
+            help="Fade duration, 0-3600 (0 snaps; on/off default GOVEE_FADE_DEFAULT = 5).",
         )
 
 

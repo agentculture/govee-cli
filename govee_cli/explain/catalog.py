@@ -156,7 +156,7 @@ the planned commands (`would send:`) and the equivalent `--apply` invocation,
 and exit 0. Every verb takes `--device NAME|ID` (required with several lamps)
 and `--json`; writes also take `--apply` and `--fade SECONDS`.
 
-Fades: `on`/`off` fade by default over `GOVEE_FADE_DEFAULT` (1.5 s);
+Fades: `on`/`off` fade by default over `GOVEE_FADE_DEFAULT` (5 s);
 brightness, colour and temperature are instant unless `--fade` is given.
 `--fade 0` snaps; the maximum is 3600. Without `govee serve` the fade runs in
 the foreground and Ctrl-C stops it (exit 130). A dry run prints the fade plan:
@@ -183,7 +183,7 @@ over the cloud the change is instant with a warning.
 _LIGHT_ON = """\
 # govee light on
 
-Turn the lamp on. Fades by default (`GOVEE_FADE_DEFAULT`, 1.5 s); `--fade 0`
+Turn the lamp on. Fades by default (`GOVEE_FADE_DEFAULT`, 5 s); `--fade 0`
 snaps. Dry run unless `--apply`.
 
 ## Usage
@@ -194,7 +194,7 @@ snaps. Dry run unless `--apply`.
 _LIGHT_OFF = """\
 # govee light off
 
-Turn the lamp off. Fades by default (`GOVEE_FADE_DEFAULT`, 1.5 s); `--fade 0`
+Turn the lamp off. Fades by default (`GOVEE_FADE_DEFAULT`, 5 s); `--fade 0`
 snaps. The pre-fade brightness is remembered for the next `light on`. Dry run
 unless `--apply`.
 

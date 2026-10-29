@@ -2,7 +2,7 @@
   "plan_slug": "govee-lamp-integration",
   "schema_version": 2,
   "created": "2026-10-29T06:46:31Z",
-  "updated": "2026-10-29T23:20:48Z",
+  "updated": "2026-10-29T23:34:30Z",
   "deviations": [
     {
       "id": "d1",
@@ -13,7 +13,7 @@
         "t8"
       ],
       "origin": "llm",
-      "status": "proposed",
+      "status": "approved",
       "classification": "acceptable",
       "seq": 1
     },
@@ -24,7 +24,7 @@
       "reason": "race found by the t15 agent: verify writing last_used could write back a stale list",
       "affects": [],
       "origin": "llm",
-      "status": "proposed",
+      "status": "approved",
       "classification": "acceptable",
       "seq": 2
     },
@@ -79,7 +79,7 @@
       "reason": "t2 agent addition, consistent with c36",
       "affects": [],
       "origin": "llm",
-      "status": "proposed",
+      "status": "approved",
       "classification": "acceptable",
       "seq": 6
     },
@@ -104,7 +104,7 @@
       "reason": "t2 store has a 'rules' source; palette had only cli/web/mcp",
       "affects": [],
       "origin": "llm",
-      "status": "proposed",
+      "status": "approved",
       "classification": "acceptable",
       "seq": 8
     },
@@ -117,7 +117,7 @@
         "t10"
       ],
       "origin": "llm",
-      "status": "proposed",
+      "status": "approved",
       "classification": "acceptable",
       "seq": 9
     },
@@ -128,7 +128,7 @@
       "reason": "t5 agent tested the main agent's brief on this host and found it wrong",
       "affects": [],
       "origin": "llm",
-      "status": "proposed",
+      "status": "approved",
       "classification": "acceptable",
       "seq": 10
     },
@@ -161,7 +161,7 @@
       "reason": "criterion 1 (preview == sent) conflicts with per-command post-failure fallback; t7 agent chose plan-time fallback",
       "affects": [],
       "origin": "llm",
-      "status": "proposed",
+      "status": "approved",
       "classification": "acceptable",
       "seq": 12
     },
@@ -172,7 +172,7 @@
       "reason": "t7 agent design choices",
       "affects": [],
       "origin": "llm",
-      "status": "proposed",
+      "status": "approved",
       "classification": "acceptable",
       "seq": 13
     },
@@ -186,7 +186,7 @@
         "t4"
       ],
       "origin": "llm",
-      "status": "proposed",
+      "status": "approved",
       "classification": "acceptable",
       "seq": 14
     },
@@ -202,7 +202,7 @@
         "c31"
       ],
       "origin": "llm",
-      "status": "proposed",
+      "status": "approved",
       "classification": "acceptable",
       "seq": 15
     },
@@ -213,7 +213,7 @@
       "reason": "main agent used git commit -a with an intentionally unstaged change present",
       "affects": [],
       "origin": "llm",
-      "status": "proposed",
+      "status": "approved",
       "classification": "needs-follow-up",
       "seq": 16
     },
@@ -227,7 +227,7 @@
         "t10"
       ],
       "origin": "llm",
-      "status": "proposed",
+      "status": "approved",
       "classification": "acceptable",
       "seq": 17
     },
@@ -240,7 +240,7 @@
         "t13"
       ],
       "origin": "llm",
-      "status": "proposed",
+      "status": "approved",
       "classification": "acceptable",
       "seq": 18
     },
@@ -253,7 +253,7 @@
         "t13"
       ],
       "origin": "llm",
-      "status": "proposed",
+      "status": "approved",
       "classification": "acceptable",
       "seq": 19
     },
@@ -266,7 +266,7 @@
         "t12"
       ],
       "origin": "llm",
-      "status": "proposed",
+      "status": "approved",
       "classification": "acceptable",
       "seq": 20
     },
@@ -280,7 +280,7 @@
         "t8"
       ],
       "origin": "llm",
-      "status": "proposed",
+      "status": "approved",
       "classification": "acceptable",
       "seq": 21
     },
@@ -293,7 +293,7 @@
         "t12"
       ],
       "origin": "llm",
-      "status": "proposed",
+      "status": "approved",
       "classification": "needs-follow-up",
       "seq": 22
     },
@@ -307,7 +307,7 @@
         "t10"
       ],
       "origin": "llm",
-      "status": "proposed",
+      "status": "approved",
       "classification": "acceptable",
       "seq": 23
     },
@@ -322,7 +322,7 @@
         "t12"
       ],
       "origin": "llm",
-      "status": "proposed",
+      "status": "approved",
       "classification": "acceptable",
       "seq": 45
     },
@@ -336,7 +336,7 @@
         "t13"
       ],
       "origin": "llm",
-      "status": "proposed",
+      "status": "approved",
       "classification": "acceptable",
       "seq": 47
     },
@@ -351,7 +351,7 @@
         "c25"
       ],
       "origin": "llm",
-      "status": "proposed",
+      "status": "approved",
       "classification": "needs-follow-up",
       "seq": 48
     },
@@ -365,7 +365,7 @@
         "t3"
       ],
       "origin": "llm",
-      "status": "proposed",
+      "status": "approved",
       "classification": "acceptable",
       "seq": 49
     },
@@ -378,7 +378,7 @@
         "t10"
       ],
       "origin": "llm",
-      "status": "proposed",
+      "status": "approved",
       "classification": "acceptable",
       "seq": 50
     },
@@ -389,7 +389,7 @@
       "reason": "review findings 2 and 3: a foreground fade blocked the stdio loop so cancel_fade could never stop it, and serve starting or stopping mid-session broke every later call",
       "affects": [],
       "origin": "llm",
-      "status": "proposed",
+      "status": "approved",
       "classification": "acceptable",
       "seq": 51
     },
@@ -404,7 +404,7 @@
         "t13"
       ],
       "origin": "llm",
-      "status": "proposed",
+      "status": "approved",
       "classification": "acceptable",
       "seq": 52
     },
@@ -417,9 +417,20 @@
         "t10"
       ],
       "origin": "llm",
-      "status": "proposed",
+      "status": "approved",
       "classification": "acceptable",
       "seq": 53
+    },
+    {
+      "id": "d32",
+      "what": "Fades: brightness keeps linear percent steps; colour and temperature ramps use sine ease-in-out ((1 - cos(pi t)) / 2); 150 ms ticks unchanged; the default on/off fade (GOVEE_FADE_DEFAULT) is 5 s instead of 1.5 s",
+      "task_ref": "t14",
+      "reason": "user watched fades at the real H6076: 0.11.0 'could be more smooth'; A/B of linear, sine and sine-on-gamma at 5 s ('very smooth (but fast)') and 10 s ('far better'); sine+gamma through the CLI at 1.5-5 s 'not smooth'; user: 'linear was best', the gamma curve 'was jumpy', and asked for 'smooth temp, and linear power'. /assess: duration was the main factor P=0.836; default 3 s 0.554 vs 5 s 0.298 - 5 s chosen because the user called 5 s fast and 10 s far better; 75 ms ticks P(reliable)=0.199",
+      "affects": [],
+      "origin": "llm",
+      "status": "proposed",
+      "classification": "acceptable",
+      "seq": 58
     }
   ],
   "evidence": [
@@ -1101,6 +1112,61 @@
       "caused_by": [
         "deviation d23 (proposed)",
         "d4"
+      ],
+      "evidence_refs": [],
+      "origin": "llm",
+      "status": "proposed",
+      "superseded": false
+    },
+    {
+      "id": "b14",
+      "kind": "amended",
+      "behavior_text": "fade-in target: request brightness, else the lamp's own level when > 1, else the remembered fade-out level, else 100; an unreadable lamp turns on without a dip; concurrent writes in serve leave one fade",
+      "caused_by": [
+        "d28"
+      ],
+      "evidence_refs": [
+        "e26"
+      ],
+      "origin": "llm",
+      "status": "proposed",
+      "superseded": false
+    },
+    {
+      "id": "b15",
+      "kind": "amended",
+      "behavior_text": "MCP fades without serve run in the background (status sent at start), EOF waits for them, and the serve check runs per call",
+      "caused_by": [
+        "d29"
+      ],
+      "evidence_refs": [
+        "e23",
+        "e24"
+      ],
+      "origin": "llm",
+      "status": "proposed",
+      "superseded": false
+    },
+    {
+      "id": "b16",
+      "kind": "amended",
+      "behavior_text": "doctor's lan-discovery goes through govee serve while it runs; failed discovery cached 15 s; stats CLI/MCP use local days",
+      "caused_by": [
+        "d30"
+      ],
+      "evidence_refs": [
+        "e25"
+      ],
+      "origin": "llm",
+      "status": "proposed",
+      "superseded": false
+    },
+    {
+      "id": "b17",
+      "kind": "added",
+      "behavior_text": "serve ignores repeat SIGTERM/SIGINT during shutdown cleanup",
+      "caused_by": [
+        "d31"
       ],
       "evidence_refs": [],
       "origin": "llm",

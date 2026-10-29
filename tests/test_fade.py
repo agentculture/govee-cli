@@ -123,8 +123,8 @@ def test_validate_fade_seconds():
 
 
 def test_on_off_fade_by_default_and_other_changes_are_instant():
-    assert resolve_fade_seconds(Change(on=True), None) == 1.5
-    assert resolve_fade_seconds(Change(on=False), None) == 1.5
+    assert resolve_fade_seconds(Change(on=True), None) == 5.0
+    assert resolve_fade_seconds(Change(on=False), None) == 5.0
     assert resolve_fade_seconds(Change(brightness=40), None) == 0.0
     assert resolve_fade_seconds(Change(color=(1, 2, 3)), None) == 0.0
     assert resolve_fade_seconds(Change(on=True), 0) == 0.0
@@ -254,8 +254,12 @@ def test_kelvin_to_color_starts_from_the_kelvin_rgb():
 
 def test_brightness_and_color_fade_together():
     plan = plan_fade(ON_RED, Change(brightness=10, color=(0, 255, 0)), 2)
-    last_at, last = plan.steps[-1]
-    assert build_brightness(10) in last and build_color((0, 255, 0)) in last
+    commands = plan.commands()
+    brightness = [c for c in commands if c.verb == "brightness"]
+    colors = [c for c in commands if c.verb == "colorwc"]
+    assert brightness[-1] == build_brightness(10) and colors[-1] == build_color((0, 255, 0))
+    # sine easing lands each value by the end, never after it
+    assert plan.steps[-1][0] <= 2 + 1e-9
 
 
 def test_zero_seconds_snaps_to_the_instant_commands():
@@ -305,6 +309,28 @@ def test_runner_sends_every_step_on_schedule():
     assert sent[-1][0] == pytest.approx(1.5)
 
 
+def test_brightness_ramps_linearly_and_colour_temperature_eases_in_and_out():
+    # Chosen with the user at the real lamp (d32): linear brightness looked best (a gamma curve
+    # looked jumpy); colour and temperature ease in and out on a sine.
+    up = brightness_values(plan_fade(LampState(on=True, brightness=1), Change(brightness=80), 10))
+    deltas = [b - a for a, b in zip(up, up[1:])]
+    assert up[-1] == 80 and max(deltas) - min(deltas) <= 1, "even percent steps"
+    warm = plan_fade(LampState(on=True, brightness=50, kelvin=6500), Change(kelvin=2700), 10)
+    kelvins = [
+        c.payload["msg"]["data"]["colorTemInKelvin"]
+        for _, cmds in warm.steps
+        for c in cmds
+        if c.verb == "colorwc"
+    ]
+    k_deltas = [a - b for a, b in zip(kelvins, kelvins[1:])]
+    assert kelvins[-1] == 2700
+    assert max(k_deltas[:3]) < max(k_deltas) and max(k_deltas[-3:]) < max(k_deltas)
+
+
+def test_default_on_off_fade_is_5_seconds():
+    assert fade_mod.DEFAULT_FADE_SECONDS == 5.0
+
+
 def test_runner_cancel_stops_sending():
     clock = FakeClock()
     plan = plan_fade(ON_RED, Change(brightness=1), 3)
@@ -329,14 +355,14 @@ def test_light_on_fades_by_default_and_logs_one_confirmed_event():
     clock = FakeClock()
     result = make(lan, clock=clock).apply(Change(on=True), apply=True)
     assert result.status == "confirmed"
-    assert result.fade is not None and result.fade.seconds == 1.5
+    assert result.fade is not None and result.fade.seconds == 5.0
     assert result.commands == result.fade.commands()
     assert [c for _, c in lan.sent] == result.commands
     assert lan.sent[0][1] == build_brightness(1) and lan.sent[1][1] == build_turn(True)
-    assert clock.t >= 1.5
+    assert clock.t >= 5.0
     (event,) = store.recent_events()
     assert event["verb"] == "fade_on" and event["status"] == "confirmed"
-    assert event["payload"]["fade"]["seconds"] == 1.5
+    assert event["payload"]["fade"]["seconds"] == 5.0
     assert event["payload"]["target"]["brightness"] == 60  # the off lamp's own brightness
 
 

@@ -13,7 +13,7 @@ nothing. Every call made with ``apply=True`` sends exactly the commands a dry ru
 Transport failures surface as ``CliError`` (exit 2 for environment problems, with remediation).
 
 Fades (approved deviation d11, ``fade.py``): ``apply(..., fade_seconds=)``. ``None`` means on/off
-fade over ``GOVEE_FADE_DEFAULT`` (1.5 s) and other changes are instant; ``0`` snaps; more than
+fade over ``GOVEE_FADE_DEFAULT`` (5 s) and other changes are instant; ``0`` snaps; more than
 3600 is ``ValueError``. Serve runs fades in the background (``direct(background_fades=True)``);
 without serve the fade runs in the foreground and Ctrl-C stops it. ``active_fade`` /
 ``cancel_fade`` inspect and stop a running fade.

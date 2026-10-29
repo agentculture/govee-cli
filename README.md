@@ -15,7 +15,7 @@ lights that offer **LAN Control** should work the same way.
 uv sync
 uv run govee devices                   # find lamps (LAN first, cloud fallback)
 uv run govee light on                  # dry run: prints what it would send
-uv run govee light on --apply          # actually turn it on (fades in over 1.5 s)
+uv run govee light on --apply          # actually turn it on (fades in over 5 s)
 uv run govee light color FF6A2B --fade 5 --apply
 uv run govee light temp 2700 --apply
 uv run govee stats                     # usage tiles and recent events
@@ -55,7 +55,7 @@ live in culture-rules, not here: govee-cli has no timers of its own.
 | Verb | What it does |
 |------|--------------|
 | `devices [--refresh]` | List lamps found on the LAN and in the Govee account. |
-| `light on`, `light off` | Power. Fades by default (`GOVEE_FADE_DEFAULT`, 1.5 s); `--fade 0` snaps. |
+| `light on`, `light off` | Power. Fades by default (`GOVEE_FADE_DEFAULT`, 5 s); `--fade 0` snaps. |
 | `light brightness N` | Brightness 1-100. |
 | `light color HEX` | RGB color, e.g. `FF6A2B`. |
 | `light temp K` | White color temperature, 2000-9000 K. |
