@@ -2,7 +2,7 @@
   "plan_slug": "govee-lamp-integration",
   "schema_version": 2,
   "created": "2026-10-29T06:46:31Z",
-  "updated": "2026-10-29T23:16:26Z",
+  "updated": "2026-10-29T23:20:48Z",
   "deviations": [
     {
       "id": "d1",
@@ -840,6 +840,82 @@
       "status": "proposed",
       "superseded": false,
       "seq": 46
+    },
+    {
+      "id": "e23",
+      "obligation_ref": "o9",
+      "test_ref": "tests/test_mcp_server.py::test_eof_lets_a_running_fade_finish",
+      "behavior_text": "an MCP set_light fade returns at once, get_fade sees it, and the server exits only after it ends (no serve)",
+      "contract_text": "an agent lists devices and turns the lamp on in two calls: dry run, then apply",
+      "evidence_type": "automated",
+      "strength": "execution",
+      "strength_basis": "ran green at e18f85b; also observed live on the H6076 (4.19 s exit)",
+      "outcome": "pass",
+      "run": {
+        "timestamp": "2026-10-30T01:20:00",
+        "commit": "e18f85b"
+      },
+      "origin": "llm",
+      "status": "proposed",
+      "superseded": false,
+      "seq": 54
+    },
+    {
+      "id": "e24",
+      "obligation_ref": "o12",
+      "test_ref": "tests/test_mcp_server.py::test_service_follows_serve_starting_and_stopping",
+      "behavior_text": "the MCP server re-checks for govee serve on every call, so it never binds UDP 4002 while serve owns it",
+      "contract_text": "only one process binds UDP 4002; others route via serve or exit 2",
+      "evidence_type": "automated",
+      "strength": "execution",
+      "strength_basis": "ran green at e18f85b",
+      "outcome": "pass",
+      "run": {
+        "timestamp": "2026-10-30T01:20:00",
+        "commit": "e18f85b"
+      },
+      "origin": "llm",
+      "status": "proposed",
+      "superseded": false,
+      "seq": 55
+    },
+    {
+      "id": "e25",
+      "obligation_ref": "o14",
+      "test_ref": "tests/test_cli_doctor_lan.py::test_discovery_asks_govee_serve_when_it_runs",
+      "behavior_text": "doctor's lan-discovery asks govee serve while it runs instead of scanning on the busy port",
+      "contract_text": "doctor reports the LAN check with remediation on silence",
+      "evidence_type": "automated",
+      "strength": "execution",
+      "strength_basis": "ran green at e18f85b; live: passes through serve on the H6076",
+      "outcome": "pass",
+      "run": {
+        "timestamp": "2026-10-30T01:20:00",
+        "commit": "e18f85b"
+      },
+      "origin": "llm",
+      "status": "proposed",
+      "superseded": false,
+      "seq": 56
+    },
+    {
+      "id": "e26",
+      "obligation_ref": "o13",
+      "test_ref": "tests/test_fade.py::test_concurrent_fades_leave_exactly_one_running",
+      "behavior_text": "eight concurrent background fades leave exactly one running and the rest logged cancelled",
+      "contract_text": "applied LAN writes move from sent to confirmed/unconfirmed",
+      "evidence_type": "automated",
+      "strength": "sensitivity",
+      "strength_basis": "failed 3 of 3 runs without the write lock, green with it at e18f85b; live: two concurrent fades through serve, one survived",
+      "outcome": "pass",
+      "run": {
+        "timestamp": "2026-10-30T01:20:00",
+        "commit": "e18f85b"
+      },
+      "origin": "llm",
+      "status": "proposed",
+      "superseded": false,
+      "seq": 57
     }
   ],
   "deltas": [

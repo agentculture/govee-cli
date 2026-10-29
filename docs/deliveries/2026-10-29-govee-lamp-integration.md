@@ -132,6 +132,11 @@ recorded the rest as proposed, and the user reviews them on the PR.
   failed 3 of 3 runs without the write lock, and
   `tests/test_web_server.py::test_a_second_sigterm_during_shutdown_does_not_skip_the_cleanup`
   aborted the run without the signal guard.
+- evidence `e23`–`e26` (proposed) file the review-fix tests against `o9`,
+  `o12`, `o13` and `o14`, run at `e18f85b`, where every PR check passed and
+  the Sonar gate was OK. Deltas for `d28`–`d31` cannot be filed until those
+  deviations are approved: devague accepts only an approved deviation as a
+  delta's provenance.
 - evidence records `e1`–`e21` against obligations `o1`–`o19`. All pass. They
   are filed as proposed, so they await the user's confirmation. The tests
   behind them are named in each record and were run at `ef5689d`.
@@ -180,7 +185,7 @@ have since been fixed.
   - `govee rules actor > /tmp/a.json`, then
     `culture-rules actors create --body @/tmp/a.json` as a dry run.
 - Adjudication — confirm or reject the proposed deviations (`d1`, `d2`, `d6`,
-  `d8`–`d10`, `d12`–`d31`), lapses `l1`–`l6`, evidence `e1`–`e22` and deltas.
+  `d8`–`d10`, `d12`–`d31`), lapses `l1`–`l6`, evidence `e1`–`e26` and deltas (then file the `d28`–`d31` deltas).
   Owner: the user, at gate 3.
 - `d16` — decide whether the devague-added `.gitignore` lines
   (`.devague/reviews/`, `.devague/questions/`) stay.
