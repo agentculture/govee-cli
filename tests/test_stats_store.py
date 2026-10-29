@@ -64,8 +64,10 @@ def _writer(duration, source, out):
 
 def test_two_processes_write_5s_no_lock_error():
     store.connect().close()
-    q = multiprocessing.Queue()
-    procs = [multiprocessing.Process(target=_writer, args=(5, s, q)) for s in ("cli", "web")]
+    # spawn, not fork: the pytest-xdist worker is multi-threaded, and fork() there can deadlock
+    ctx = multiprocessing.get_context("spawn")
+    q = ctx.Queue()
+    procs = [ctx.Process(target=_writer, args=(5, s, q)) for s in ("cli", "web")]
     for p in procs:
         p.start()
     results = [q.get(timeout=20) for _ in procs]
