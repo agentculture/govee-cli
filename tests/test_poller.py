@@ -202,3 +202,18 @@ def test_stopped_poller_leaves_no_rows():
 def test_never_started_poller_has_no_rows():
     _lan_poller(LampState(on=True, brightness=3))
     assert _rows() == []
+
+
+def test_unreachable_lamp_with_cloud_route_waits_cloud_interval():
+    # LAN failed and the cloud fallback failed too: the next try must respect the cloud quota.
+    from govee_cli.govee.service_types import LampStatus
+
+    both = Device(
+        id="AA:BB", name="Lamp", model="H6076", ip="192.0.2.10", transports=("lan", "cloud")
+    )
+
+    class Stub:
+        def state(self, device=None):
+            return LampStatus(device=both, transport="lan", state=None)
+
+    assert Poller(Stub(), clock=lambda: 0.0).sample_once() == 300

@@ -85,6 +85,11 @@ class Poller:
         self._last_interval = interval
         s = status.state
         if s is None:
+            # An unreachable lamp with a cloud route may have just cost a cloud call (LAN failed,
+            # cloud fallback failed too), so wait the cloud interval to respect its quota (c35).
+            if "cloud" in getattr(status.device, "transports", ()):
+                interval = self.cloud_interval
+                self._last_interval = interval
             log.debug("lamp unreachable over %s; no sample (gap)", status.transport)
             return interval
         now = datetime.fromtimestamp(self.clock(), timezone.utc)
