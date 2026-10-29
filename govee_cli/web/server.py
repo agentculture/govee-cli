@@ -25,7 +25,9 @@ import ipaddress
 import json
 import logging
 import re
+import signal
 import sys
+import threading
 import time
 from datetime import datetime, timedelta, timezone, tzinfo
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -736,6 +738,9 @@ def run(host: str = DEFAULT_HOST, port: int = DEFAULT_PORT, *, rotate_token: boo
         ) from None
     actual_port = httpd.server_address[1]
     poller = None
+    # systemd stops the unit with SIGTERM: take the same clean path as Ctrl-C (stop the poller,
+    # cancel fades so no event is left mid-ramp) instead of dying in the default handler.
+    previous_term = _install_term_handler()
     try:
         if rotate_token:
             rotate_tokens(host, actual_port)
@@ -753,4 +758,18 @@ def run(host: str = DEFAULT_HOST, port: int = DEFAULT_PORT, *, rotate_token: boo
         except Exception:  # noqa: BLE001 - shutting down regardless
             log.debug("could not cancel running fades on shutdown")
         httpd.server_close()
+        if previous_term is not None:
+            signal.signal(signal.SIGTERM, previous_term)
+        log.info("govee serve stopped")
     return 0
+
+
+def _raise_interrupt(signum: int, frame: Any) -> None:
+    raise KeyboardInterrupt
+
+
+def _install_term_handler() -> Any:
+    """Route SIGTERM to KeyboardInterrupt; return the previous handler (None off main thread)."""
+    if threading.current_thread() is not threading.main_thread():
+        return None
+    return signal.signal(signal.SIGTERM, _raise_interrupt)

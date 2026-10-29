@@ -312,6 +312,41 @@ def test_run_with_rotate_prints_link_once_and_shuts_down(monkeypatch, capsys):
     assert started == ["init", "start", "stop"]
 
 
+def test_sigterm_takes_the_clean_shutdown_path_and_restores_the_handler(monkeypatch):
+    # Found in the live test (t14): systemd's SIGTERM killed serve in the default handler,
+    # skipping the poller stop and fade cancel. run() now routes SIGTERM like Ctrl-C.
+    import os
+    import signal
+
+    stopped = []
+
+    class FakePoller:
+        def __init__(self, service):
+            pass
+
+        def start(self):
+            pass
+
+        def stop(self, timeout=5.0):
+            stopped.append("poller")
+
+    service = make_service()
+    monkeypatch.setattr(web, "Poller", FakePoller)
+    monkeypatch.setattr(web, "_build_service", lambda: service)
+    monkeypatch.setattr(service, "cancel_fade", lambda *a, **k: stopped.append("fades") or False)
+
+    def fake_serve_forever(self, poll_interval=0.5):
+        os.kill(os.getpid(), signal.SIGTERM)
+        time.sleep(5)  # the handler must interrupt this
+        raise AssertionError("SIGTERM did not interrupt serve_forever")
+
+    monkeypatch.setattr(web.GoveeServer, "serve_forever", fake_serve_forever)
+    before = signal.getsignal(signal.SIGTERM)
+    assert web.run(host="127.0.0.1", port=0) == 0
+    assert stopped == ["poller", "fades"]
+    assert signal.getsignal(signal.SIGTERM) is before
+
+
 # --- attribution headers honoured only from loopback (d4) -------------------------------------
 
 
