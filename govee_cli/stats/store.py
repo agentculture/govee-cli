@@ -1,9 +1,12 @@
 """Sqlite stats store: events, state samples and chart queries.
 
-Stdlib only. All timestamps are stored as UTC epoch seconds (REAL); "day" and
-"hour" bucketing is done in UTC. Each sample represents the lamp state for the
-interval until the next sample, capped at ``SAMPLE_CAP_S`` (3 min). Time not
-covered by a sample is a *gap* (unknown), never interpolated as "off".
+Stdlib only. All timestamps are stored as UTC epoch seconds (REAL). "Day" and
+"hour" bucketing is done in the ``tz`` the query is given (a ``tzinfo``; default UTC):
+``govee serve`` passes its local timezone (approved deviation d5). Days are bucketed by
+calendar midnights in that zone, so a DST day is 23 or 25 hours long. Each sample
+represents the lamp state for the interval until the next sample, capped at
+``SAMPLE_CAP_S`` (3 min). Time not covered by a sample is a *gap* (unknown), never
+interpolated as "off".
 """
 
 from __future__ import annotations
@@ -12,7 +15,8 @@ import json
 import os
 import sqlite3
 import time
-from datetime import datetime, timedelta, timezone
+from bisect import bisect_right
+from datetime import datetime, timedelta, timezone, tzinfo
 from pathlib import Path
 from typing import Any, Iterator, Optional
 
@@ -84,6 +88,11 @@ def _utc(now: Optional[datetime]) -> datetime:
     if now is None:
         return datetime.now(timezone.utc)
     return now if now.tzinfo else now.replace(tzinfo=timezone.utc)
+
+
+def _local(now: Optional[datetime], tz: Optional[tzinfo]) -> datetime:
+    """``now`` (default: the current time) as an aware datetime in ``tz`` (default UTC)."""
+    return _utc(now).astimezone(tz or timezone.utc)
 
 
 def _midnight(dt: datetime) -> datetime:
@@ -219,24 +228,31 @@ def _on_seconds_per_bucket(rows: list, start: float, end: float, step: int) -> d
     return out
 
 
-def hours_per_day(days: int = 14, now: Optional[datetime] = None) -> list[dict]:
-    now = _utc(now)
+def _on_seconds(rows: list, start: float, end: float) -> float:
+    return sum(e - s for s, e, r in _segments(rows, start, end) if r["on"])
+
+
+def hours_per_day(
+    days: int = 14, now: Optional[datetime] = None, tz: Optional[tzinfo] = None
+) -> list[dict]:
+    now = _local(now, tz)
     starts = _day_starts(days, now)
-    start, end = starts[0].timestamp(), now.timestamp()
+    edges = [d.timestamp() for d in starts] + [now.timestamp()]
     conn = connect()
     try:
-        rows = _samples_between(conn, start, end)
+        rows = _samples_between(conn, edges[0], edges[-1])
     finally:
         conn.close()
-    buckets = _on_seconds_per_bucket(rows, start, end, 86400)
     return [
-        {"date": d.strftime("%Y-%m-%d"), "hours": buckets.get(i, 0.0) / 3600}
+        {"date": d.strftime("%Y-%m-%d"), "hours": _on_seconds(rows, edges[i], edges[i + 1]) / 3600}
         for i, d in enumerate(starts)
     ]
 
 
-def commands_by_source(days: int = 7, now: Optional[datetime] = None) -> list[dict]:
-    now = _utc(now)
+def commands_by_source(
+    days: int = 7, now: Optional[datetime] = None, tz: Optional[tzinfo] = None
+) -> list[dict]:
+    now = _local(now, tz)
     starts = _day_starts(days, now)
     out = [
         {"date": d.strftime("%Y-%m-%d"), **{s: 0 for s in ("cli", "web", "mcp", "rules")}}
@@ -250,16 +266,19 @@ def commands_by_source(days: int = 7, now: Optional[datetime] = None) -> list[di
         ).fetchall()
     finally:
         conn.close()
-    first = starts[0].timestamp()
+    edges = [d.timestamp() for d in starts]
     for r in rows:
-        idx = int((r["ts"] - first) // 86400)
+        idx = bisect_right(edges, r["ts"]) - 1
         if 0 <= idx < days:
             out[idx][r["source"]] += 1
     return out
 
 
-def day_samples(hours: int = 24, now: Optional[datetime] = None) -> list[dict]:
+def day_samples(
+    hours: int = 24, now: Optional[datetime] = None, tz: Optional[tzinfo] = None
+) -> list[dict]:
     now = _utc(now)
+    zone = tz or timezone.utc
     end = now.timestamp()
     start = end - hours * 3600
     conn = connect()
@@ -273,7 +292,7 @@ def day_samples(hours: int = 24, now: Optional[datetime] = None) -> list[dict]:
         conn.close()
 
     def iso(t: float) -> str:
-        return datetime.fromtimestamp(t, timezone.utc).isoformat()
+        return datetime.fromtimestamp(t, zone).isoformat()
 
     out: list[dict] = []
     prev: Optional[float] = None
@@ -299,9 +318,11 @@ def day_samples(hours: int = 24, now: Optional[datetime] = None) -> list[dict]:
     return out
 
 
-def heatmap(days: int = 28, now: Optional[datetime] = None) -> list[dict]:
+def heatmap(
+    days: int = 28, now: Optional[datetime] = None, tz: Optional[tzinfo] = None
+) -> list[dict]:
     """Average minutes on per (weekday, hour), averaged over the calendar days in the window."""
-    now = _utc(now)
+    now = _local(now, tz)
     starts = _day_starts(days, now)
     start, end = starts[0].timestamp(), now.timestamp()
     conn = connect()
@@ -312,7 +333,7 @@ def heatmap(days: int = 28, now: Optional[datetime] = None) -> list[dict]:
     hourly = _on_seconds_per_bucket(rows, start, end, 3600)
     totals: dict[tuple[int, int], float] = {}
     for b, secs in hourly.items():
-        dt = datetime.fromtimestamp(start + b * 3600, timezone.utc)
+        dt = datetime.fromtimestamp(start + b * 3600, now.tzinfo)
         key = (dt.weekday(), dt.hour)
         totals[key] = totals.get(key, 0.0) + secs
     occurrences = [sum(1 for d in starts if d.weekday() == w) for w in range(7)]
@@ -341,13 +362,13 @@ def _on_hours_since(start: datetime, now: datetime) -> float:
     )
 
 
-def on_today_h(now: Optional[datetime] = None) -> float:
-    now = _utc(now)
+def on_today_h(now: Optional[datetime] = None, tz: Optional[tzinfo] = None) -> float:
+    now = _local(now, tz)
     return _on_hours_since(_midnight(now), now)
 
 
-def on_week_h(now: Optional[datetime] = None) -> float:
-    now = _utc(now)
+def on_week_h(now: Optional[datetime] = None, tz: Optional[tzinfo] = None) -> float:
+    now = _local(now, tz)
     return _on_hours_since(_midnight(now) - timedelta(days=6), now)
 
 
@@ -367,17 +388,19 @@ def _count_commands(now: datetime, sources: tuple) -> int:
         conn.close()
 
 
-def commands_7d(now: Optional[datetime] = None) -> int:
-    return _count_commands(_utc(now), SOURCES)
+def commands_7d(now: Optional[datetime] = None, tz: Optional[tzinfo] = None) -> int:
+    return _count_commands(_local(now, tz), SOURCES)
 
 
-def agent_commands_7d(now: Optional[datetime] = None) -> int:
-    return _count_commands(_utc(now), AGENT_SOURCES)
+def agent_commands_7d(now: Optional[datetime] = None, tz: Optional[tzinfo] = None) -> int:
+    return _count_commands(_local(now, tz), AGENT_SOURCES)
 
 
-def avg_brightness_today(now: Optional[datetime] = None) -> Optional[float]:
+def avg_brightness_today(
+    now: Optional[datetime] = None, tz: Optional[tzinfo] = None
+) -> Optional[float]:
     """Time-weighted average brightness while on today; None if never on."""
-    now = _utc(now)
+    now = _local(now, tz)
     start, end = _midnight(now).timestamp(), now.timestamp()
     conn = connect()
     try:
