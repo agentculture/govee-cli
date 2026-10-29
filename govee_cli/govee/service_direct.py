@@ -307,7 +307,7 @@ class DirectBackend:
             raise CliError(
                 EXIT_USER_ERROR,
                 f"unknown scene {name!r} for {dev.name}",
-                f"pick one of: {known} (list them with `govee scene list`)",
+                f"pick one of: {known} (list them with `govee light scenes`)",
             )
         commands = [cloud_mod.scene_command(match)]
         cli = cli_for_scene(match.name, device)

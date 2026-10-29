@@ -75,6 +75,9 @@ jobs:
           markdownlint-cli2 "**/*.md" "#node_modules" "#.local" "#.claude/skills" "#.teken"
 
       - name: afi rubric gate
+        # govee doctor scans the LAN for lamps by default; never sweep a CI runner's network
+        env:
+          GOVEE_DOCTOR_NO_SCAN: "1"
         run: uv run teken cli doctor . --strict
 
   harness-smoke:
