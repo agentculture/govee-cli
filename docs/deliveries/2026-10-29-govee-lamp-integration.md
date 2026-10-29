@@ -62,7 +62,7 @@ Quoted verbatim from the `devague summary` skeleton:
 ## Mid-work Decisions
 
 The deviations below are quoted from their records. The user approved
-`d1`–`d31` on 2026-10-30; `d32` is proposed.
+`d1`–`d32` on 2026-10-30.
 
 - `d3` (approved) — while serve runs, every lamp operation goes through it,
   so only serve holds the key and UDP 4002. The reason: the culture-rules
@@ -96,7 +96,7 @@ The deviations below are quoted from their records. The user approved
     offline, doctor failing while serve runs). Finding 8 (https Origin) is
     already covered by `d20`.
   - `d31`: serve ignores repeat signals during shutdown (found live).
-  - `d32` (proposed): with the user at the lamp, brightness fades stay
+  - `d32`: with the user at the lamp, brightness fades stay
     linear, colour and temperature ease in and out on a sine, and the
     default on/off fade is 5 s instead of 1.5 s.
 - **The main agent mislabelled ids, without a record at the time.** In its
@@ -123,7 +123,7 @@ The deviations below are quoted from their records. The user approved
 | `t14` (`d26`) | The user-only checks were moved to post-merge follow-ups. The agent has no phone and cannot see the lamp, and access to the user's culture-rules token was refused. /assess: `defer_to_gate3` 0.824. | needs-follow-up |
 | `t7` / `t9` / `t8` (`d28`–`d30`) | Code review on PR #3 found concurrency and correctness defects in the delivered fades, MCP server, discovery cache, stats and doctor. | acceptable |
 | `t14` (`d31`) | The live re-test found serve crashing on a second SIGTERM during shutdown. | acceptable |
-| `t14` (`d32`, proposed) | The user found fades rough at the lamp; linear brightness won an A/B, colour and temperature got sine easing, and the default on/off fade went from 1.5 s to 5 s. | acceptable |
+| `t14` (`d32`) | The user found fades rough at the lamp; linear brightness won an A/B, colour and temperature got sine easing, and the default on/off fade went from 1.5 s to 5 s. | acceptable |
 | `t14` (`d22`) | A fade-out leaves the lamp off at brightness 1. The Govee app or the button then light it at 1 %; govee itself restores the level. | needs-follow-up |
 
 ## Evidence
@@ -187,7 +187,7 @@ have since been fixed.
   - A visual check of whether the firmware smooths instant changes.
   - `govee rules actor > /tmp/a.json`, then
     `culture-rules actors create --body @/tmp/a.json` as a dry run.
-- Adjudication — confirm or reject `d32`, lapses `l1`–`l6`, evidence
+- Adjudication — confirm or reject lapses `l1`–`l6`, evidence
   `e1`–`e26` and deltas `b1`–`b17` (`b14`–`b17` were filed once `d28`–`d31`
   were approved).
   Owner: the user, at gate 3.

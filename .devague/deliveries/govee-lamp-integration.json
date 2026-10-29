@@ -2,7 +2,7 @@
   "plan_slug": "govee-lamp-integration",
   "schema_version": 2,
   "created": "2026-10-29T06:46:31Z",
-  "updated": "2026-10-29T23:34:30Z",
+  "updated": "2026-10-29T23:56:46Z",
   "deviations": [
     {
       "id": "d1",
@@ -428,7 +428,7 @@
       "reason": "user watched fades at the real H6076: 0.11.0 'could be more smooth'; A/B of linear, sine and sine-on-gamma at 5 s ('very smooth (but fast)') and 10 s ('far better'); sine+gamma through the CLI at 1.5-5 s 'not smooth'; user: 'linear was best', the gamma curve 'was jumpy', and asked for 'smooth temp, and linear power'. /assess: duration was the main factor P=0.836; default 3 s 0.554 vs 5 s 0.298 - 5 s chosen because the user called 5 s fast and 10 s far better; 75 ms ticks P(reliable)=0.199",
       "affects": [],
       "origin": "llm",
-      "status": "proposed",
+      "status": "approved",
       "classification": "acceptable",
       "seq": 58
     }
