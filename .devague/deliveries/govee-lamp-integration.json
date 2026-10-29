@@ -2,7 +2,7 @@
   "plan_slug": "govee-lamp-integration",
   "schema_version": 2,
   "created": "2026-10-29T06:46:31Z",
-  "updated": "2026-10-29T08:01:31Z",
+  "updated": "2026-10-29T08:04:21Z",
   "deviations": [
     {
       "id": "d1",
@@ -312,7 +312,567 @@
       "seq": 23
     }
   ],
-  "evidence": [],
-  "deltas": [],
+  "evidence": [
+    {
+      "id": "e1",
+      "obligation_ref": "o1",
+      "test_ref": "tests/test_boundaries.py::test_runtime_dependencies_stay_empty; ::test_every_import_is_stdlib_or_first_party",
+      "behavior_text": "asserts pyproject dependencies == [] and every import in govee_cli/ is stdlib or govee_cli (AST walk)",
+      "contract_text": "pyproject.toml dependencies stays [] after the change; transports import only stdlib",
+      "evidence_type": "automated",
+      "strength": "execution",
+      "strength_basis": "ran green at the named commit; written in t13 against existing code, never observed red, so not claimed as sensitivity",
+      "outcome": "pass",
+      "run": {
+        "timestamp": "2026-10-29T08:02:28Z",
+        "commit": "ef5689d"
+      },
+      "origin": "llm",
+      "status": "proposed",
+      "superseded": false,
+      "seq": 24
+    },
+    {
+      "id": "e2",
+      "obligation_ref": "o2",
+      "test_ref": "teken cli doctor . --strict (GOVEE_DOCTOR_NO_SCAN=1) + tests/test_cli_introspection.py explain-walk",
+      "behavior_text": "rubric passes 26/26 and a test walks the parser asserting every verb path has an explain entry",
+      "contract_text": "teken cli doctor . --strict passes and every new verb has an explain catalog entry",
+      "evidence_type": "integration",
+      "strength": "execution",
+      "strength_basis": "teken strict exit 0 and introspection tests green at the named commit",
+      "outcome": "pass",
+      "run": {
+        "timestamp": "2026-10-29T08:02:28Z",
+        "commit": "ef5689d"
+      },
+      "origin": "llm",
+      "status": "proposed",
+      "superseded": false,
+      "seq": 25
+    },
+    {
+      "id": "e3",
+      "obligation_ref": "o3",
+      "test_ref": "tests/test_lamp_service.py::test_dry_run_sends_nothing_and_returns_plan, ::test_apply_sends_exactly_the_previewed_commands; tests/test_mcp_server.py::test_dry_run_then_apply; tests/test_web_server.py (dry run vs apply)",
+      "behavior_text": "with a recording FakeTransport a dry run records no send; apply sends exactly the planned commands, via service, MCP and web",
+      "contract_text": "Without --apply (CLI) / apply:true (MCP, web) no packet or HTTPS write leaves the host - asserted with a fake transport that records sends",
+      "evidence_type": "automated",
+      "strength": "execution",
+      "strength_basis": "ran green at the named commit; seam is govee_cli/govee/service.py (the obligation's core.py name predates the build)",
+      "outcome": "pass",
+      "run": {
+        "timestamp": "2026-10-29T08:02:28Z",
+        "commit": "ef5689d"
+      },
+      "origin": "llm",
+      "status": "proposed",
+      "superseded": false,
+      "seq": 26
+    },
+    {
+      "id": "e4",
+      "obligation_ref": "o4",
+      "test_ref": "python3 scripts/scan-secrets.py; tests/test_cloud_transport.py (key only from env, key never in errors/repr/logs)",
+      "behavior_text": "scanner clean on 168 tracked files; cloud key read from os.environ on each request and absent from every exception, repr and log record",
+      "contract_text": "scripts/scan-secrets.py passes; GOVEE_API_KEY is only read from the environment",
+      "evidence_type": "automated",
+      "strength": "execution",
+      "strength_basis": "scanner exit 0 and 56 tests green at the named commit; seam is govee_cli/govee/cloud.py",
+      "outcome": "pass",
+      "run": {
+        "timestamp": "2026-10-29T08:02:28Z",
+        "commit": "ef5689d"
+      },
+      "origin": "llm",
+      "status": "proposed",
+      "superseded": false,
+      "seq": 27
+    },
+    {
+      "id": "e5",
+      "obligation_ref": "o5",
+      "test_ref": "tests/test_stats_store.py db_path tests (3)",
+      "behavior_text": "db_path resolves under XDG_STATE_HOME, defaults to ~/.local/state/govee-cli/stats.db, never inside the repo",
+      "contract_text": "Stats DB path resolves under XDG_STATE_HOME (default ~/.local/state/govee-cli/), never inside the repo",
+      "evidence_type": "automated",
+      "strength": "execution",
+      "strength_basis": "ran green at the named commit",
+      "outcome": "pass",
+      "run": {
+        "timestamp": "2026-10-29T08:02:28Z",
+        "commit": "ef5689d"
+      },
+      "origin": "llm",
+      "status": "proposed",
+      "superseded": false,
+      "seq": 28
+    },
+    {
+      "id": "e6",
+      "obligation_ref": "o6",
+      "test_ref": "tests/test_cli_light.py, test_cli_token_stats.py, test_cli_serve_mcp.py, test_cli_doctor_lan.py, test_cli_introspection.py",
+      "behavior_text": "every verb (devices, light *, stats, token *, serve, mcp serve) exists, supports --json and keeps the stdout/stderr split",
+      "contract_text": "Each listed verb exists in govee --help and has a test",
+      "evidence_type": "automated",
+      "strength": "execution",
+      "strength_basis": "100 CLI tests green at the named commit",
+      "outcome": "pass",
+      "run": {
+        "timestamp": "2026-10-29T08:02:28Z",
+        "commit": "ef5689d"
+      },
+      "origin": "llm",
+      "status": "proposed",
+      "superseded": false,
+      "seq": 29
+    },
+    {
+      "id": "e7",
+      "obligation_ref": "o7",
+      "test_ref": "tests/test_web_server.py::test_reads_without_token_are_401, ::test_writes_without_token_are_401, ::test_invalid_token_is_401, ::test_token_file_is_0600; tests/test_tokens.py::test_file_mode_0600_and_dir_0700",
+      "behavior_text": "every /api route except /api/health returns 401 without a valid bearer token (reads and writes); token file 0600, dir 0700",
+      "contract_text": "c20 as amended by the user's q2 answer: every endpoint, reads included, needs a token; token file 0600",
+      "evidence_type": "automated",
+      "strength": "execution",
+      "strength_basis": "ran green at the named commit; obligation text predates the c20 amendment (drift marker), evidence checks the amended claim",
+      "outcome": "pass",
+      "run": {
+        "timestamp": "2026-10-29T08:02:28Z",
+        "commit": "ef5689d"
+      },
+      "origin": "llm",
+      "status": "proposed",
+      "superseded": false,
+      "seq": 30
+    },
+    {
+      "id": "e8",
+      "obligation_ref": "o8",
+      "test_ref": "tests/test_web_static.py; tests/test_web_server.py stats tests; tests/test_stats_store.py chart queries",
+      "behavior_text": "chart query functions return the four series from sqlite rows; /api/stats serves them; the console has an empty state per chart",
+      "contract_text": "Each of the four charts renders from real sqlite rows, with an empty state when there is no data",
+      "evidence_type": "automated",
+      "strength": "coverage",
+      "strength_basis": "queries and API are asserted, but chart RENDERING is only checked by static tests and t3's Playwright observation against a fake API; no automated render assertion, so coverage only",
+      "outcome": "pass",
+      "run": {
+        "timestamp": "2026-10-29T08:02:28Z",
+        "commit": "ef5689d"
+      },
+      "origin": "llm",
+      "status": "proposed",
+      "superseded": false,
+      "seq": 31
+    },
+    {
+      "id": "e9",
+      "obligation_ref": "o9",
+      "test_ref": "tests/test_mcp_server.py::test_subprocess_dry_run_then_apply (+17 in-process)",
+      "behavior_text": "over a subprocess stdio pipe: initialize, set_light dry run leaves the fake lamp off, set_light apply turns it on, events logged source mcp with the clientInfo actor",
+      "contract_text": "MCP integration test drives tools/list + tools/call over stdio against a fake transport",
+      "evidence_type": "integration",
+      "strength": "execution",
+      "strength_basis": "ran green at the named commit",
+      "outcome": "pass",
+      "run": {
+        "timestamp": "2026-10-29T08:02:28Z",
+        "commit": "ef5689d"
+      },
+      "origin": "llm",
+      "status": "proposed",
+      "superseded": false,
+      "seq": 32
+    },
+    {
+      "id": "e10",
+      "obligation_ref": "o10",
+      "test_ref": "tests/test_integration_artifacts.py",
+      "behavior_text": "actor JSON is kind runner with 8 commands (6 planned + lamp_fade_on/off per d11), argv absolute govee ending --apply --json, no interpreter",
+      "contract_text": "The definition passes 'culture-rules actors create --json' dry run; no argv entry is a shell/interpreter",
+      "evidence_type": "automated",
+      "strength": "execution",
+      "strength_basis": "shape tests green at the named commit; the culture-rules dry-run create itself was NOT run (needs the user's token) - see lapse l3",
+      "outcome": "pass",
+      "run": {
+        "timestamp": "2026-10-29T08:02:28Z",
+        "commit": "ef5689d"
+      },
+      "origin": "llm",
+      "status": "proposed",
+      "superseded": false,
+      "seq": 33
+    },
+    {
+      "id": "e11",
+      "obligation_ref": "o11",
+      "test_ref": "Playwright (playwright MCP) against the real govee_cli/web/server.py + static console + a fake lamp on 127.0.0.1 (scratchpad e2e/fake_serve.py)",
+      "behavior_text": "custom colour 'input' set --lamp-css #2244EE with 0 requests; 'change' sent one POST /api/light dry run; bulb y identical with the preview note shown/hidden in every pane combination at 1280 px (132) and 390 px (170.813)",
+      "contract_text": "dispatching 'input' on the custom color picker changes the lamp visual's color without sending a command, 'change' commits it, and the bulb's bounding box is identical with the preview note shown and hidden",
+      "evidence_type": "integration",
+      "strength": "sensitivity",
+      "strength_basis": "the same check FAILED first on the pre-fix layout (bulb y 162.95 -> 140.69 when the Color/White pane switched); fixed in 62cffe6 and re-run green, so the check is shown to catch the regression",
+      "outcome": "pass",
+      "run": {
+        "timestamp": "2026-10-29T07:50:00Z",
+        "commit": "62cffe6"
+      },
+      "origin": "llm",
+      "status": "proposed",
+      "superseded": false,
+      "seq": 34
+    },
+    {
+      "id": "e12",
+      "obligation_ref": "o12",
+      "test_ref": "tests/test_lan_transport.py::test_port_busy_raises_typed_error, ::test_listener_does_not_share_port_with_reuseaddr_holder; tests/test_lamp_service.py::test_port_busy_without_serve_exits_2, ::test_routes_apply_through_serve_with_headers",
+      "behavior_text": "a held 4002 raises PortBusy -> CliError exit 2 with the port-in-use message; with serve reachable every operation routes through it and no local transport is touched",
+      "contract_text": "With a fake serve holding 4002, a CLI LAN call goes through the loopback API; with 4002 held by a foreign socket and no serve, the CLI exits 2 with the port-in-use message",
+      "evidence_type": "automated",
+      "strength": "execution",
+      "strength_basis": "ran green at the named commit; seams are govee/lan.py and govee/service_serve.py",
+      "outcome": "pass",
+      "run": {
+        "timestamp": "2026-10-29T08:02:28Z",
+        "commit": "ef5689d"
+      },
+      "origin": "llm",
+      "status": "proposed",
+      "superseded": false,
+      "seq": 35
+    },
+    {
+      "id": "e13",
+      "obligation_ref": "o12",
+      "test_ref": "live: govee serve on 127.0.0.1:8742 + 'govee light state' with a saved client token, real H6076",
+      "behavior_text": "the CLI routed through serve (0.25 s) instead of binding 4002 itself",
+      "contract_text": "CLI LAN calls go through serve's loopback API while serve runs",
+      "evidence_type": "observation",
+      "strength": "execution",
+      "strength_basis": "observed on the real lamp; recorded in docs/live-test-results/2026-10-29-h6076.md",
+      "outcome": "pass",
+      "run": {
+        "timestamp": "2026-10-29T07:56:00Z",
+        "commit": "5460508"
+      },
+      "origin": "llm",
+      "status": "proposed",
+      "superseded": false,
+      "seq": 36
+    },
+    {
+      "id": "e14",
+      "obligation_ref": "o13",
+      "test_ref": "tests/test_lamp_service.py::test_lamp_that_applies_is_confirmed, ::test_lamp_that_drops_the_packet_is_unconfirmed, ::test_verification_gives_up_within_three_seconds",
+      "behavior_text": "an applied LAN write is logged sent, then confirmed when a state read matches or unconfirmed when the fake drops it, within 3 s",
+      "contract_text": "A fake LAN device that drops the packet yields an event logged 'unconfirmed'; one that applies it yields 'confirmed'",
+      "evidence_type": "automated",
+      "strength": "execution",
+      "strength_basis": "ran green at the named commit; seam is govee/service_direct.py",
+      "outcome": "pass",
+      "run": {
+        "timestamp": "2026-10-29T08:02:28Z",
+        "commit": "ef5689d"
+      },
+      "origin": "llm",
+      "status": "proposed",
+      "superseded": false,
+      "seq": 37
+    },
+    {
+      "id": "e15",
+      "obligation_ref": "o13",
+      "test_ref": "live: 14 applied LAN writes on the real H6076 (CLI and web API)",
+      "behavior_text": "every applied write came back confirmed against the lamp's own devStatus report",
+      "contract_text": "applied LAN writes move from sent to confirmed/unconfirmed based on a devStatus read",
+      "evidence_type": "observation",
+      "strength": "execution",
+      "strength_basis": "observed on the real lamp; only the confirmed path was exercised live (no dropped packet occurred), unconfirmed is covered by the automated test only",
+      "outcome": "pass",
+      "run": {
+        "timestamp": "2026-10-29T07:56:00Z",
+        "commit": "5460508"
+      },
+      "origin": "llm",
+      "status": "proposed",
+      "superseded": false,
+      "seq": 38
+    },
+    {
+      "id": "e16",
+      "obligation_ref": "o14",
+      "test_ref": "tests/test_lan_transport.py interface tests; tests/test_cli_doctor_lan.py; live interface_info()",
+      "behavior_text": "interface from argument/env/default route sets IP_MULTICAST_IF; doctor reports lan-interface and lan-discovery with methods_tried and remediation; live default route picked the home Wi-Fi IP",
+      "contract_text": "govee doctor --json lists the interface used and a lan-discovery check with remediation when no device replies",
+      "evidence_type": "automated",
+      "strength": "execution",
+      "strength_basis": "ran green at the named commit; live check: multicast itself never got a reply from the lamp on this Wi-Fi (d15 fallback covers it)",
+      "outcome": "pass",
+      "run": {
+        "timestamp": "2026-10-29T08:02:28Z",
+        "commit": "ef5689d"
+      },
+      "origin": "llm",
+      "status": "proposed",
+      "superseded": false,
+      "seq": 39
+    },
+    {
+      "id": "e17",
+      "obligation_ref": "o15",
+      "test_ref": "tests/test_web_server.py::test_write_with_wrong_or_missing_origin_is_403[*], ::test_oversize_body_is_413_without_reading_it, ::test_rotate_revokes_all_tokens_and_prints_fresh_link, access-log tests; tests/test_tokens.py::test_pairing_link_puts_secret_in_fragment_only",
+      "behavior_text": "403 on missing/wrong Origin, 413 before reading >16 KiB, rotate invalidates all tokens and prints a #fragment link, token never in the access log",
+      "contract_text": "The four web tests (401 no token, 403 wrong Origin, 401 after rotate, 413 oversize) pass; server access log never contains the token",
+      "evidence_type": "automated",
+      "strength": "execution",
+      "strength_basis": "ran green at the named commit; live: token appeared in 0 of 16 access-log lines and a revoked token got 401 on its next request",
+      "outcome": "pass",
+      "run": {
+        "timestamp": "2026-10-29T08:02:28Z",
+        "commit": "ef5689d"
+      },
+      "origin": "llm",
+      "status": "proposed",
+      "superseded": false,
+      "seq": 40
+    },
+    {
+      "id": "e18",
+      "obligation_ref": "o16",
+      "test_ref": "tests/test_stats_store.py::test_connection_pragmas_and_schema, ::test_two_processes_write_5s_no_lock_error, ::test_concurrent_first_connect_never_raises_locked",
+      "behavior_text": "every connection has WAL, busy_timeout 5000 and schema_version; two processes write 5 s and eight threads open a fresh DB at once with no 'database is locked'",
+      "contract_text": "Two processes writing events concurrently for 5 s produce no 'database is locked' error; PRAGMA journal_mode returns wal",
+      "evidence_type": "automated",
+      "strength": "sensitivity",
+      "strength_basis": "test_concurrent_first_connect_never_raises_locked failed 3/3 before the retry fix (115ea44) and passes after, so it catches the WAL-switch race",
+      "outcome": "pass",
+      "run": {
+        "timestamp": "2026-10-29T08:02:28Z",
+        "commit": "ef5689d"
+      },
+      "origin": "llm",
+      "status": "proposed",
+      "superseded": false,
+      "seq": 41
+    },
+    {
+      "id": "e19",
+      "obligation_ref": "o17",
+      "test_ref": "tests/test_integration_artifacts.py; docs/culture-rules/README.md",
+      "behavior_text": "machine spark, absolute argv[0], every command passes --source rules; README documents that scenes need the key in serve's env (route via serve, d4)",
+      "contract_text": "The actor JSON has machine 'spark', every argv[0] is absolute, and no argv is a shell or interpreter",
+      "evidence_type": "automated",
+      "strength": "execution",
+      "strength_basis": "shape tests green at the named commit; the README's key-injection guidance changed from grant injection to routing through serve (runner env has only PATH and LANG)",
+      "outcome": "pass",
+      "run": {
+        "timestamp": "2026-10-29T08:02:28Z",
+        "commit": "ef5689d"
+      },
+      "origin": "llm",
+      "status": "proposed",
+      "superseded": false,
+      "seq": 42
+    },
+    {
+      "id": "e20",
+      "obligation_ref": "o18",
+      "test_ref": "tests/test_cloud_transport.py 429 tests; tests/test_lamp_service.py rate-limit mapping; tests/test_poller.py::test_cloud_only_interval_300 and the 300 s floor",
+      "behavior_text": "429 raises RateLimited with the parsed reset time, mapped to CliError exit 2 naming the reset; serve's cloud-only poll interval is clamped to >= 300 s",
+      "contract_text": "A fake cloud returning 429 with reset headers makes the CLI exit 2 and print the reset time; serve's cloud-only poll interval is >= 300 s",
+      "evidence_type": "automated",
+      "strength": "execution",
+      "strength_basis": "ran green at the named commit; the real cloud API was not exercised (no GOVEE_API_KEY), header names are unverified (risk r2)",
+      "outcome": "pass",
+      "run": {
+        "timestamp": "2026-10-29T08:02:28Z",
+        "commit": "ef5689d"
+      },
+      "origin": "llm",
+      "status": "proposed",
+      "superseded": false,
+      "seq": 43
+    },
+    {
+      "id": "e21",
+      "obligation_ref": "o19",
+      "test_ref": "systemd-analyze verify --user docs/systemd/govee-serve.service; tests/test_stats_store.py gap tests; tests/test_poller.py stopped/unreachable tests",
+      "behavior_text": "unit verifies with govee installed; serve downtime and unreachable reads produce gap entries, never 'off' samples",
+      "contract_text": "systemd-analyze verify passes on the shipped unit; a stats chart over a serve outage shows a gap, not 'off'",
+      "evidence_type": "integration",
+      "strength": "execution",
+      "strength_basis": "systemd-analyze exit 0 after 'uv tool install' of 0.11.0 (resolves d3); gap behaviour asserted by tests green at ef5689d",
+      "outcome": "pass",
+      "run": {
+        "timestamp": "2026-10-29T07:55:00Z",
+        "commit": "5460508"
+      },
+      "origin": "llm",
+      "status": "proposed",
+      "superseded": false,
+      "seq": 44
+    }
+  ],
+  "deltas": [
+    {
+      "id": "b1",
+      "kind": "added",
+      "behavior_text": "Fades: on/off fade by default (GOVEE_FADE_DEFAULT 1.5 s), --fade/fade_seconds 0-3600 cross-fades brightness, colour and temperature over LAN in >=150 ms steps; serve runs fades in the background and a newer command cancels them (live: 5 s ramp in 33 steps confirmed; 6 s background fade cancelled at 34 %)",
+      "caused_by": [
+        "d11",
+        "tests/test_fade.py (41 tests)"
+      ],
+      "evidence_refs": [],
+      "origin": "llm",
+      "status": "proposed",
+      "superseded": false
+    },
+    {
+      "id": "b2",
+      "kind": "amended",
+      "behavior_text": "When govee serve runs, every lamp operation (LAN and cloud) routes through it with a client token (GOVEE_TOKEN or the 0600 file 'govee token new --save' writes); only serve holds UDP 4002 and GOVEE_API_KEY",
+      "caused_by": [
+        "d4",
+        "c39"
+      ],
+      "evidence_refs": [
+        "e11",
+        "e12"
+      ],
+      "origin": "llm",
+      "status": "proposed",
+      "superseded": false
+    },
+    {
+      "id": "b3",
+      "kind": "amended",
+      "behavior_text": "Web console dry-run previews are not logged; CLI, MCP and rules dry runs and every applied write are",
+      "caused_by": [
+        "d7"
+      ],
+      "evidence_refs": [
+        "e3"
+      ],
+      "origin": "llm",
+      "status": "proposed",
+      "superseded": false
+    },
+    {
+      "id": "b4",
+      "kind": "amended",
+      "behavior_text": "Stats bucket days and hours in the server's local timezone (DST-correct local midnights)",
+      "caused_by": [
+        "d5"
+      ],
+      "evidence_refs": [],
+      "origin": "llm",
+      "status": "proposed",
+      "superseded": false
+    },
+    {
+      "id": "b5",
+      "kind": "added",
+      "behavior_text": "LAN discovery tries the cached last address per device id and GOVEE_LAN_HOSTS with the multicast scan, sweeps the /24 when nothing answers, and returns 0.3 s after every expected address replied (live: multicast never answered; sweep found the lamp in 6.0 s, cache in 0.64 s)",
+      "caused_by": [
+        "deviation d15 (proposed)",
+        "deviation d23 (proposed)"
+      ],
+      "evidence_refs": [
+        "e15"
+      ],
+      "origin": "llm",
+      "status": "proposed",
+      "superseded": false
+    },
+    {
+      "id": "b6",
+      "kind": "added",
+      "behavior_text": "Named, hashed, revocable client tokens: govee token new [--save] / list / revoke; every /api route except /api/health needs one, reads included",
+      "caused_by": [
+        "c39",
+        "c20"
+      ],
+      "evidence_refs": [
+        "e7",
+        "e16"
+      ],
+      "origin": "llm",
+      "status": "proposed",
+      "superseded": false
+    },
+    {
+      "id": "b7",
+      "kind": "added",
+      "behavior_text": "MCP tools get_fade and cancel_fade beyond the five planned tools",
+      "caused_by": [
+        "deviation d18 (proposed)",
+        "d11"
+      ],
+      "evidence_refs": [
+        "e9"
+      ],
+      "origin": "llm",
+      "status": "proposed",
+      "superseded": false
+    },
+    {
+      "id": "b8",
+      "kind": "added",
+      "behavior_text": "Light writes take --source cli|rules; every culture-rules actor command passes --source rules so rule-driven changes show as Rules in stats; actor gains lamp_fade_on/lamp_fade_off",
+      "caused_by": [
+        "deviation d21 (proposed)",
+        "d11"
+      ],
+      "evidence_refs": [
+        "e10",
+        "e18"
+      ],
+      "origin": "llm",
+      "status": "proposed",
+      "superseded": false
+    },
+    {
+      "id": "b9",
+      "kind": "amended",
+      "behavior_text": "A fade-out leaves the lamp off at brightness 1 (a brightness command wakes an off H6076, verified live); any govee turn-on restores the remembered level, but the Govee app or the lamp's button turn it on at 1 %",
+      "caused_by": [
+        "deviation d22 (proposed)",
+        "d11"
+      ],
+      "evidence_refs": [],
+      "origin": "llm",
+      "status": "proposed",
+      "superseded": false
+    },
+    {
+      "id": "b10",
+      "kind": "added",
+      "behavior_text": "govee serve handles SIGTERM through the clean shutdown path (poller stopped, fades cancelled, 'govee serve stopped' logged)",
+      "caused_by": [
+        "deviation d23 (proposed)",
+        "d3"
+      ],
+      "evidence_refs": [],
+      "origin": "llm",
+      "status": "proposed",
+      "superseded": false
+    },
+    {
+      "id": "b11",
+      "kind": "amended",
+      "behavior_text": "govee doctor's four LAN/key/stats checks are warnings that never make healthy false; doctor --no-scan / GOVEE_DOCTOR_NO_SCAN skips the LAN scan (CI sets it)",
+      "caused_by": [
+        "deviation d19 (proposed)",
+        "c31"
+      ],
+      "evidence_refs": [
+        "e2",
+        "e15"
+      ],
+      "origin": "llm",
+      "status": "proposed",
+      "superseded": false
+    }
+  ],
   "supersessions": []
 }
