@@ -1,0 +1,755 @@
+{
+  "slug": "govee-lamp-integration",
+  "title": "govee lamp integration",
+  "frame_slug": "govee-lamp-integration",
+  "schema_version": 5,
+  "status": "exported",
+  "created": "2026-10-29T06:29:59Z",
+  "updated": "2026-10-29T06:38:04Z",
+  "targets": [
+    {
+      "id": "c1",
+      "kind": "announcement",
+      "text": "govee-cli controls our Govee lamp from the CLI, an MCP server agents and the culture mesh can connect to, and a local web console with usage statistics",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "h1",
+      "kind": "honesty",
+      "text": "One govee_cli core module is the only code path to the lamp; CLI, MCP and web handlers all call it (no duplicated transport code)",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "c2",
+      "kind": "requirement",
+      "text": "Govee transport clients (cloud Developer API over HTTPS, LAN API over UDP 4001/4002/4003) built on stdlib urllib/socket/json, since pyproject.toml has dependencies = [] and CLAUDE.md forbids third-party runtime deps",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "h2",
+      "kind": "honesty",
+      "text": "pyproject.toml dependencies stays [] after the change; transports import only stdlib",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "c3",
+      "kind": "requirement",
+      "text": "New noun groups (devices, light, stats, mcp, serve) register via cli/__init__.py::_build_parser like _commands/cli.py, raise CliError with exit 2 for unreachable device/missing key, and update learn, overview _VERBS and explain catalog together for teken cli doctor --strict",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "h3",
+      "kind": "honesty",
+      "text": "teken cli doctor . --strict passes and every new verb has an explain catalog entry",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "c4",
+      "kind": "requirement",
+      "text": "Mutating verbs (on/off/brightness/color/temp/scene) dry-run unless --apply, in CLI and MCP alike; every verb has --json",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "h4",
+      "kind": "honesty",
+      "text": "Without --apply (CLI) / apply:true (MCP, web) no packet or HTTPS write leaves the host \u2014 asserted with a fake transport that records sends",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "c5",
+      "kind": "boundary",
+      "text": "API key is read from env (GOVEE_API_KEY), never committed; device IPs/MACs never in committed JSON; scripts/scan-secrets.py stays green",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "h5",
+      "kind": "honesty",
+      "text": "scripts/scan-secrets.py passes; GOVEE_API_KEY is only read from the environment",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "c7",
+      "kind": "requirement",
+      "text": "Statistics: every applied command and periodic state poll is logged to a local sqlite3 store under XDG state dir (outside git); web console charts usage from it",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "h6",
+      "kind": "honesty",
+      "text": "Stats DB path resolves under XDG_STATE_HOME (default ~/.local/state/govee-cli/), never inside the repo",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "c9",
+      "kind": "requirement",
+      "text": "Same-PR update of AGENTS.override.md, AGENTS.colleague.md, QWEN.md alongside CLAUDE.md; version bump",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "h7",
+      "kind": "honesty",
+      "text": "AGENTS.override.md, AGENTS.colleague.md, QWEN.md are updated in the same PR and pyproject version is bumped",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "c14",
+      "kind": "audience",
+      "text": "Ori at home (CLI + phone browser on LAN/Tailscale) and AgentCulture agents \u2014 the govee-cli resident and any Claude-backed mesh agent \u2014 via MCP",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "h8",
+      "kind": "honesty",
+      "text": "Both audiences have a working entry point: a browser URL for Ori and an MCP tool list for agents",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "c15",
+      "kind": "before_state",
+      "text": "The repo is a template skeleton: no Govee code; the lamp is only controllable from the Govee Home phone app; agents cannot touch it; no usage history exists",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "h9",
+      "kind": "honesty",
+      "text": "git ls-files at 341ad19 contains no Govee transport code",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "c16",
+      "kind": "after_state",
+      "text": "'govee devices', 'govee light on|off|brightness|color|temp|scene --apply', 'govee stats', 'govee mcp serve' and 'govee serve' all drive the lamp through one core; the web console shows live state, controls and usage charts",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "h10",
+      "kind": "honesty",
+      "text": "Each listed verb exists in govee --help and has a test",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "c17",
+      "kind": "why_it_matters",
+      "text": "Agents can make the lamp an ambient signal for the mesh (and Ori gets a faster console than the app), while dry-run defaults and a write log keep agent actions safe and auditable",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "h11",
+      "kind": "honesty",
+      "text": "Every applied write records source (cli/mcp/web) and actor in the event log",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "c18",
+      "kind": "boundary",
+      "text": "No third-party runtime deps; no Govee account login/password flow (API key only); no BLE transport; no committed key, IP or MAC",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "h12",
+      "kind": "honesty",
+      "text": "No BLE, no account-password login, no third-party runtime import anywhere in govee_cli/",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "c20",
+      "kind": "requirement",
+      "text": "Every web console endpoint (reads and writes) requires a bearer token generated on first 'govee serve' and stored 0600 in the XDG config dir; an unpaired browser gets only the pairing screen; pairing hardening per c32",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "h13",
+      "kind": "honesty",
+      "text": "Write endpoint returns 401 without a valid token; token file mode is 0600",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "c21",
+      "kind": "requirement",
+      "text": "Stats views: on-time per day (bar), brightness/color-temp over time (line), commands by source cli/mcp/web/agent (bar), last-24h state timeline; data from sqlite events + state samples taken by 'govee serve' every 60s",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "h14",
+      "kind": "honesty",
+      "text": "Each of the four charts renders from real sqlite rows, with an empty state when there is no data",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "c22",
+      "kind": "success_signal",
+      "text": "From a phone on the LAN, toggling the lamp in the web console changes the physical lamp in < 2 s over LAN, and the action appears in stats within 60 s",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "h15",
+      "kind": "honesty",
+      "text": "Measured in a manual LAN test on the real lamp after the build",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "c23",
+      "kind": "success_signal",
+      "text": "A Claude agent with only .mcp.json can list devices and turn the lamp on in 2 tool calls (dry-run then apply); 100% of applied writes from cli/mcp/web land in the event log",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "h16",
+      "kind": "honesty",
+      "text": "MCP integration test drives tools/list + tools/call over stdio against a fake transport",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "c24",
+      "kind": "success_signal",
+      "text": "uv run pytest -n auto passes with coverage >= 60% using fake LAN/cloud transports (no lamp needed in CI); teken cli doctor --strict and scan-secrets stay green",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "h17",
+      "kind": "honesty",
+      "text": "CI run on the PR shows pytest, lint, teken doctor and scan-secrets green",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "c25",
+      "kind": "requirement",
+      "text": "govee-cli ships a culture-rules 'runner' actor definition (docs/culture-rules/govee-actor.json) registering argv commands lamp_on, lamp_off, lamp_brightness {pct}, lamp_color {hex}, lamp_temp {kelvin}, lamp_scene {name}, each 'govee light ... --apply --json'; it is imported with 'culture-rules actors import' (dry run unless --apply) by the user, not by govee-cli",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "h18",
+      "kind": "honesty",
+      "text": "The definition passes 'culture-rules actors create --json' dry run (the user runs it with their CULTURE_RULES_TOKEN); no argv entry is a shell/interpreter (inline_guard would refuse it)",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "c26",
+      "kind": "requirement",
+      "text": "Web console: the custom color picker previews the color on the lamp visual while it is still open (before selection); the color is committed or sent only on pick. Showing or hiding the dry-run preview note must not move the lamp visual (user feedback on prototype v1, 2026-10-29)",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "h19",
+      "kind": "honesty",
+      "text": "A Playwright check of the real console: dispatching 'input' on the custom color picker changes the lamp visual's color without sending a command, 'change' commits it, and the bulb's bounding box is identical with the preview note shown and hidden",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "c29",
+      "kind": "requirement",
+      "text": "One LAN listener per host: Govee devices reply to UDP 4002 regardless of source port, so while 'govee serve' runs, the CLI and MCP server send LAN reads/writes through serve's loopback API; without serve they bind 4002 themselves, and a busy port exits 2 with 'port 4002 is in use (govee serve or another Govee integration)'",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "h20",
+      "kind": "honesty",
+      "text": "With a fake serve holding 4002, a CLI LAN call goes through the loopback API; with 4002 held by a foreign socket and no serve, the CLI exits 2 with the port-in-use message",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "c30",
+      "kind": "requirement",
+      "text": "LAN writes are UDP with no acknowledgement, so an applied write is logged 'sent', then verified by a devStatus read within 3 s and updated to 'confirmed' or 'unconfirmed'; stats and the activity feed show the difference",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "h21",
+      "kind": "honesty",
+      "text": "A fake LAN device that drops the packet yields an event logged 'unconfirmed'; one that applies it yields 'confirmed'",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "c31",
+      "kind": "requirement",
+      "text": "LAN multicast is pinned to an interface (GOVEE_LAN_INTERFACE or --interface, default: the interface of the default route); 'govee doctor' reports the interface used, whether discovery got any reply, and the remediation list (enable LAN Control in Govee Home, allow inbound UDP 4002, pick another interface)",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "h22",
+      "kind": "honesty",
+      "text": "govee doctor --json lists the interface used and a lan-discovery check with remediation when no device replies",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "c32",
+      "kind": "requirement",
+      "text": "Web console token hardening: the pairing link carries the token in the URL fragment (#token=, never sent to the server or logged); the page moves it to localStorage and clears the hash; writes need the Authorization header (no cookie, so no CSRF) and a same-origin Origin header; comparison uses hmac.compare_digest; 'govee serve --rotate-token' invalidates every paired device; request bodies capped at 16 KiB",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "h23",
+      "kind": "honesty",
+      "text": "The four web tests (401 no token, 403 wrong Origin, 401 after rotate, 413 oversize) pass; server access log never contains the token",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "c33",
+      "kind": "requirement",
+      "text": "Stats store opens sqlite in WAL mode with busy_timeout 5000 ms because serve's poller, the CLI and the MCP server write concurrently; a schema_version table makes later migrations explicit",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "h24",
+      "kind": "honesty",
+      "text": "Two processes writing events concurrently for 5 s produce no 'database is locked' error; PRAGMA journal_mode returns wal",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "c34",
+      "kind": "requirement",
+      "text": "The culture-rules runner actor definition pins machine: spark (the host on the lamp's LAN) and uses the absolute path to the govee binary, because runner commands start with a minimal environment (culture_rules/actors/code.py docstring); LAN verbs need no key, and the scene command documents that GOVEE_API_KEY must be injected via grant or it exits 2",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "h25",
+      "kind": "honesty",
+      "text": "The actor JSON has machine 'spark', every argv[0] is absolute, and no argv is a shell or interpreter",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "c35",
+      "kind": "requirement",
+      "text": "Cloud usage stays far under the Developer API's daily cap (10,000 requests/key/day per community docs, unverified officially): state polling uses LAN; when only cloud is available serve polls every 5 min at most; HTTP 429 exits 2 with the reset time from the response headers",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "h26",
+      "kind": "honesty",
+      "text": "A fake cloud returning 429 with reset headers makes the CLI exit 2 and print the reset time; serve's cloud-only poll interval is >= 300 s",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "c36",
+      "kind": "requirement",
+      "text": "docs ship a systemd --user unit for 'govee serve' (restart on failure, EnvironmentFile for GOVEE_API_KEY outside the repo), since stats sampling only happens while serve runs; stats show gaps where serve was down instead of interpolating",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "h27",
+      "kind": "honesty",
+      "text": "systemd-analyze verify passes on the shipped unit; a stats chart over a serve outage shows a gap, not 'off'",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "c39",
+      "kind": "requirement",
+      "text": "The CLI rolls new tokens so agents can pair apps and MCP servers locally: 'govee token new --name <label>' mints a named token (printed once, plus a #token= pairing link), 'govee token list' shows names/created/last-used (never the secret), 'govee token revoke <name>' removes one; 'govee serve --rotate-token' still revokes all. Tokens are stored hashed in a 0600 file under the XDG config dir; the MCP server and CLI use a token (GOVEE_TOKEN or their own minted one) when routing through serve's loopback API (user requirement, 2026-10-29)",
+      "deferred": false,
+      "deferred_reason": ""
+    },
+    {
+      "id": "h28",
+      "kind": "honesty",
+      "text": "A token minted with 'govee token new' authenticates against serve's API, appears by name in 'token list' without its secret, and returns 401 immediately after 'token revoke'; the token file holds only hashes and has mode 0600",
+      "deferred": false,
+      "deferred_reason": ""
+    }
+  ],
+  "tasks": [
+    {
+      "id": "t1",
+      "summary": "Core types and a recording fake transport",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "govee_cli/govee/types.py defines frozen dataclasses Device, LampState, Command (verb, transport, payload) and a Transport Protocol (discover, get_state, send); kelvin_to_rgb(2000..9000) is tested at 2000/6500/9000",
+        "govee_cli/govee/fake.py FakeTransport records every send() and can be told to drop packets or return a scripted state; tests/test_govee_types.py passes",
+        "only stdlib imports"
+      ],
+      "deps": [],
+      "covers": [
+        "h1"
+      ],
+      "instruction": "Create the govee_cli/govee/ package. Keep the Transport Protocol minimal; LAN and cloud transports (t5, t6) and LampService (t7) build on it. No CLI wiring here."
+    },
+    {
+      "id": "t2",
+      "summary": "Stats store: sqlite in WAL with events, samples and chart queries",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "govee_cli/stats/store.py db_path() resolves under XDG_STATE_HOME, default ~/.local/state/govee-cli/stats.db, never inside the repo",
+        "every connection sets journal_mode=WAL and busy_timeout=5000 and creates a schema_version table; two processes writing for 5 s raise no 'database is locked'",
+        "tables events(ts, source cli|mcp|web|rules, actor, verb, payload, status dry_run|sent|confirmed|unconfirmed) and samples(ts, on, brightness, rgb, kelvin); query functions return hours-on per day, commands per day by source, 24h samples with gaps where no sample exists for > 3 min, and weekday x hour minutes-on"
+      ],
+      "deps": [],
+      "covers": [
+        "c7",
+        "h6",
+        "c33",
+        "h24"
+      ],
+      "instruction": "Stdlib sqlite3 only. tests/test_stats_store.py uses tmp_path and monkeypatched XDG_STATE_HOME. Gaps are data, never interpolated as 'off' (c36)."
+    },
+    {
+      "id": "t3",
+      "summary": "Web console static UI in embodiment design",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "govee_cli/web/static/{index.html,app.js,app.css} port docs/design/console-prototype.html (Lamp, Stats, Agents views) with sample data removed, fetching /api/state, /api/light, /api/scene, /api/stats, /api/events with an Authorization bearer token from localStorage",
+        "unpaired (no token or 401): only a pairing screen renders; a #token= fragment is stored and cleared from the URL",
+        "custom color input previews on the lamp visual without a request; change commits; the bulb's bounding box is identical with the preview note shown and hidden",
+        "each of the four charts renders an empty state when the API returns no rows; quiet-hours UI is absent; only ASCII in the files (escape non-ASCII)"
+      ],
+      "deps": [],
+      "covers": [
+        "c26",
+        "h19",
+        "c21",
+        "h14"
+      ],
+      "instruction": "Start from docs/design/console-prototype.html (embodiment tokens, validated CLI/Web/MCP palette #2a78d6/#eb6834/#7a4fc9 light, #3987e5/#d95926/#9572e0 dark). No CDN except Google Fonts Albert Sans with system fallback. Static files must ship in the wheel (they live under govee_cli/)."
+    },
+    {
+      "id": "t4",
+      "summary": "Integration artifacts: culture-rules actor, systemd unit, .mcp.json and MCP snippet doc",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "docs/culture-rules/govee-actor.json is an Actor of kind runner, machine spark, with commands lamp_on, lamp_off, lamp_brightness {pct}, lamp_color {hex}, lamp_temp {kelvin}, lamp_scene {name}; every argv[0] is an absolute path to govee, ends with --apply --json, and none is a shell or interpreter; tests/test_integration_artifacts.py checks this",
+        "docs/systemd/govee-serve.service (user unit, Restart=on-failure, EnvironmentFile outside the repo) passes systemd-analyze verify --user",
+        "a committed .mcp.json runs 'govee mcp serve'; docs/mcp.md has the snippet other agent repos add, the tool list and the dry-run rule; scan-secrets passes"
+      ],
+      "deps": [],
+      "covers": [
+        "c25",
+        "h18",
+        "c34",
+        "h25",
+        "c36",
+        "h27"
+      ],
+      "instruction": "Shape from ~/git/culture-rules/culture_rules/model/actor.py and culture_rules/actors/code.py (commands registry: argv, params, timeout). Document in docs/culture-rules/README.md how the user imports it (culture-rules actors import, dry run then --apply) and one example rule: CI failed -> lamp_color FF0000. No schedules in govee-cli."
+    },
+    {
+      "id": "t5",
+      "summary": "LAN transport: discovery, control and status over UDP",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "govee_cli/govee/lan.py implements Transport: scan multicasts {cmd:scan} to 239.255.255.250:4001 on the interface from GOVEE_LAN_INTERFACE / argument / default-route interface (IP_MULTICAST_IF), listens on 4002; send() emits turn/brightness/colorwc JSON to device:4003; get_state() sends devStatus and waits for the 4002 reply",
+        "binding 4002 when it is held raises a typed PortBusy error carrying the port-in-use message; tests use injected sockets / a fake device on 127.0.0.1 and never real multicast",
+        "only stdlib imports (socket, json, select)"
+      ],
+      "deps": [
+        "t1"
+      ],
+      "covers": [
+        "c2",
+        "c31",
+        "h22"
+      ],
+      "instruction": "devStatus target port is an open risk (4003 vs 4002): make it a module constant with a comment pointing at the plan risk, defaulting to 4003."
+    },
+    {
+      "id": "t6",
+      "summary": "Cloud transport: Govee Developer API over urllib",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "govee_cli/govee/cloud.py implements Transport plus scenes(device) and set_scene(); the key comes only from os.environ['GOVEE_API_KEY'] and is never logged, echoed or put in an error message",
+        "HTTP 429 raises a typed RateLimited error with the reset time parsed from response headers; missing key raises a typed MissingKey error; tests run against a local http.server fake, never the real API",
+        "the base URL lives in Python source (not committed JSON) so scan-secrets stays green"
+      ],
+      "deps": [
+        "t1"
+      ],
+      "covers": [
+        "c5",
+        "h5"
+      ],
+      "instruction": "Check developer.govee.com for the current endpoint family (router/api/v1 device/control with capability objects vs the older v1 appliance API) before coding; see plan risk. urllib.request only."
+    },
+    {
+      "id": "t7",
+      "summary": "LampService: one code path, dry run by default, verified writes, logged",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "govee_cli/govee/service.py LampService.apply(change, *, apply=False, source, actor) returns the planned Command list; with apply=False no Transport.send is called (FakeTransport proves it); with apply=True exactly the previewed commands are sent",
+        "LAN first, cloud fallback per command (scenes always cloud); an applied LAN write is logged 'sent' then verified with get_state within 3 s and updated to 'confirmed' or 'unconfirmed'; dry runs are logged 'dry_run'; every event carries source and actor",
+        "when a serve loopback endpoint is reachable (GOVEE_SERVE_URL, default http://127.0.0.1:<port>) with a token, LAN operations route through it; otherwise LAN is used directly and PortBusy maps to CliError exit 2 with the port-in-use message"
+      ],
+      "deps": [
+        "t1",
+        "t2",
+        "t5",
+        "t6",
+        "t15"
+      ],
+      "covers": [
+        "c1",
+        "h1",
+        "c4",
+        "h4",
+        "c17",
+        "h11",
+        "c30",
+        "h21",
+        "c29",
+        "h20"
+      ],
+      "instruction": "This is the only module that touches transports; CLI, MCP and web call LampService. Missing key / unreachable device / rate limit map to CliError(2, ..., remediation)."
+    },
+    {
+      "id": "t8",
+      "summary": "CLI verbs: devices, light, stats, token, serve and mcp entry points, doctor LAN checks",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "govee_cli/cli/_commands/{devices,light,stats,token,serve,mcp}.py register via _build_parser; light on|off|brightness|color|temp|scene print the planned command and exit 0 without --apply, send with --apply; every verb supports --json and keeps the stdout/stderr split",
+        "serve and 'mcp serve' import govee_cli.web.server.run / govee_cli.mcp.server.run lazily; token new|list|revoke call govee_cli.auth.tokens",
+        "doctor adds checks lan-interface, lan-discovery (with remediation: enable LAN Control, allow inbound UDP 4002, set GOVEE_LAN_INTERFACE), api-key-present (never printing the key), stats-db-writable",
+        "learn (text + JSON), overview _VERBS, explain/catalog.py entries and the template strings named in CLAUDE.md (parser description, learn._TEXT, catalog._ROOT, overview._ARTIFACTS) describe govee-cli; teken cli doctor . --strict passes; tests/test_cli_light.py etc. pass"
+      ],
+      "deps": [
+        "t7",
+        "t15"
+      ],
+      "covers": [
+        "c3",
+        "h3",
+        "c16",
+        "h10",
+        "c31"
+      ],
+      "instruction": "This task owns govee_cli/cli/** and govee_cli/explain/** only, so t9/t10/t11 stay file-disjoint. Use parser_class=type(p) for nested subparsers as _commands/cli.py does. source='cli', actor = $USER."
+    },
+    {
+      "id": "t9",
+      "summary": "MCP server: stdio JSON-RPC with lamp tools",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "govee_cli/mcp/server.py run() speaks MCP over stdio (initialize, tools/list, tools/call, ping) with tools list_devices, get_state, set_light, set_scene, get_stats; set_* default to dry run and only send with apply: true",
+        "every call logs source=mcp and actor from GOVEE_ACTOR, else the initialize clientInfo name; errors return MCP tool errors carrying the CliError message and remediation, never a traceback",
+        "tests/test_mcp_server.py drives the server over a subprocess pipe against FakeTransport: two calls (dry run, then apply) turn the lamp on"
+      ],
+      "deps": [
+        "t7"
+      ],
+      "covers": [
+        "c23",
+        "h16"
+      ],
+      "instruction": "Stdlib json + sys.stdin/stdout line-delimited JSON-RPC 2.0. Target MCP protocol version 2025-06-18. Never read GOVEE_API_KEY here; LampService owns transports."
+    },
+    {
+      "id": "t10",
+      "summary": "Web server: token-gated API, static console, loopback LAN owner",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "govee_cli/web/server.py run(host='0.0.0.0', port=8742) serves govee_cli/web/static and /api/{state,light,scene,stats,events,lan}; every /api route requires a valid bearer token (401 otherwise), including reads",
+        "writes also require a same-origin Origin header (403 otherwise); bodies over 16 KiB get 413; tokens never appear in the access log; --rotate-token revokes all tokens and prints a fresh pairing link with the token in the #fragment",
+        "/api/lan is the loopback-only LAN proxy LampService uses while serve owns UDP 4002 (refuses non-loopback clients); tests/test_web_server.py covers 401, 403, 413, rotate, loopback-only"
+      ],
+      "deps": [
+        "t7",
+        "t2",
+        "t15"
+      ],
+      "covers": [
+        "c20",
+        "h13",
+        "c32",
+        "h23"
+      ],
+      "instruction": "http.server.ThreadingHTTPServer, stdlib only. Owns govee_cli/web/server.py only (static files are t3, poller is t11). source='web', actor = token name."
+    },
+    {
+      "id": "t11",
+      "summary": "State poller: 60 s LAN samples, 5 min cloud-only, gaps not zeros",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "govee_cli/web/poller.py samples lamp state every 60 s over LAN, or every 300 s when only cloud is available, writing samples rows; a RateLimited error backs off until the reset time",
+        "a stopped poller leaves no rows, so the stats queries report a gap instead of 'off'; tests/test_poller.py uses a fake clock and FakeTransport"
+      ],
+      "deps": [
+        "t7",
+        "t2"
+      ],
+      "covers": [
+        "c35",
+        "h26",
+        "c21",
+        "c36"
+      ],
+      "instruction": "Runs as a daemon thread started by web.server.run(); exposes start()/stop(). No schedules or time-of-day logic beyond the sampling interval."
+    },
+    {
+      "id": "t12",
+      "summary": "Docs, harness files and version bump",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "README.md documents the three entry points (govee CLI, govee serve URL + pairing, govee mcp serve) and the LAN Control prerequisite; CLAUDE.md drops 'No Govee device code exists yet' and the Roadmap moves to shipped",
+        "AGENTS.override.md, AGENTS.colleague.md and QWEN.md updated in the same change; no root AGENTS.md; harness-smoke config stage passes",
+        "version-bump skill run (minor), CHANGELOG entry describes before (template skeleton, git ls-files at 341ad19 has no Govee code) and after; markdownlint clean"
+      ],
+      "deps": [
+        "t3",
+        "t4",
+        "t8",
+        "t9",
+        "t10",
+        "t11"
+      ],
+      "covers": [
+        "c9",
+        "h7",
+        "c14",
+        "h8",
+        "c15",
+        "h9"
+      ],
+      "instruction": "Keep docs grounded in what's on disk. Never mention lobes-cli in AGENTS.override.md."
+    },
+    {
+      "id": "t13",
+      "summary": "Verification: e2e checks, boundaries and CI gates",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "tests/test_boundaries.py asserts pyproject dependencies == [], no govee_cli module imports a non-stdlib package, and no BLE or account-password code exists",
+        "a Playwright check against 'govee serve' with FakeTransport verifies c26 (input previews without a request, change commits, bulb box unchanged) and that an unpaired browser sees only the pairing screen",
+        "full CI lint job (scan-secrets, black, isort, flake8, bandit, markdownlint, teken cli doctor --strict) and pytest -n auto with coverage >= 60% pass on the PR"
+      ],
+      "deps": [
+        "t12"
+      ],
+      "covers": [
+        "c2",
+        "h2",
+        "c18",
+        "h12",
+        "c24",
+        "h17",
+        "c26",
+        "h19"
+      ],
+      "instruction": "Playwright via the playwright MCP or a dev-only script; never a runtime dependency."
+    },
+    {
+      "id": "t14",
+      "summary": "Live acceptance on the real lamp",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "with LAN Control enabled, govee devices finds the lamp; a web console toggle from a phone changes it in < 2 s and the event appears in stats within 60 s; results recorded in docs/live-test-results/ with date and model",
+        "devStatus target port verified and the lan.py constant updated if needed; an applied write shows 'confirmed'",
+        "the user runs 'culture-rules actors create --json' as a dry run with docs/culture-rules/govee-actor.json and it validates",
+        "the main agent's own live run is recorded in docs/live-test-results/ before the user's run is requested"
+      ],
+      "deps": [
+        "t13"
+      ],
+      "covers": [
+        "c22",
+        "h15",
+        "h18"
+      ],
+      "instruction": "The main agent live-tests first, before the user: from spark it runs govee devices / light commands against the real lamp over LAN (and cloud if GOVEE_API_KEY is set), drives the web console with Playwright at phone width, verifies the devStatus port, and records measured results in docs/live-test-results/. Only then does the user repeat the phone toggle and run the culture-rules dry-run import with CULTURE_RULES_TOKEN. Record measured numbers only; a failure is recorded as a failure."
+    },
+    {
+      "id": "t15",
+      "summary": "Token store: named, hashed, revocable pairing tokens",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "govee_cli/auth/tokens.py: new(name) returns a 32-byte urlsafe secret once and stores only its sha256 with name, created, last_used in $XDG_CONFIG_HOME/govee-cli/tokens.json at mode 0600; list() never returns secrets; revoke(name); revoke_all(); verify(secret) uses hmac.compare_digest and updates last_used",
+        "duplicate names are refused; a revoked token fails verify() immediately; tests/test_tokens.py checks file mode and that the file contains no secret"
+      ],
+      "deps": [],
+      "covers": [
+        "c39",
+        "h28"
+      ],
+      "instruction": "Stdlib only (secrets, hashlib, hmac, json, os). Atomic writes (temp file + os.replace) so concurrent CLI and serve processes never read a half-written file."
+    }
+  ],
+  "risks": [
+    {
+      "id": "r1",
+      "text": "devStatus query target port (4003 vs 4002) unverified until the real lamp answers",
+      "kind": "unknown_nonblocking",
+      "task_id": "t5",
+      "resolved": false,
+      "resolution": ""
+    },
+    {
+      "id": "r2",
+      "text": "Govee cloud endpoint family (router/api/v1 capabilities vs legacy v1 appliance API) and rate limits come from community sources; confirm on developer.govee.com",
+      "kind": "unknown_nonblocking",
+      "task_id": "t6",
+      "resolved": false,
+      "resolution": ""
+    },
+    {
+      "id": "r3",
+      "text": "The lamp has not answered a LAN scan yet (LAN Control off, unsupported model, or firewall on UDP 4002); t14 cannot pass until it does",
+      "kind": "unknown_nonblocking",
+      "task_id": "t14",
+      "resolved": false,
+      "resolution": ""
+    }
+  ],
+  "obligations": []
+}

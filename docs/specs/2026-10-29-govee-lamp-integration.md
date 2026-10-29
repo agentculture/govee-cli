@@ -27,7 +27,7 @@
   - honesty: Stats DB path resolves under `XDG_STATE_HOME` (default ~/.local/state/govee-cli/), never inside the repo
 - Same-PR update of AGENTS.override.md, AGENTS.colleague.md, QWEN.md alongside CLAUDE.md; version bump
   - honesty: AGENTS.override.md, AGENTS.colleague.md, QWEN.md are updated in the same PR and pyproject version is bumped
-- Web console write endpoints require a bearer token generated on first 'govee serve' and stored 0600 in the XDG config dir; reads (state, stats) are open; the token is shown once in the terminal and as a QR-free pairing URL ?token=... that the page stores in localStorage
+- Every web console endpoint (reads and writes) requires a bearer token generated on first 'govee serve' and stored 0600 in the XDG config dir; an unpaired browser gets only the pairing screen; pairing hardening per c32
   - instruction: test: POST /api/light without token -> 401; with token -> 200 (dry-run unless apply:true)
   - honesty: Write endpoint returns 401 without a valid token; token file mode is 0600
 - Stats views: on-time per day (bar), brightness/color-temp over time (line), commands by source cli/mcp/web/agent (bar), last-24h state timeline; data from sqlite events + state samples taken by 'govee serve' every 60s
@@ -54,6 +54,8 @@
   - honesty: A fake cloud returning 429 with reset headers makes the CLI exit 2 and print the reset time; serve's cloud-only poll interval is >= 300 s
 - docs ship a systemd --user unit for 'govee serve' (restart on failure, EnvironmentFile for `GOVEE_API_KEY` outside the repo), since stats sampling only happens while serve runs; stats show gaps where serve was down instead of interpolating
   - honesty: systemd-analyze verify passes on the shipped unit; a stats chart over a serve outage shows a gap, not 'off'
+- The CLI rolls new tokens so agents can pair apps and MCP servers locally: 'govee token new --name `<label>`' mints a named token (printed once, plus a #token= pairing link), 'govee token list' shows names/created/last-used (never the secret), 'govee token revoke `<name>`' removes one; 'govee serve --rotate-token' still revokes all. Tokens are stored hashed in a 0600 file under the XDG config dir; the MCP server and CLI use a token (`GOVEE_TOKEN` or their own minted one) when routing through serve's loopback API (user requirement, 2026-10-29)
+  - honesty: A token minted with 'govee token new' authenticates against serve's API, appears by name in 'token list' without its secret, and returns 401 immediately after 'token revoke'; the token file holds only hashes and has mode 0600
 
 ## Honesty conditions
 
@@ -86,7 +88,7 @@
 
 ## Assumptions
 
-- MCP server is a stdlib JSON-RPC-over-stdio 'govee mcp serve' exposed via a committed .mcp.json. Only the govee-cli resident loads it: cultureagent's Claude runner uses `setting_sources`=\['project'\] with cwd = the agent's own repo (cultureagent/clients/claude/`agent_runner.py`:146-150); other agents reach the lamp via the culture-rules runner actor or by asking govee-cli on the mesh
+- MCP server is a stdlib JSON-RPC-over-stdio 'govee mcp serve' exposed via a committed .mcp.json, which only the govee-cli resident loads (cultureagent `agent_runner.py`:146-150 `setting_sources`=\['project'\], cwd = own repo). docs ship a snippet other agent repos add to their own .mcp.json for direct access; culture-rules and the resident remain the other routes
 - Web console is static HTML/JS shipped as package data and served by stdlib http.server via 'govee serve' on localhost, with a small JSON API over the same core as CLI/MCP
 
 ## Scope exploration
@@ -140,6 +142,8 @@
 - Web console binds 0.0.0.0 so LAN/Tailscale devices can reach it (user answer); the no-auth risk must be mitigated in-spec
 - Process: full devague spec + plan before building (user answer)
 - No schedules or time-based behavior in govee-cli (quiet hours dropped). Schedules live in culture-rules; govee-cli stays a stateless actor it can call (user decision 2026-10-29)
+- Other mesh agents may reach the lamp directly: docs ship a .mcp.json snippet any agent repo can add (writes still dry-run unless apply), alongside culture-rules and the govee-cli resident (user answer to q1, 2026-10-29)
+- Every web console API call, reads included, requires a paired device token; unpaired visitors see only a pairing screen (user answer to q2, 2026-10-29)
 
 ## Open parks
 
