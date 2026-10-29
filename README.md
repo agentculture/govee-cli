@@ -85,6 +85,10 @@ error, `2` environment error (lamp unreachable, missing key, rate limited),
   state and logged as confirmed or unconfirmed.
 - **Cloud as fallback** (`GOVEE_API_KEY`), and always for scenes. Fades need
   LAN; over the cloud a change applies instantly with a warning.
+- **After a fade-out the lamp rests at brightness 1.** A brightness command
+  would switch it back on, so govee cannot restore the level while it is off.
+  `govee light on` (and the console) bring back the earlier level; turning it
+  on from the Govee app or the lamp's button lights it at 1 %.
 - **`govee serve` owns the lamp while it runs.** The CLI and the MCP server
   then send everything through it, using a token from `GOVEE_TOKEN` or the
   file `govee token new --name me --save` writes. Only serve needs the key.

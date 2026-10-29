@@ -2,7 +2,7 @@
   "plan_slug": "govee-lamp-integration",
   "schema_version": 2,
   "created": "2026-10-29T06:46:31Z",
-  "updated": "2026-10-29T07:46:08Z",
+  "updated": "2026-10-29T08:01:31Z",
   "deviations": [
     {
       "id": "d1",
@@ -283,6 +283,33 @@
       "status": "proposed",
       "classification": "acceptable",
       "seq": 21
+    },
+    {
+      "id": "d22",
+      "what": "Fade-out leaves the lamp at brightness 1 while off (verified live: a brightness command wakes an off H6076, so it cannot be restored while off). govee now restores the remembered level on any govee turn-on (fade or snap) when the lamp reports <= 1; turning the lamp on from the Govee app or its button after a govee fade-out still lights it at 1 % - a documented limitation",
+      "task_ref": "t14",
+      "reason": "live finding on the real lamp: 'govee light on --fade 0' after a fade-out lit it at 1 %; fixed in govee, not fixable for other controllers",
+      "affects": [
+        "t12"
+      ],
+      "origin": "llm",
+      "status": "proposed",
+      "classification": "needs-follow-up",
+      "seq": 22
+    },
+    {
+      "id": "d23",
+      "what": "t14 live-test fixes made by the main agent beyond the plan: serve now handles SIGTERM via the clean shutdown path (2a6e764); discovery returns 0.3 s after every expected (cached/hosts) address answered (1657e45: CLI read without serve 2.1 s -> 0.64 s on the real lamp); snap turn-on restores brightness after a fade-out (5460508, d22). Not fixed, noted: .tokens.lock is created 0664 (empty lock file, no data); no favicon (404 in console); /api/scenes returns 503 until GOVEE_API_KEY is set",
+      "task_ref": "t14",
+      "reason": "defects and slowness found on the real H6076 during the main agent's live run",
+      "affects": [
+        "t5",
+        "t10"
+      ],
+      "origin": "llm",
+      "status": "proposed",
+      "classification": "acceptable",
+      "seq": 23
     }
   ],
   "evidence": [],
