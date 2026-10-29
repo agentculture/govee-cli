@@ -22,7 +22,8 @@ LOOPBACK = "127.0.0.1"
 class FakeLanDevice:
     """A UDP 'lamp' on 127.0.0.1: answers scan and devStatus to the sender, records the rest."""
 
-    def __init__(self, status=None, answer_status=True, answer_scan=True):
+    def __init__(self, status=None, answer_status=True, answer_scan=True, scan_ip="127.0.0.1"):
+        self.scan_ip = scan_ip
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.sock.bind((LOOPBACK, 0))
         self.sock.settimeout(0.05)
@@ -60,15 +61,14 @@ class FakeLanDevice:
             self.received.append(msg)
             reply = None
             if msg["cmd"] == "scan" and self.answer_scan:
-                reply = {
-                    "cmd": "scan",
-                    "data": {
-                        "ip": LOOPBACK,
-                        "device": "AA:BB:CC:DD:EE:FF:00:11",
-                        "sku": "H6008",
-                        "bleVersionHard": "3.01.01",
-                    },
+                body = {
+                    "device": "AA:BB:CC:DD:EE:FF:00:11",
+                    "sku": "H6008",
+                    "bleVersionHard": "3.01.01",
                 }
+                if self.scan_ip:
+                    body["ip"] = self.scan_ip
+                reply = {"cmd": "scan", "data": body}
             elif msg["cmd"] == "devStatus" and self.answer_status:
                 reply = {"cmd": "devStatus", "data": self.status}
             if reply is not None:
@@ -92,6 +92,8 @@ def _transport(dev: FakeLanDevice, **kw) -> LanTransport:
         status_port=dev.port,
         scan_timeout=0.3,
         status_timeout=0.3,
+        sweep=False,
+        cache_path=None,
     )
     params.update(kw)
     return LanTransport(**params)
@@ -136,6 +138,7 @@ def test_only_stdlib_imports():
             mods.add(node.module.split(".")[0])
     allowed = {"__future__", "socket", "json", "select", "os", "struct", "fcntl", "time"}
     allowed |= {"typing", "dataclasses", "errno", "govee_cli"}
+    allowed |= {"logging", "tempfile", "datetime", "pathlib"}
     assert mods <= allowed, mods - allowed
 
 
