@@ -534,7 +534,8 @@ class GoveeHandler(BaseHTTPRequestHandler):
     def _check_origin(self) -> None:
         origin = (self.headers.get("Origin") or "").strip().lower()
         host = (self.headers.get("Host") or "").strip().lower()
-        if not origin or not host or origin != f"http://{host}":
+        # The console is plain HTTP on the LAN/Tailscale by design (d20); the Origin must match.
+        if not origin or not host or origin != f"http://{host}":  # NOSONAR
             raise ApiError(
                 403,
                 "forbidden",

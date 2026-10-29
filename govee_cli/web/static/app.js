@@ -30,9 +30,12 @@
 
   // ---------- token + api ----------
   const TOKEN_KEY = "govee.console.token";
+  // Pairing tokens are url-safe base64 (secrets.token_urlsafe): store nothing else.
+  const TOKEN_RE = /^[A-Za-z0-9_-]{16,128}$/;
+  const validToken = v => typeof v === "string" && TOKEN_RE.test(v);
   const store = {
-    get() { try { return localStorage.getItem(TOKEN_KEY) || ""; } catch (e) { return ""; } },
-    set(v) { try { localStorage.setItem(TOKEN_KEY, v); } catch (e) { /* storage blocked */ } },
+    get() { try { const v = localStorage.getItem(TOKEN_KEY) || ""; return validToken(v) ? v : ""; } catch (e) { return ""; } },
+    set(v) { if (!validToken(v)) return false; try { localStorage.setItem(TOKEN_KEY, v); } catch (e) { /* storage blocked */ } return true; },
     clear() { try { localStorage.removeItem(TOKEN_KEY); } catch (e) { /* storage blocked */ } },
   };
   // A pairing link looks like http://host:8742/#token=<secret>: keep the secret, drop it from the URL.
@@ -80,9 +83,10 @@
     e.preventDefault();
     const v = $("#gateToken").value.trim();
     if (!v) return;
-    store.set(v); $("#gateToken").value = "";
+    if (!store.set(v)) { showGate("That does not look like a govee token. Copy the whole token from 'govee token new'."); return; }
+    $("#gateToken").value = "";
     $("#gate").hidden = true; $("#boot").hidden = false;
-    boot();
+    void boot();
   });
 
   // ---------- routing ----------
@@ -92,11 +96,11 @@
     view = views.includes(location.hash.slice(1)) ? location.hash.slice(1) : "lamp";
     document.querySelectorAll("[data-view-panel]").forEach(p => { p.hidden = p.dataset.viewPanel !== view; });
     document.querySelectorAll(".tabs a").forEach(a => (a.dataset.view === view ? a.setAttribute("aria-current", "page") : a.removeAttribute("aria-current")));
-    if (view === "stats") loadStats();
+    if (view === "stats") void loadStats();
   }
   window.addEventListener("hashchange", () => {
     // A pairing link opened in a tab that already shows the pairing screen.
-    if (hashToken() !== null) { takeTokenFromHash(); if (!$("#gate").hidden) { $("#gate").hidden = true; $("#boot").hidden = false; boot(); return; } }
+    if (hashToken() !== null) { takeTokenFromHash(); if (!$("#gate").hidden) { $("#gate").hidden = true; $("#boot").hidden = false; void boot(); return; } }
     if (started) route();
   });
 
@@ -178,7 +182,7 @@
       const r = await post(reqs);
       if (seq !== planSeq) return;
       plan = { key, commands: r.commands, cli: r.cli, fade: r.fade, warnings: r.warnings };
-      loadEvents();
+      void loadEvents();
     } catch (e) {
       if (e instanceof Unauthorized || seq !== planSeq) return;
       plan = { key, error: errText(e) };
@@ -197,7 +201,7 @@
       if (r.warnings.length) toast(r.warnings.join(" "));
       else if (running) toast(`Fading over ${fmtSec(r.fade.seconds)}`);
       else statusToast(r.statuses);
-      if (running) loadFade();
+      if (running) void loadFade();
     } catch (e) {
       busy = false;
       if (e instanceof Unauthorized) return;
@@ -205,15 +209,15 @@
       if (mode === "live") target = { ...actual };
     }
     busy = false;
-    render(); loadEvents();
+    render(); void loadEvents();
     // Live: a change made while this one was in flight goes out next.
-    if (mode === "live" && requests(true).length) applyNow();
+    if (mode === "live" && requests(true).length) void applyNow();
   }
 
   // A committed change (click, or 'change' at the end of a drag / pick).
   function change(patch) {
     Object.assign(target, patch);
-    if (mode === "live") { render(); applyNow(); } else refreshPlan();
+    if (mode === "live") { render(); void applyNow(); } else void refreshPlan();
   }
   // A preview while dragging or while the picker is open: visual only, no request.
   function preview(patch) { Object.assign(target, patch); render(); }
@@ -302,8 +306,8 @@
     let active = null;
     try { const r = await api("/api/fade"); active = r.active && typeof r.active === "object" ? r.active : null; } catch (e) { if (e instanceof Unauthorized) return; active = null; }
     renderFade(active);
-    if (active && !fadeT) fadeT = setInterval(() => { if (!document.hidden) loadFade(); }, 750);
-    else if (!active && fadeT) { clearInterval(fadeT); fadeT = null; loadState(); loadEvents(); }
+    if (active && !fadeT) fadeT = setInterval(() => { if (!document.hidden) void loadFade(); }, 750);
+    else if (!active && fadeT) { clearInterval(fadeT); fadeT = null; void loadState(); void loadEvents(); }
   }
   function stopFadeWatch() { if (fadeT) clearInterval(fadeT); fadeT = null; }
 
@@ -366,11 +370,11 @@
   $("#temp").addEventListener("change", e => change({ temp: +e.target.value, mode: "white", scene: null }));
   $("#tab-color").addEventListener("click", () => change({ mode: "color", scene: null }));
   $("#tab-white").addEventListener("click", () => change({ mode: "white", scene: null }));
-  $("#sendBtn").addEventListener("click", () => applyNow());
-  $("#fade").addEventListener("change", () => { if (mode === "dry" && requests(false).length) refreshPlan(); else render(); });
+  $("#sendBtn").addEventListener("click", () => void applyNow());
+  $("#fade").addEventListener("change", () => { if (mode === "dry" && requests(false).length) void refreshPlan(); else render(); });
   $("#fadeStop").addEventListener("click", async () => {
     try { const r = await api("/api/fade/cancel", {}); toast(r.cancelled ? "Fade stopped" : "No fade was running"); } catch (e) { if (e instanceof Unauthorized) return; toast(errText(e)); }
-    stopFadeWatch(); renderFade(null); loadState(); loadEvents();
+    stopFadeWatch(); renderFade(null); void loadState(); void loadEvents();
   });
   $("#discardBtn").addEventListener("click", () => { target = { ...actual }; plan = null; planSeq++; render(); toast("Changes discarded"); });
   document.querySelectorAll(".seg button").forEach(b => b.addEventListener("click", () => {
@@ -631,7 +635,7 @@
       title: "When the lamp is on", sub: "Average minutes on, per hour of the week, last 4 weeks",
       source: "state samples, averaged per weekday and hour",
       empty: heatRows.length ? null : ["No pattern yet", "The heatmap fills in as govee serve samples the lamp over the weeks."],
-      table: () => mkTable(["Day", "Busiest hour", "Minutes on that hour", "Hours on per day"], WD.map((n, d) => { const row = heat.filter(c => c.d === d); const top = row.reduce((a, c) => (c.v > a.v ? c : a)); return [n, top.v ? clock(top.h) : DASH, top.v, (row.reduce((a, c) => a + c.v, 0) / 60).toFixed(1)]; })),
+      table: () => mkTable(["Day", "Busiest hour", "Minutes on that hour", "Hours on per day"], WD.map((n, d) => { const row = heat.filter(c => c.d === d); const top = row.reduce((a, c) => (c.v > a.v ? c : a), { h: 0, v: 0 }); return [n, top.v ? clock(top.h) : DASH, top.v, (row.reduce((a, c) => a + c.v, 0) / 60).toFixed(1)]; })),
       draw: body => {
         const H = 7 * 22 + 30, L = 36, R = 4, T = 2, cw = (W - L - R) / 24, ch = 20;
         const svg = sv("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": "Heatmap of minutes on by weekday and hour" });
@@ -666,9 +670,9 @@
     stopPolling();
     pollT = setInterval(() => {
       if (document.hidden) return;
-      loadState(); loadEvents();
-      if (!fadeT) loadFade();
-      if (view === "stats") loadStats(true);
+      void loadState(); void loadEvents();
+      if (!fadeT) void loadFade();
+      if (view === "stats") void loadStats(true);
     }, 30000);
   }
   function stopPolling() { if (pollT) clearInterval(pollT); pollT = null; stopFadeWatch(); }
@@ -687,7 +691,7 @@
     }
     showApp(); started = true;
     render(); route();
-    loadScenes(); loadEvents(); loadFade(); startPolling();
+    void loadScenes(); void loadEvents(); void loadFade(); startPolling();
   }
-  boot();
+  void boot();
 })();

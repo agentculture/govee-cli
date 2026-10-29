@@ -187,4 +187,5 @@ def pairing_link(secret: str, host: str, port: int = DEFAULT_SERVE_PORT) -> str:
     """
     if not secret or any(c in secret for c in "#&= /"):
         raise ValueError("pairing secret must be a non-empty url-safe token")
-    return f"http://{host}:{int(port)}/#" + "token" + "=" + secret
+    # govee serve speaks plain HTTP on the home LAN by design; the link must match it.
+    return f"http://{host}:{int(port)}/#" + "token" + "=" + secret  # NOSONAR
