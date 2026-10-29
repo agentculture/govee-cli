@@ -210,7 +210,7 @@ def test_scene_is_always_cloud_even_on_lan():
     result = service.set_scene("Sunset", apply=True)
     assert [c for _, c in cloud.sent] == preview.commands
     assert lan.sent == []
-    assert result.cli == ["govee scene set Sunset --apply"]
+    assert result.cli == ["govee light scene Sunset --apply"]
 
 
 def test_unknown_scene_is_user_error():
@@ -504,7 +504,7 @@ class FakeServe:
                 {
                     "applied": False,
                     "commands": [{"verb": "scene", "transport": "cloud", "payload": {}}],
-                    "cli": ["govee scene set Sunset --apply"],
+                    "cli": ["govee light scene Sunset --apply"],
                     "status": "dry_run",
                 },
             ),

@@ -4,7 +4,7 @@
   "schema_version": 6,
   "status": "exported",
   "created": "2026-10-29T05:47:24Z",
-  "updated": "2026-10-29T06:46:31Z",
+  "updated": "2026-10-29T07:07:18Z",
   "claims": [
     {
       "id": "c1",
@@ -925,6 +925,17 @@
       "skipped_check": "culture-rules actors create --json dry run",
       "refs": [
         "t4 / docs/culture-rules/govee-actor.json"
+      ],
+      "origin": "llm",
+      "status": "proposed"
+    },
+    {
+      "id": "l4",
+      "code": "assumption-for-measurement",
+      "what": "Main agent told the user ufw was likely dropping Govee replies, inferred from 'systemctl is-active ufw' = active; 'ufw status' (run by the user) showed the firewall inactive. The service state stood in for the actual rule state",
+      "skipped_check": "ask for 'sudo ufw status' before presenting the firewall as the likely cause",
+      "refs": [
+        "risk r3 / LAN discovery"
       ],
       "origin": "llm",
       "status": "proposed"

@@ -177,14 +177,14 @@ def cli_for_change(change: Change, device: Optional[str] = None) -> list[str]:
     if change.color is not None:
         out.append(_hint(["light", "color", (hex_color(change.color) or "")[1:]], device))
     if change.kelvin is not None:
-        out.append(_hint(["light", "kelvin", str(change.kelvin)], device))
+        out.append(_hint(["light", "temp", str(change.kelvin)], device))
     if change.on is False:
         out.append(_hint(["light", "off"], device))
     return out
 
 
 def cli_for_scene(name: str, device: Optional[str] = None) -> list[str]:
-    return [_hint(["scene", "set", name], device)]
+    return [_hint(["light", "scene", name], device)]
 
 
 # --- error mapping ---------------------------------------------------------------------------

@@ -5,7 +5,7 @@
   "schema_version": 5,
   "status": "exported",
   "created": "2026-10-29T06:29:59Z",
-  "updated": "2026-10-29T06:38:04Z",
+  "updated": "2026-10-29T07:07:19Z",
   "targets": [
     {
       "id": "c1",
@@ -736,7 +736,7 @@
     },
     {
       "id": "r2",
-      "text": "Govee cloud endpoint family (router/api/v1 capabilities vs legacy v1 appliance API) and rate limits come from community sources; confirm on developer.govee.com",
+      "text": "Govee cloud endpoint family CONFIRMED by t6 from developer.govee.com (openapi.api.govee.com/router/api/v1: user/devices, device/state, device/control, device/scenes with capability objects). Still unverified: rate-limit header names and limits (docs silent; cloud.py accepts Retry-After, API-RateLimit-Reset, X-RateLimit-Reset), colorTemperatureK readback, and the control success shape (code == 200). Verify in t14 with a real key.",
       "kind": "unknown_nonblocking",
       "task_id": "t6",
       "resolved": false,
@@ -744,7 +744,7 @@
     },
     {
       "id": "r3",
-      "text": "The lamp has not answered a LAN scan yet (LAN Control off, unsupported model, or firewall on UDP 4002); t14 cannot pass until it does",
+      "text": "Lamp is a Govee H6076A floor lamp (RGBIC; A variant also supports Matter); H6076 reported LAN-capable by third-party drivers. No LAN reply to multicast or unicast scans on 192.168.1.0/24 (wlP9s9). Firewall ruled out: ufw is inactive (user ran 'ufw status'); a UDP 4002 allow rule was added anyway. Remaining causes: LAN Control toggle off / not offered on this firmware, or the lamp not on this subnet. t14 cannot pass until the lamp answers.",
       "kind": "unknown_nonblocking",
       "task_id": "t14",
       "resolved": false,
