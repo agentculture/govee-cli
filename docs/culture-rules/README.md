@@ -74,7 +74,7 @@ Keep `govee serve` running on spark (see `docs/systemd/govee-serve.service`).
 While it runs, every lamp command routes through it, so:
 
 - the API key only has to live in serve's environment
-  (`~/.config/govee-cli/env`), which also makes `lamp_scene` work even though
+  (`$XDG_CONFIG_HOME/govee-cli/env` (default `$HOME/.config`)), which also makes `lamp_scene` work even though
   runner commands start with only `PATH` and `LANG`;
 - fades run inside serve, outlive the command, and a later command cancels
   them;

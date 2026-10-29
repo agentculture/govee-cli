@@ -47,7 +47,7 @@ live in culture-rules, not here: govee-cli has no timers of its own.
   and the actor. Web console previews are the one exception: they are not
   logged.
 - **The API key never leaves the environment.** It is read from
-  `GOVEE_API_KEY` (or from `~/.config/govee-cli/env` by the systemd unit) and
+  `GOVEE_API_KEY` (or from `$XDG_CONFIG_HOME/govee-cli/env` (default `$HOME/.config`) by the systemd unit) and
   never printed or committed.
 
 ## Commands
@@ -109,10 +109,10 @@ panel, fades, recent activity and usage charts. `govee serve
 
 To keep it running, install the user unit in
 [`docs/systemd/govee-serve.service`](docs/systemd/govee-serve.service).
-Put `GOVEE_API_KEY=...` in `~/.config/govee-cli/env` (mode 0600) if you use
+Put `GOVEE_API_KEY=...` in `$XDG_CONFIG_HOME/govee-cli/env` (default `$HOME/.config`) (mode 0600) if you use
 scenes.
 
-Stats live in `~/.local/state/govee-cli/stats.db`. Gaps in the charts mean
+Stats live in `$XDG_STATE_HOME/govee-cli/stats.db` (default `$HOME/.local/state`). Gaps in the charts mean
 `govee serve` was not sampling, never that the lamp was off.
 
 The CLI is cited from [teken](https://github.com/agentculture/teken)

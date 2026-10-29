@@ -2,7 +2,7 @@
   "plan_slug": "govee-lamp-integration",
   "schema_version": 2,
   "created": "2026-10-29T06:46:31Z",
-  "updated": "2026-10-29T08:27:02Z",
+  "updated": "2026-10-29T08:34:24Z",
   "deviations": [
     {
       "id": "d1",
@@ -325,6 +325,20 @@
       "status": "proposed",
       "classification": "acceptable",
       "seq": 45
+    },
+    {
+      "id": "d25",
+      "what": "harness-smoke's steward portability waiver allowlist now also lists, by exact path, the six devague records for this plan (.devague frames/plans/deliveries JSON and the dated spec/plan/split exports), which quote the user-confirmed default path '~/.local/state/govee-cli/'; hand-written docs (README, docs/mcp.md, docs/culture-rules/README.md) were reworded to XDG_CONFIG_HOME/XDG_STATE_HOME with $HOME defaults instead",
+      "task_ref": "t13",
+      "reason": "PR #3 CI: steward's portability lint fails ~/.dotfile text in committed md/json; the delivery ledger is append-only and the claim is user-confirmed. /assess (general, thor): waive_records 0.902, amend_claims 0.071, stop_committing_records 0.021, hand_edit 0.006; files in scratchpad assess-portability.*",
+      "affects": [
+        "t12",
+        "t13"
+      ],
+      "origin": "llm",
+      "status": "proposed",
+      "classification": "acceptable",
+      "seq": 47
     }
   ],
   "evidence": [
@@ -726,6 +740,25 @@
       "status": "proposed",
       "superseded": false,
       "seq": 44
+    },
+    {
+      "id": "e22",
+      "obligation_ref": "o15",
+      "test_ref": "live: govee serve on 0.0.0.0:8742, client via spark's LAN address (non-loopback), real H6076",
+      "behavior_text": "401 without token, 403 without or with a foreign Origin, 200 confirmed with the LAN origin; X-Govee-Source/Actor from a non-loopback client ignored (logged web/<token name>); SIGTERM stopped serve cleanly",
+      "contract_text": "c32 token hardening + d3 loopback-only attribution",
+      "evidence_type": "observation",
+      "strength": "execution",
+      "strength_basis": "observed live; the client was spark itself on its LAN IP, not a phone",
+      "outcome": "pass",
+      "run": {
+        "timestamp": "2026-10-29T08:23:00Z",
+        "commit": "391c778"
+      },
+      "origin": "llm",
+      "status": "proposed",
+      "superseded": false,
+      "seq": 46
     }
   ],
   "deltas": [

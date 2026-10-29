@@ -53,5 +53,5 @@ govee token new --name <agent>
 ```
 
 To run the daemon as a user service, see `docs/systemd/govee-serve.service`.
-Put `GOVEE_API_KEY=...` in `~/.config/govee-cli/env` (outside the repo, mode
+Put `GOVEE_API_KEY=...` in `$XDG_CONFIG_HOME/govee-cli/env` (default `$HOME/.config`) (outside the repo, mode
 600); the unit reads it with `EnvironmentFile`.
