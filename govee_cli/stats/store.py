@@ -120,6 +120,15 @@ def update_event_status(event_id: int, status: str) -> None:
         conn.close()
 
 
+def update_event_payload(event_id: int, payload: Any) -> None:
+    """Replace an event's JSON payload (a cancelled fade records ``"cancelled": true``)."""
+    conn = connect()
+    try:
+        conn.execute("UPDATE events SET payload=? WHERE id=?", (json.dumps(payload), event_id))
+    finally:
+        conn.close()
+
+
 def record_sample(
     on: bool,
     brightness: Optional[int] = None,
