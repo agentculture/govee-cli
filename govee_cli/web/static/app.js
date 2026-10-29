@@ -140,6 +140,9 @@
         if (target.mode === "white" && (target.temp !== actual.temp || actual.mode !== "white" || actual.scene)) light.kelvin = target.temp;
       }
     }
+    // Fade (approved deviation d11): "" leaves it to the server (on/off fade by its default).
+    const fade = $("#fade").value;
+    if (Object.keys(light).length && fade !== "") light.fade_seconds = Number(fade);
     if (Object.keys(light).length) out.push({ path: "/api/light", body: { ...light, apply } });
     if (target.on && target.scene && target.scene !== actual.scene) out.push({ path: "/api/scene", body: { scene: target.scene, apply } });
     return out;
@@ -147,15 +150,18 @@
   const reqKey = () => JSON.stringify(requests(false));
 
   async function post(reqs) {
-    const commands = [], cli = []; const statuses = [];
+    const commands = [], cli = []; const statuses = []; const warnings = []; let fade = null;
     for (const r of reqs) {
       const res = await api(r.path, r.body);
       (res.commands || []).forEach(c => commands.push(c));
       (res.cli || []).forEach(c => cli.push(c));
+      (Array.isArray(res.warnings) ? res.warnings : []).forEach(w => warnings.push(String(w)));
+      if (res.fade && typeof res.fade === "object") fade = res.fade;
       statuses.push(res.status || (res.applied ? "sent" : "dry_run"));
     }
-    return { commands, cli, statuses };
+    return { commands, cli, statuses, warnings, fade };
   }
+  const fmtSec = s => { s = Math.max(0, num(s)); return s < 60 ? `${+s.toFixed(1)} s` : s < 3600 ? `${Math.floor(s / 60)} min${s % 60 >= 1 ? " " + Math.round(s % 60) + " s" : ""}` : `${+(s / 3600).toFixed(1)} h`; };
   const STATUS_TEXT = { dry_run: "dry run, not sent", sent: "sent", confirmed: "confirmed by the lamp", unconfirmed: "sent, not confirmed" };
   function statusToast(statuses) {
     const rank = ["unconfirmed", "sent", "confirmed", "dry_run"];
@@ -171,7 +177,7 @@
     try {
       const r = await post(reqs);
       if (seq !== planSeq) return;
-      plan = { key, commands: r.commands, cli: r.cli };
+      plan = { key, commands: r.commands, cli: r.cli, fade: r.fade, warnings: r.warnings };
       loadEvents();
     } catch (e) {
       if (e instanceof Unauthorized || seq !== planSeq) return;
@@ -187,7 +193,11 @@
     try {
       const r = await post(reqs);
       Object.assign(actual, sent); plan = null;
-      statusToast(r.statuses);
+      const running = r.fade && r.statuses.includes("sent");
+      if (r.warnings.length) toast(r.warnings.join(" "));
+      else if (running) toast(`Fading over ${fmtSec(r.fade.seconds)}`);
+      else statusToast(r.statuses);
+      if (running) loadFade();
     } catch (e) {
       busy = false;
       if (e instanceof Unauthorized) return;
@@ -252,12 +262,22 @@
     else if (!current || current.pending) wire.append(el("div", { class: "wire-empty" }, current ? "Asking govee serve what it would send" + ELL : "Release to see the exact commands."));
     else if (current.error) wire.append(el("div", { class: "wire-error", role: "alert" }, esc(current.error)));
     else if (!current.commands.length) wire.append(el("div", { class: "wire-empty" }, "govee serve would send nothing for this change."));
-    else current.commands.forEach(cm => {
-      const it = el("div", { class: "wire-item" });
-      const where = cm.transport === "lan" ? `LAN ${DOT} UDP 4003` : `Cloud ${DOT} Govee Developer API`;
-      it.append(el("div", { class: "wire-meta" }, `<span>${esc(cm.verb)}</span><span>${where}</span>`));
-      const pre = el("pre"); pre.textContent = JSON.stringify(cm.payload); it.append(pre); wire.append(it);
-    });
+    else {
+      const wireItem = cm => {
+        const it = el("div", { class: "wire-item" });
+        const where = cm.transport === "lan" ? `LAN ${DOT} UDP 4003` : `Cloud ${DOT} Govee Developer API`;
+        it.append(el("div", { class: "wire-meta" }, `<span>${esc(cm.verb)}</span><span>${where}</span>`));
+        const pre = el("pre"); pre.textContent = JSON.stringify(cm.payload); it.append(pre); wire.append(it);
+      };
+      (current.warnings || []).forEach(w => wire.append(el("div", { class: "wire-warn", role: "note" }, esc(w))));
+      const f = current.fade; const cmds = current.commands;
+      if (f) wire.append(el("div", { class: "wire-fade" }, `<b>Fade over ${esc(fmtSec(f.seconds))}</b><span>${esc(num(f.steps))} steps, at most one every ${esc(num(f.interval_ms))} ms</span>`));
+      if (f && cmds.length > 6) {
+        cmds.slice(0, 3).forEach(wireItem);
+        wire.append(el("div", { class: "wire-more" }, `${ELL} ${cmds.length - 5} more commands ${ELL}`));
+        cmds.slice(-2).forEach(wireItem);
+      } else cmds.forEach(wireItem);
+    }
     $("#cliEquiv").innerHTML = ready && current.cli.length ? "Same as: " + current.cli.map(x => `<code>${esc(x)}</code>`).join(" ") : "";
     const n = ready ? current.commands.length : 0;
     $("#sendBtn").disabled = !ready || busy; $("#discardBtn").disabled = !dirty || busy;
@@ -266,6 +286,26 @@
     $("#modeBadge").textContent = mode === "dry" ? "Dry run" : "Live";
     $("#sendSub").textContent = mode === "dry" ? "Dry run: your changes stay here until you send them." : "Live: every change goes straight to the lamp.";
   }
+
+  // ---------- active fade (/api/fade) ----------
+  let fadeT = null;
+  const FADE_LABEL = { fade_on: "Fading in", fade_off: "Fading out" };
+  function renderFade(a) {
+    $("#fadeBar").hidden = !a;
+    if (!a) return;
+    const p = Math.max(0, Math.min(1, num(a.progress)));
+    $("#fadeProgress").value = p;
+    const left = num(a.seconds) * (1 - p);
+    $("#fadeText").textContent = `${FADE_LABEL[a.kind] || "Fading"} ${DOT} ${Math.round(p * 100)}% ${DOT} ${fmtSec(left)} left`;
+  }
+  async function loadFade() {
+    let active = null;
+    try { const r = await api("/api/fade"); active = r.active && typeof r.active === "object" ? r.active : null; } catch (e) { if (e instanceof Unauthorized) return; active = null; }
+    renderFade(active);
+    if (active && !fadeT) fadeT = setInterval(() => { if (!document.hidden) loadFade(); }, 750);
+    else if (!active && fadeT) { clearInterval(fadeT); fadeT = null; loadState(); loadEvents(); }
+  }
+  function stopFadeWatch() { if (fadeT) clearInterval(fadeT); fadeT = null; }
 
   // ---------- activity feed (/api/events) ----------
   const SRC_LABEL = { cli: "CLI", web: "Web", mcp: "MCP", rules: "Rules" };
@@ -327,6 +367,11 @@
   $("#tab-color").addEventListener("click", () => change({ mode: "color", scene: null }));
   $("#tab-white").addEventListener("click", () => change({ mode: "white", scene: null }));
   $("#sendBtn").addEventListener("click", () => applyNow());
+  $("#fade").addEventListener("change", () => { if (mode === "dry" && requests(false).length) refreshPlan(); else render(); });
+  $("#fadeStop").addEventListener("click", async () => {
+    try { const r = await api("/api/fade/cancel", {}); toast(r.cancelled ? "Fade stopped" : "No fade was running"); } catch (e) { if (e instanceof Unauthorized) return; toast(errText(e)); }
+    stopFadeWatch(); renderFade(null); loadState(); loadEvents();
+  });
   $("#discardBtn").addEventListener("click", () => { target = { ...actual }; plan = null; planSeq++; render(); toast("Changes discarded"); });
   document.querySelectorAll(".seg button").forEach(b => b.addEventListener("click", () => {
     mode = b.dataset.mode;
@@ -622,10 +667,11 @@
     pollT = setInterval(() => {
       if (document.hidden) return;
       loadState(); loadEvents();
+      if (!fadeT) loadFade();
       if (view === "stats") loadStats(true);
     }, 30000);
   }
-  function stopPolling() { if (pollT) clearInterval(pollT); pollT = null; }
+  function stopPolling() { if (pollT) clearInterval(pollT); pollT = null; stopFadeWatch(); }
 
   // ---------- boot ----------
   async function boot() {
@@ -641,7 +687,7 @@
     }
     showApp(); started = true;
     render(); route();
-    loadScenes(); loadEvents(); startPolling();
+    loadScenes(); loadEvents(); loadFade(); startPolling();
   }
   boot();
 })();
