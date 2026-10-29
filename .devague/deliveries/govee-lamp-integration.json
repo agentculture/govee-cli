@@ -1,0 +1,238 @@
+{
+  "plan_slug": "govee-lamp-integration",
+  "schema_version": 2,
+  "created": "2026-10-29T06:46:31Z",
+  "updated": "2026-10-29T07:22:13Z",
+  "deviations": [
+    {
+      "id": "d1",
+      "what": "t15 exposes list_tokens() instead of list() (avoids shadowing the builtin)",
+      "task_ref": "t15",
+      "reason": "agent naming choice; criterion wording said list()",
+      "affects": [
+        "t8"
+      ],
+      "origin": "llm",
+      "status": "proposed",
+      "classification": "acceptable",
+      "seq": 1
+    },
+    {
+      "id": "d2",
+      "what": "t15 adds an fcntl.flock lock file (.tokens.lock) so a concurrent verify cannot undo a revoke; makes the token store Unix-only",
+      "task_ref": "t15",
+      "reason": "race found by the t15 agent: verify writing last_used could write back a stale list",
+      "affects": [],
+      "origin": "llm",
+      "status": "proposed",
+      "classification": "acceptable",
+      "seq": 2
+    },
+    {
+      "id": "d3",
+      "what": "cloud API key: when govee serve runs, ALL lamp operations (LAN and cloud) route through serve's loopback API, so only serve holds GOVEE_API_KEY; clients authenticate with GOVEE_TOKEN or a 0600 client token file written by 'govee token new --save'; without serve, transports run directly with the env key",
+      "task_ref": "t7",
+      "reason": "culture-rules runner commands get only PATH and LANG (culture_rules/actors/code.py:65,175), so lamp_scene could not see the key. /assess (general, thor): route_cloud_via_serve 0.631, no_scenes_via_rules 0.202, env_file_fallback 0.159, patch_culture_rules 0.008; P(0600 key file acceptable)=0.962. Request+answer kept in session scratchpad assess-cloud-key.*",
+      "affects": [
+        "t7",
+        "t8",
+        "t10",
+        "t4",
+        "t12"
+      ],
+      "origin": "llm",
+      "status": "approved",
+      "classification": "risky",
+      "seq": 3
+    },
+    {
+      "id": "d4",
+      "what": "systemd-analyze verify of docs/systemd/govee-serve.service cannot pass until the govee binary is installed; t4 verified it only on a copy with ExecStart=/usr/bin/true. Re-verify on the real file after install in t13/t14",
+      "task_ref": "t4",
+      "reason": "binary absent during t4",
+      "affects": [
+        "t13",
+        "t14"
+      ],
+      "origin": "llm",
+      "status": "approved",
+      "classification": "needs-follow-up",
+      "seq": 4
+    },
+    {
+      "id": "d5",
+      "what": "stats store buckets days and hours in UTC; the user is in a UTC+2/+3 zone so 'today' and the heatmap would be shifted. t10 adds a tz offset parameter to store.py queries and passes the server's local offset",
+      "task_ref": "t2",
+      "reason": "t2 agent choice (UTC epoch REAL)",
+      "affects": [
+        "t10"
+      ],
+      "origin": "llm",
+      "status": "approved",
+      "classification": "needs-follow-up",
+      "seq": 5
+    },
+    {
+      "id": "d6",
+      "what": "day_samples appends a trailing gap when the last sample is older than 3 min, so a stale lamp reads as a gap rather than continuing state",
+      "task_ref": "t2",
+      "reason": "t2 agent addition, consistent with c36",
+      "affects": [],
+      "origin": "llm",
+      "status": "proposed",
+      "classification": "acceptable",
+      "seq": 6
+    },
+    {
+      "id": "d7",
+      "what": "web console dry-run previews (apply:false from source web) are not logged as events; every CLI and MCP dry run and every applied write from any source is still logged",
+      "task_ref": "t10",
+      "reason": "t3 previews each committed control change (10-30/min while adjusting). /assess (general, thor): skip_web_previews 0.496, coalesce_web_previews 0.377, log_all 0.114, log_none 0.013 (a lean, not a verdict); request+answer in scratchpad assess-dryrun-log.*",
+      "affects": [
+        "t10",
+        "t7"
+      ],
+      "origin": "llm",
+      "status": "approved",
+      "classification": "acceptable",
+      "seq": 7
+    },
+    {
+      "id": "d8",
+      "what": "4th categorical colour for culture-rules events: rules = #199e70 light / #1baf7a dark, validated with the dataviz validator against #fffcf3 / #1d3354 (all checks pass)",
+      "task_ref": "t3",
+      "reason": "t2 store has a 'rules' source; palette had only cli/web/mcp",
+      "affects": [],
+      "origin": "llm",
+      "status": "proposed",
+      "classification": "acceptable",
+      "seq": 8
+    },
+    {
+      "id": "d9",
+      "what": "t3 client assumptions t10 must honour: /api/scene takes the scene id from /api/scenes; non-401 errors from /api/state still render the console with reachable=false; only 401 shows the pairing gate",
+      "task_ref": "t3",
+      "reason": "contract did not settle these",
+      "affects": [
+        "t10"
+      ],
+      "origin": "llm",
+      "status": "proposed",
+      "classification": "acceptable",
+      "seq": 9
+    },
+    {
+      "id": "d10",
+      "what": "LAN 4002 listener sets neither SO_REUSEADDR nor SO_REUSEPORT (brief said SO_REUSEADDR): on Linux two UDP sockets that both set SO_REUSEADDR can bind the same port, silently splitting replies; pinned by test_listener_does_not_share_port_with_reuseaddr_holder",
+      "task_ref": "t5",
+      "reason": "t5 agent tested the main agent's brief on this host and found it wrong",
+      "affects": [],
+      "origin": "llm",
+      "status": "proposed",
+      "classification": "acceptable",
+      "seq": 10
+    },
+    {
+      "id": "d11",
+      "what": "Add fade-in/fade-out and cross-fades (not in spec or plan). Govee has no native transition parameter, so govee-cli ramps client-side over LAN (steps every ~100-250 ms). (1) govee serve runs fades when it is running (approved d4: serve owns the lamp); any new command for that device cancels the running fade; without serve the CLI runs the fade in the foreground and Ctrl-C stops it. (2) 'govee light on/off' fade by default over a configurable default (1.5 s; GOVEE_FADE_DEFAULT, --fade 0 snaps); brightness/color/temp are instant unless --fade/fade_seconds is given. (3) Fades transition brightness, color and color temperature (cross-fade from current to target). Fade-in: set brightness 1, turn on, ramp up; fade-out: ramp down, turn off, remember the pre-fade brightness. LAN-only: over cloud (rate-limited) a fade degrades to an instant change with a warning. One event per fade; dry run shows the step plan; max 3600 s. New work: fade engine govee_cli/govee/fade.py + LampService hook (after t7 merges, before t8/t9/t10, parallel with t11); --fade on CLI (t8), fade_seconds on MCP set_light (t9), fade in web API + a duration control in the console (t10 + static UI), lamp_fade_on/lamp_fade_off {seconds} in the culture-rules actor (t12), tests in t13, real-lamp check in t14 (incl. whether the firmware adds its own short smoothing)",
+      "task_ref": "t7",
+      "reason": "User: fade-in and fade-out are critical for working with the lamp (2026-10-29); design choices answered by the user: serve runs fades, on/off fade by default, brightness+color+temp. Govee LAN/cloud APIs expose no transition time (developer forum request; community drivers step client-side).",
+      "affects": [
+        "t7",
+        "t8",
+        "t9",
+        "t10",
+        "t3",
+        "t4",
+        "t12",
+        "t13",
+        "t14",
+        "c16"
+      ],
+      "origin": "user",
+      "status": "approved",
+      "classification": "needs-follow-up",
+      "seq": 11
+    },
+    {
+      "id": "d12",
+      "what": "LAN-to-cloud fallback is decided when commands are planned (device has a LAN IP or not; PortBusy / no LAN reply -> plan cloud), never after a failed send, so the dry-run preview always equals what is sent",
+      "task_ref": "t7",
+      "reason": "criterion 1 (preview == sent) conflicts with per-command post-failure fallback; t7 agent chose plan-time fallback",
+      "affects": [],
+      "origin": "llm",
+      "status": "proposed",
+      "classification": "acceptable",
+      "seq": 12
+    },
+    {
+      "id": "d13",
+      "what": "Scene dry runs read the cloud scene list to build the payload, so they need GOVEE_API_KEY (or serve) even without --apply; GOVEE_SERVE_URL must be https or http on a loopback host (client token never sent in clear over a network)",
+      "task_ref": "t7",
+      "reason": "t7 agent design choices",
+      "affects": [],
+      "origin": "llm",
+      "status": "proposed",
+      "classification": "acceptable",
+      "seq": 13
+    },
+    {
+      "id": "d14",
+      "what": "CLI hint strings changed by the main agent from 'govee light kelvin N' / 'govee scene set NAME' to 'govee light temp N' / 'govee light scene NAME' to match the merged culture-rules actor (t4) and the spec wording; t8 must implement exactly these verbs",
+      "task_ref": "t7",
+      "reason": "t7 and t4 disagreed on verb names",
+      "affects": [
+        "t8",
+        "t4"
+      ],
+      "origin": "llm",
+      "status": "proposed",
+      "classification": "acceptable",
+      "seq": 14
+    },
+    {
+      "id": "d15",
+      "what": "LAN discovery fallback: multicast scan gets no reply from the real H6076 on the home Wi-Fi while unicast scan works. discover() now: GOVEE_LAN_HOSTS override and the cached last IP per device id (/govee-cli/lan-devices.json, 0600) are unicast-scanned first together with the multicast scan; if nothing answers, unicast-sweep the interface subnet (/24 cap); the cache updates on every reply; scan_report says which method found each device",
+      "task_ref": "t5",
+      "reason": "Measured 2026-10-29: 6 multicast scans unanswered with LAN Control on; unicast scan to the lamp answers instantly; SSDP multicast gets other replies, so group delivery to the lamp fails on the Wi-Fi path. /assess (general, thor): cache_then_sweep 0.806, mdns_lookup 0.159, subnet_sweep 0.020, configured_hosts_only 0.016; P(254-datagram sweep acceptable)=0.878; files in scratchpad assess-discovery.*",
+      "affects": [
+        "t5",
+        "t8",
+        "t14",
+        "c31"
+      ],
+      "origin": "llm",
+      "status": "proposed",
+      "classification": "acceptable",
+      "seq": 15
+    },
+    {
+      "id": "d16",
+      "what": "The .gitignore lines devague itself added (.devague/reviews/, .devague/questions/) were committed: swept into 98a72a2 and 95312e3 by 'git commit -a', then duplicated by a manual restore after the t3 revert; collapsed into one block in this branch. The user had not yet decided whether to keep them (drop them in the PR if not)",
+      "task_ref": "t12",
+      "reason": "main agent used git commit -a with an intentionally unstaged change present",
+      "affects": [],
+      "origin": "llm",
+      "status": "proposed",
+      "classification": "needs-follow-up",
+      "seq": 16
+    },
+    {
+      "id": "d17",
+      "what": "Fade judgement calls: fade-in target = explicit, else remembered, else the off lamp's own reported brightness (>1), else 100; fade-out remembers brightness when it starts (so a cancelled fade-out still remembers); end-of-fade check reuses the 3 s verification poll; default on/off fades over cloud degrade silently (warning only when fade_seconds was explicit); t7 tests pin GOVEE_FADE_DEFAULT=0; cross-process fade cancel (two CLI-direct processes) not handled - with serve running all fades live in serve",
+      "task_ref": "t7",
+      "reason": "fade agent (d11) choices beyond the brief",
+      "affects": [
+        "t8",
+        "t10"
+      ],
+      "origin": "llm",
+      "status": "proposed",
+      "classification": "acceptable",
+      "seq": 17
+    }
+  ],
+  "evidence": [],
+  "deltas": [],
+  "supersessions": []
+}

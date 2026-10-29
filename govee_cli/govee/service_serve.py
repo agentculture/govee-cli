@@ -34,7 +34,7 @@ from govee_cli.govee.service_types import (
 from govee_cli.govee.types import Command, Device, LampState
 
 ENV_SERVE_URL = "GOVEE_SERVE_URL"
-ENV_TOKEN = "GOVEE_TOKEN"  # nosec B105 - an env var name, not a secret
+ENV_TOKEN = "GOVEE_TOKEN"  # nosec B105
 DEFAULT_SERVE_PORT = 8742
 DEFAULT_SERVE_URL = f"http://127.0.0.1:{DEFAULT_SERVE_PORT}"
 HEALTH_TIMEOUT = 0.3
@@ -109,7 +109,7 @@ def serve_running(base_url: str, timeout: float = HEALTH_TIMEOUT) -> bool:
     """True when ``GET {base_url}/api/health`` answers as govee serve within ``timeout``."""
     req = urllib.request.Request(base_url + "/api/health", method="GET")  # noqa: S310
     try:
-        with _opener().open(req, timeout=timeout) as resp:  # nosec B310 - scheme checked
+        with _opener().open(req, timeout=timeout) as resp:  # nosec B310
             body = json.loads(resp.read() or b"{}")
     except (OSError, ValueError):
         return False

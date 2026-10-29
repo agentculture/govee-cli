@@ -5,7 +5,7 @@
   "schema_version": 5,
   "status": "exported",
   "created": "2026-10-29T06:29:59Z",
-  "updated": "2026-10-29T07:07:19Z",
+  "updated": "2026-10-29T07:16:07Z",
   "targets": [
     {
       "id": "c1",
@@ -731,8 +731,8 @@
       "text": "devStatus query target port (4003 vs 4002) unverified until the real lamp answers",
       "kind": "unknown_nonblocking",
       "task_id": "t5",
-      "resolved": false,
-      "resolution": ""
+      "resolved": true,
+      "resolution": "Verified on the real H6076A (2026-10-29): devStatus sent to UDP 4003 returns the state reply on 4002 (on, brightness 7, 5208 K); sending to 4002 gets nothing. lan.STATUS_PORT=4003 is correct."
     },
     {
       "id": "r2",
@@ -744,7 +744,7 @@
     },
     {
       "id": "r3",
-      "text": "Lamp is a Govee H6076A floor lamp (RGBIC; A variant also supports Matter); H6076 reported LAN-capable by third-party drivers. No LAN reply to multicast or unicast scans on 192.168.1.0/24 (wlP9s9). Firewall ruled out: ufw is inactive (user ran 'ufw status'); a UDP 4002 allow rule was added anyway. Remaining causes: LAN Control toggle off / not offered on this firmware, or the lamp not on this subnet. t14 cannot pass until the lamp answers.",
+      "text": "Lamp FOUND: Govee H6076 (scan reports sku H6076, wifi fw 1.00.16) on the home LAN, located via its Matter mDNS advert; it answers unicast scan to :4001 and devStatus to :4003. Multicast discovery to 239.255.255.250:4001 still gets no reply (3 tries, LAN Control on), while SSDP to the same group gets replies from other hosts, so group delivery to the lamp fails on the Wi-Fi path. Discovery needs a non-multicast fallback (see deviation). Its IP and device id are private and must not be committed.",
       "kind": "unknown_nonblocking",
       "task_id": "t14",
       "resolved": false,

@@ -4,7 +4,7 @@
   "schema_version": 6,
   "status": "exported",
   "created": "2026-10-29T05:47:24Z",
-  "updated": "2026-10-29T07:07:18Z",
+  "updated": "2026-10-29T07:21:28Z",
   "claims": [
     {
       "id": "c1",
@@ -936,6 +936,17 @@
       "skipped_check": "ask for 'sudo ufw status' before presenting the firewall as the likely cause",
       "refs": [
         "risk r3 / LAN discovery"
+      ],
+      "origin": "llm",
+      "status": "proposed"
+    },
+    {
+      "id": "l5",
+      "code": "control-absent",
+      "what": "Test suite was not hermetic: poller tests built LampService.direct() with a real LanTransport, so running the gate during d15 sent a real multicast scan and one ~253-packet unicast sweep to the home LAN and got replies from the real lamp (scan only, no control commands). Fixed in 3e0071c with a conftest guard that blocks non-loopback sends and clears GOVEE_* env",
+      "skipped_check": "a suite-wide network isolation fixture from the first wave",
+      "refs": [
+        "tests/test_poller.py, tests/conftest.py, d15"
       ],
       "origin": "llm",
       "status": "proposed"
