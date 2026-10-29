@@ -14,9 +14,9 @@ The run executed the approved split (gate 2, `bd56e16`) on branch
 under `../.worktrees.govee-cli/`, and every merge passed the tests before and
 after. Two extra work items came from deviations: fades (`d11`, the user's
 requirement) and the LAN discovery fallback (`d15`). The run is **partial**
-for two reasons. The user's half of `t14` is still pending (phone over the
-LAN, a visual check of the fades, and the culture-rules import). `t13`'s "CI
-on the PR" criterion can only be met once the PR exists.
+for one reason: the user's half of `t14` is still pending (a real phone, a
+visual check of the fades, and the culture-rules import). `t13` is complete;
+every check on PR #3 passed.
 
 ## Planned Work
 
@@ -54,8 +54,8 @@ Quoted verbatim from the `devague summary` skeleton:
 | `t10` | delivered | `govee_cli/web/server.py`, token-gated; merge `e695733`. SIGTERM handling was added in `2a6e764`. |
 | `t11` | delivered | `govee_cli/web/poller.py`; merge `1e184b4`. A cloud-quota fix followed in `a5cf8cd`. |
 | `t12` | delivered | README, CLAUDE.md and the three harness files, version 0.11.0 and the changelog; `3d41622` |
-| `t13` | partial | boundary tests, MCP fade and scene tests, Playwright e2e and two layout fixes; `62cffe6`. Coverage is 92 %. "CI on the PR" waits for the PR. |
-| `t14` | partial | The agent's live run is recorded in `docs/live-test-results/2026-10-29-h6076.md` (`ef5689d`); 3 defects were found and fixed. The user's run is pending. |
+| `t13` | delivered | boundary tests, MCP fade and scene tests, Playwright e2e and two layout fixes (`62cffe6`). On PR #3 every check passed at `d525079`: test (both workflows), lint, harness-smoke, version-check, SonarCloud gate (new-code coverage 80.1 %) and GitGuardian. Getting there took fixes `9a25d3f`, `4536bae` and `d525079` (`d24`, `d25`). |
+| `t14` | partial | The agent's live run is recorded in `docs/live-test-results/2026-10-29-h6076.md` (`ef5689d`); 3 defects were found and fixed. The LAN-address check (`e22`) is done. The user's run is pending: a real phone, a visual check of the fades, and the culture-rules import. |
 | `t15` | delivered | `govee_cli/auth/tokens.py`; merge `e451e9d`. `pairing_link` was added in `d19ba1a`. |
 
 ## Mid-work Decisions
@@ -125,7 +125,7 @@ recorded the rest as proposed, and the user reviews them on the PR.
 - commits: `341ad19..391c778` on `lamp/integration`, including the
   ask-colleague review fixes in `391c778`. That review raised 6 findings:
   3 were real and fixed, 3 were checked and rejected.
-- PRs: none yet (the next step is `/cicd`).
+- PRs: #3. Every check passed at `d525079`, and it is mergeable.
 
 ## Delivery Claims
 
@@ -154,8 +154,6 @@ have since been fixed.
 - `t14`, the user's run — the phone toggle over the LAN or Tailscale, a
   visual check of whether the firmware smooths instant changes, and
   `culture-rules actors create --json` as a dry run. Owner: the user.
-- `t13`, CI on the PR — open the PR with `/cicd` and wait for the lint,
-  tests, harness-smoke and version-check jobs. Owner: the main agent.
 - Adjudication — confirm or reject the proposed deviations (`d1`, `d2`, `d6`,
   `d8`–`d10`, `d12`–`d23`), lapses `l1`–`l6`, evidence `e1`–`e21` and deltas.
   Owner: the user, at gate 3.
