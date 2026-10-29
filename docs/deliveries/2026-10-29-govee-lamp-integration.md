@@ -165,7 +165,7 @@ have since been fixed.
   - `govee rules actor > /tmp/a.json`, then
     `culture-rules actors create --body @/tmp/a.json` as a dry run.
 - Adjudication — confirm or reject the proposed deviations (`d1`, `d2`, `d6`,
-  `d8`–`d10`, `d12`–`d23`), lapses `l1`–`l6`, evidence `e1`–`e21` and deltas.
+  `d8`–`d10`, `d12`–`d27`), lapses `l1`–`l6`, evidence `e1`–`e22` and deltas.
   Owner: the user, at gate 3.
 - `d16` — decide whether the devague-added `.gitignore` lines
   (`.devague/reviews/`, `.devague/questions/`) stay.
