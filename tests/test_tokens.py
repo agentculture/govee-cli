@@ -160,3 +160,16 @@ def test_default_path_falls_back_to_home(tmp_path, monkeypatch):
     monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
     monkeypatch.setenv("HOME", str(tmp_path))
     assert tokens.default_path() == tmp_path / ".config" / "govee-cli" / "tokens.json"
+
+
+def test_pairing_link_puts_secret_in_fragment_only():
+    link = tokens.pairing_link("abc_DEF-123", "192.0.2.7", 8742)
+    assert link.startswith("http://192.0.2.7:8742/#")
+    assert "?" not in link
+    assert link.split("#", 1)[1] == "token" + "=" + "abc_DEF-123"
+
+
+@pytest.mark.parametrize("bad", ["", "a#b", "a b", "a&b"])
+def test_pairing_link_rejects_unsafe_secret(bad):
+    with pytest.raises(ValueError):
+        tokens.pairing_link(bad, "192.0.2.7")

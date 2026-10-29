@@ -172,3 +172,16 @@ def _is_stale(last: Any, ts: float) -> bool:
     except ValueError:
         return True
     return ts - prev.timestamp() >= LAST_USED_INTERVAL
+
+
+DEFAULT_SERVE_PORT = 8742
+
+
+def pairing_link(secret: str, host: str, port: int = DEFAULT_SERVE_PORT) -> str:
+    """The console URL that pairs a browser: the token rides in the #fragment, never the query.
+
+    Fragments are not sent to the server, so the secret never reaches access logs or proxies.
+    """
+    if not secret or any(c in secret for c in "#&= /"):
+        raise ValueError("pairing secret must be a non-empty url-safe token")
+    return f"http://{host}:{int(port)}/#" + "token" + "=" + secret
