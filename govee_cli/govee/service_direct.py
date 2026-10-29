@@ -312,9 +312,7 @@ class DirectBackend:
         commands = [cloud_mod.scene_command(match)]
         cli = cli_for_scene(match.name, device)
         cancelled = self._cancel_device_fade(dev) if apply else None
-        result = self._run(
-            dev, commands, cli, "scene", {"scene": match.name}, apply, source, actor
-        )
+        result = self._run(dev, commands, cli, "scene", {"scene": match.name}, apply, source, actor)
         result.cancelled_fade = cancelled
         return result
 
@@ -373,8 +371,7 @@ class DirectBackend:
             "device": {"id": dev.id, "name": dev.name},
             "request": {**change.to_dict(), "fade_seconds": seconds},
             "commands": [
-                {"verb": v, "transport": "lan"}
-                for v in dict.fromkeys(c.verb for c in commands)
+                {"verb": v, "transport": "lan"} for v in dict.fromkeys(c.verb for c in commands)
             ],
             "cli": cli,
             "fade": plan.to_dict(),

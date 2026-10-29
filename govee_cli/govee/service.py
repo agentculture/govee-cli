@@ -23,9 +23,8 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
-from govee_cli.govee.fade import CLOUD_FADE_WARNING, FadePlan, validate_fade_seconds
-
 from govee_cli.cli._errors import EXIT_ENV_ERROR, CliError
+from govee_cli.govee.fade import CLOUD_FADE_WARNING, FadePlan, validate_fade_seconds
 from govee_cli.govee.service_direct import DirectBackend, state_matches
 from govee_cli.govee.service_serve import (
     DEFAULT_SERVE_PORT,

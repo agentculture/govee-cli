@@ -736,8 +736,14 @@ def test_routed_fade_omitted_when_not_given(serve, monkeypatch):
 
 def test_routed_active_and_cancel_fade(serve, monkeypatch):
     monkeypatch.setenv("GOVEE_TOKEN", "client-secret")
-    active = {"id": "f1", "device": {"id": "AA:BB"}, "started": "x", "seconds": 5,
-              "target": {"on": True}, "progress": 0.5}
+    active = {
+        "id": "f1",
+        "device": {"id": "AA:BB"},
+        "started": "x",
+        "seconds": 5,
+        "target": {"on": True},
+        "progress": 0.5,
+    }
     serve.responses[("GET", "/api/fade")] = (200, {"active": active})
     serve.responses[("POST", "/api/fade/cancel")] = (200, {"cancelled": True})
     service = routed()

@@ -289,8 +289,9 @@ def test_runner_sends_every_step_on_schedule():
     clock = FakeClock()
     plan = plan_fade(ON_RED, Change(brightness=1), 1.5)
     sent = []
-    outcome = FadeRunner(plan, lambda c: sent.append((clock.t, c)) or True, clock=clock,
-                         sleep=clock.sleep).run()
+    outcome = FadeRunner(
+        plan, lambda c: sent.append((clock.t, c)) or True, clock=clock, sleep=clock.sleep
+    ).run()
     assert outcome.ok and not outcome.cancelled and outcome.steps_done == len(plan.steps)
     assert [c for _, c in sent] == plan.commands()
     assert sent[-1][0] == pytest.approx(1.5)
