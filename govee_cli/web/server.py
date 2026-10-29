@@ -2,7 +2,7 @@
 
 While it runs, serve is the single owner of the lamp: it holds the LAN reply port and the cloud
 key, and CLI/MCP clients route every lamp operation through its public routes (approved
-deviation d4). The security rules, all enforced here:
+deviation d3). The security rules, all enforced here:
 
 * Every ``/api`` route needs ``Authorization: Bearer <token>`` (401 otherwise), reads included.
   Tokens are checked only through :func:`govee_cli.auth.tokens.verify` (constant-time compare

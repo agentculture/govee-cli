@@ -347,7 +347,7 @@ def test_sigterm_takes_the_clean_shutdown_path_and_restores_the_handler(monkeypa
     assert signal.getsignal(signal.SIGTERM) is before
 
 
-# --- attribution headers honoured only from loopback (d4) -------------------------------------
+# --- attribution headers honoured only from loopback (d3) -------------------------------------
 
 
 def _last_event():

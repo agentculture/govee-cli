@@ -1,6 +1,6 @@
 """Serve LampService backend: routes every lamp operation through ``govee serve``'s loopback API.
 
-Approved deviation d4: while serve runs, only serve holds ``GOVEE_API_KEY`` and the LAN reply
+Approved deviation d3: while serve runs, only serve holds ``GOVEE_API_KEY`` and the LAN reply
 port; CLI/MCP clients authenticate with a client token (``GOVEE_TOKEN``, else the 0600 file
 ``$XDG_CONFIG_HOME/govee-cli/client-token`` written by ``govee token new --save``). Serve logs the
 events, so this backend never writes the local event log.

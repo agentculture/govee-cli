@@ -4,7 +4,7 @@ CLI, MCP and web handlers call :class:`LampService`; nothing else touches a tran
 
 * ``LampService.connect(source, actor)`` is what CLI and MCP use. When ``govee serve`` answers
   ``GET {GOVEE_SERVE_URL}/api/health`` (default ``http://127.0.0.1:8742``) every operation, LAN
-  and cloud, is routed through serve's loopback API with the client token (approved deviation d4);
+  and cloud, is routed through serve's loopback API with the client token (approved deviation d3);
   otherwise the transports run directly in this process with the environment's key.
 * ``LampService.direct(...)`` is what ``govee serve`` itself uses (it never routes to itself).
 

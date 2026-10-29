@@ -4,7 +4,7 @@
   "schema_version": 6,
   "status": "exported",
   "created": "2026-10-29T05:47:24Z",
-  "updated": "2026-10-29T07:21:28Z",
+  "updated": "2026-10-29T08:05:15Z",
   "claims": [
     {
       "id": "c1",
@@ -947,6 +947,17 @@
       "skipped_check": "a suite-wide network isolation fixture from the first wave",
       "refs": [
         "tests/test_poller.py, tests/conftest.py, d15"
+      ],
+      "origin": "llm",
+      "status": "proposed"
+    },
+    {
+      "id": "l6",
+      "code": "provenance-missing",
+      "what": "Main agent swapped deviation ids d3 and d4 in its messages to the user, the agent briefs, code comments and deltas b2/b10: d3 is the cloud-key routing decision, d4 the systemd verify follow-up. The user's approvals covered both, so no approval changed meaning; references were corrected and b2/b10 superseded by b12/b13",
+      "skipped_check": "read the recorded id back from 'devague deviate --list' before citing it",
+      "refs": [
+        "d3, d4, b2, b10, d11 text"
       ],
       "origin": "llm",
       "status": "proposed"

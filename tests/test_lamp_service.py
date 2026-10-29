@@ -446,7 +446,7 @@ def test_port_busy_falls_back_to_cloud_when_available(foreign_socket):
     assert [c.transport for c in result.commands] == ["cloud"]
 
 
-# --- routing through serve (c29 / h20 first half, d4) ----------------------------------------
+# --- routing through serve (c29 / h20 first half, d3) ----------------------------------------
 
 
 class FakeServe:

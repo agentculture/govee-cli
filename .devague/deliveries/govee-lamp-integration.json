@@ -2,7 +2,7 @@
   "plan_slug": "govee-lamp-integration",
   "schema_version": 2,
   "created": "2026-10-29T06:46:31Z",
-  "updated": "2026-10-29T08:04:21Z",
+  "updated": "2026-10-29T08:05:15Z",
   "deviations": [
     {
       "id": "d1",
@@ -741,7 +741,7 @@
       ],
       "origin": "llm",
       "status": "proposed",
-      "superseded": false
+      "superseded": true
     },
     {
       "id": "b3",
@@ -855,7 +855,7 @@
       "evidence_refs": [],
       "origin": "llm",
       "status": "proposed",
-      "superseded": false
+      "superseded": true
     },
     {
       "id": "b11",
@@ -872,7 +872,51 @@
       "origin": "llm",
       "status": "proposed",
       "superseded": false
+    },
+    {
+      "id": "b12",
+      "kind": "amended",
+      "behavior_text": "When govee serve runs, every lamp operation (LAN and cloud) routes through it with a client token (GOVEE_TOKEN or the 0600 file 'govee token new --save' writes); only serve holds UDP 4002 and GOVEE_API_KEY",
+      "caused_by": [
+        "d3",
+        "c39"
+      ],
+      "evidence_refs": [
+        "e11",
+        "e12"
+      ],
+      "origin": "llm",
+      "status": "proposed",
+      "superseded": false
+    },
+    {
+      "id": "b13",
+      "kind": "added",
+      "behavior_text": "govee serve handles SIGTERM through the clean shutdown path (poller stopped, fades cancelled, 'govee serve stopped' logged)",
+      "caused_by": [
+        "deviation d23 (proposed)",
+        "d4"
+      ],
+      "evidence_refs": [],
+      "origin": "llm",
+      "status": "proposed",
+      "superseded": false
     }
   ],
-  "supersessions": []
+  "supersessions": [
+    {
+      "id": "s1",
+      "action": "supersede",
+      "target_ref": "b2",
+      "replacement_ref": "b12",
+      "origin": "user"
+    },
+    {
+      "id": "s2",
+      "action": "supersede",
+      "target_ref": "b10",
+      "replacement_ref": "b13",
+      "origin": "user"
+    }
+  ]
 }
