@@ -96,3 +96,18 @@ def test_stats_json_and_text(capsys):
     assert payload["recent_events"]
     rc, out, _ = run(capsys, "stats")
     assert rc == 0 and "commands" in out
+
+
+def test_stats_cli_and_mcp_count_local_days_like_the_console(monkeypatch, capsys):
+    from govee_cli.cli import main
+    from govee_cli.mcp import server as mcp_server
+    from govee_cli.stats import store
+
+    zones = []
+    for name in ("on_today_h", "on_week_h", "commands_7d", "agent_commands_7d"):
+        monkeypatch.setattr(store, name, lambda tz=None, **kw: zones.append(tz) or 0)
+    monkeypatch.setattr(store, "avg_brightness_today", lambda tz=None, **kw: zones.append(tz))
+    assert main(["stats", "--json"]) == 0
+    capsys.readouterr()
+    mcp_server._tool_get_stats(None, {})
+    assert zones and all(isinstance(z, store.LocalTimezone) for z in zones)

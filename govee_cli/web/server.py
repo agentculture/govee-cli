@@ -28,8 +28,7 @@ import re
 import signal
 import sys
 import threading
-import time
-from datetime import datetime, timedelta, timezone, tzinfo
+from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any, Callable, Optional, TextIO
@@ -41,6 +40,7 @@ from govee_cli.govee import lan
 from govee_cli.govee.cloud import MissingKey, RateLimited
 from govee_cli.govee.service import Change, LampService, hex_color, parse_hex_color
 from govee_cli.stats import store
+from govee_cli.stats.store import LocalTimezone
 from govee_cli.web.poller import Poller
 
 DEFAULT_HOST = "0.0.0.0"  # nosec B104
@@ -144,41 +144,6 @@ def is_loopback(address: str) -> bool:
         return False
     mapped = getattr(ip, "ipv4_mapped", None)
     return bool((mapped or ip).is_loopback)
-
-
-class LocalTimezone(tzinfo):
-    """The host's local timezone, DST included, from ``time.localtime`` (stdlib only).
-
-    Used to bucket the stats by local days and hours (approved deviation d5).
-    """
-
-    def utcoffset(self, dt: Optional[datetime]) -> timedelta:
-        if dt is None:
-            return timedelta(seconds=-time.timezone)
-        return timedelta(seconds=time.localtime(self._wall_ts(dt)).tm_gmtoff)
-
-    def dst(self, dt: Optional[datetime]) -> timedelta:
-        return self.utcoffset(dt) - timedelta(seconds=-time.timezone)
-
-    def tzname(self, dt: Optional[datetime]) -> str:
-        if dt is None:
-            return time.tzname[0]
-        return time.localtime(self._wall_ts(dt)).tm_zone
-
-    def fromutc(self, dt: datetime) -> datetime:
-        if dt.tzinfo is not self:
-            raise ValueError("fromutc: dt.tzinfo is not self")
-        ts = dt.replace(tzinfo=timezone.utc).timestamp()
-        lt = time.localtime(ts)
-        return datetime(*lt[:6], dt.microsecond, tzinfo=self)
-
-    @staticmethod
-    def _wall_ts(dt: datetime) -> float:
-        tt = (dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second, dt.weekday(), 0, -1)
-        return time.mktime(tt)
-
-    def __repr__(self) -> str:
-        return "LocalTimezone()"
 
 
 def _summary(verb: str, payload: Any) -> str:
@@ -761,6 +726,9 @@ def run(host: str = DEFAULT_HOST, port: int = DEFAULT_PORT, *, rotate_token: boo
     except KeyboardInterrupt:
         pass
     finally:
+        # A second signal (a repeated stop, or `uv run` forwarding the same SIGTERM) must not
+        # interrupt the cleanup itself; found live when one did, skipping the fade cancel.
+        previous_int = _ignore_signals_during_shutdown()
         if poller is not None:
             poller.stop()
         try:
@@ -770,8 +738,18 @@ def run(host: str = DEFAULT_HOST, port: int = DEFAULT_PORT, *, rotate_token: boo
         httpd.server_close()
         if previous_term is not None:
             signal.signal(signal.SIGTERM, previous_term)
+        if previous_int is not None:
+            signal.signal(signal.SIGINT, previous_int)
         log.info("govee serve stopped")
     return 0
+
+
+def _ignore_signals_during_shutdown() -> Any:
+    """Ignore SIGTERM and SIGINT until cleanup ends; return the SIGINT handler (None off main)."""
+    if threading.current_thread() is not threading.main_thread():
+        return None
+    signal.signal(signal.SIGTERM, signal.SIG_IGN)
+    return signal.signal(signal.SIGINT, signal.SIG_IGN)
 
 
 def _raise_interrupt(signum: int, frame: Any) -> None:

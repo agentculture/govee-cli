@@ -165,11 +165,19 @@ def test_fade_in_from_off_sets_brightness_1_turns_on_then_ramps():
     assert plan.verify == Change(on=True, brightness=80)
 
 
-def test_fade_in_target_brightness_remembered_else_100():
-    assert brightness_values(plan_fade(OFF, Change(on=True), 2, remembered=42))[-1] == 42
-    unknown = LampState(on=False, brightness=1)
-    assert brightness_values(plan_fade(unknown, Change(on=True), 2))[-1] == 100
-    assert brightness_values(plan_fade(None, Change(on=True), 2))[-1] == 100
+def test_fade_in_target_is_the_lamps_own_level_then_remembered_then_100():
+    # The lamp's own brightness (60) beats a stale remembered level from an older fade-out.
+    assert brightness_values(plan_fade(OFF, Change(on=True), 2, remembered=42))[-1] == 60
+    after_fade_out = LampState(on=False, brightness=1)
+    assert brightness_values(plan_fade(after_fade_out, Change(on=True), 2, remembered=42))[-1] == 42
+    assert brightness_values(plan_fade(after_fade_out, Change(on=True), 2))[-1] == 100
+
+
+def test_fade_in_with_unknown_start_turns_on_without_dipping_to_1():
+    # A lost devStatus reply must not drop an already-lit lamp to brightness 1.
+    plan = plan_fade(None, Change(on=True), 2, remembered=42)
+    assert build_brightness(1) not in plan.commands()
+    assert plan.commands() == [build_turn(True)]
 
 
 def test_fade_out_ramps_down_then_turns_off_and_never_sends_brightness_while_off():
@@ -489,6 +497,42 @@ def test_new_apply_cancels_the_running_fade():
     events = store.recent_events()
     fade_event = next(e for e in events if e["verb"] == "fade")
     assert fade_event["status"] == "sent" and fade_event["payload"]["cancelled"] is True
+
+
+def test_concurrent_fades_leave_exactly_one_running():
+    # Serve is threaded: two writes racing must never leave an unregistered fade running.
+    lan = StateLan(ON_RED)
+    service = LampService.direct(lan=lan, cloud=NoCloud(), background_fades=True)
+    barrier = threading.Barrier(8)
+    results = []
+
+    def write(level: int) -> None:
+        barrier.wait(5)
+        results.append(service.apply(Change(brightness=level), apply=True, fade_seconds=60))
+
+    threads = [threading.Thread(target=write, args=(10 + i,)) for i in range(8)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join(10)
+    assert len(results) == 8
+    running = service.active_fade()
+    assert running is not None
+    _wait_for(
+        lambda: sum(
+            1
+            for e in store.recent_events()
+            if e["verb"] == "fade" and not e["payload"].get("cancelled")
+        )
+        == 1
+    )
+    survivor = next(
+        e
+        for e in store.recent_events()
+        if e["verb"] == "fade" and not e["payload"].get("cancelled")
+    )
+    assert survivor["payload"]["fade"]["id"] == running["id"]
+    assert service.cancel_fade() is True
 
 
 def test_cancel_fade_and_dry_run_does_not_cancel():

@@ -25,6 +25,7 @@ from typing import Any, Callable, Optional
 from govee_cli import __version__
 from govee_cli.cli._errors import CliError
 from govee_cli.govee.service import Change, LampService, parse_hex_color
+from govee_cli.govee.service_serve import serve_base_url, serve_running
 
 PROTOCOL_VERSION = "2025-06-18"
 SOURCE = "mcp"
@@ -129,7 +130,15 @@ def _fake_service(actor: Optional[str]) -> LampService:
 def make_service(source: str, actor: Optional[str]) -> LampService:
     if os.environ.get(ENV_TEST_FAKE) == "1":
         return _fake_service(actor)
-    return LampService.connect(source=source, actor=actor)
+    # Without serve, fades run on a background thread so the stdio loop keeps answering (and
+    # ``cancel_fade`` can stop a fade this server started).
+    return LampService.connect(source=source, actor=actor, background_fades=True)
+
+
+def _serve_up() -> bool:
+    if os.environ.get(ENV_TEST_FAKE) == "1":
+        return False
+    return serve_running(serve_base_url())
 
 
 # --- tool handlers --------------------------------------------------------------------------
@@ -191,14 +200,15 @@ def _tool_set_scene(svc, a: dict) -> dict:
 def _tool_get_stats(svc, a: dict) -> dict:
     from govee_cli.stats import store
 
+    tz = store.LocalTimezone()  # the same local days the web console counts
     return {
-        "on_today_h": store.on_today_h(),
-        "on_week_h": store.on_week_h(),
-        "commands_7d": store.commands_7d(),
-        "agent_commands_7d": store.agent_commands_7d(),
-        "avg_brightness_today": store.avg_brightness_today(),
-        "hours_per_day": store.hours_per_day(),
-        "commands_by_source": store.commands_by_source(),
+        "on_today_h": store.on_today_h(tz=tz),
+        "on_week_h": store.on_week_h(tz=tz),
+        "commands_7d": store.commands_7d(tz=tz),
+        "agent_commands_7d": store.agent_commands_7d(tz=tz),
+        "avg_brightness_today": store.avg_brightness_today(tz=tz),
+        "hours_per_day": store.hours_per_day(tz=tz),
+        "commands_by_source": store.commands_by_source(tz=tz),
         "recent_events": store.recent_events(),
     }
 
@@ -233,15 +243,29 @@ def _format_error(code_msg: str, remediation: str) -> str:
 class Server:
     def __init__(self) -> None:
         self.client_name: Optional[str] = None
-        self._svc: Any = None
+        self._svcs: dict[bool, Any] = {}
 
     def actor(self) -> str:
         return os.environ.get(ENV_ACTOR) or self.client_name or "mcp"
 
     def service(self) -> Any:
-        if self._svc is None:
-            self._svc = make_service(SOURCE, self.actor())
-        return self._svc
+        """The backend for this call: ``govee serve`` if it answers now, else in-process.
+
+        Checked on every call (a refused loopback connect is instant), so serve starting or
+        stopping during a session is picked up. Each kind is built once and kept, so a fade the
+        in-process backend started stays visible to ``get_fade`` and ``cancel_fade``.
+        """
+        routed = _serve_up()
+        if routed not in self._svcs:
+            self._svcs[routed] = make_service(SOURCE, self.actor())
+        return self._svcs[routed]
+
+    def close(self) -> None:
+        """Let fades this server started finish before the process exits."""
+        for svc in self._svcs.values():
+            wait = getattr(getattr(svc, "backend", None), "wait_for_fades", None)
+            if callable(wait):
+                wait()
 
     def call_tool(self, params: Any) -> dict:
         if not isinstance(params, dict) or not isinstance(params.get("name"), str):
@@ -326,6 +350,7 @@ def run(stdin=None, stdout=None) -> int:
         if reply is not None:
             stdout.write(json.dumps(reply) + "\n")
             stdout.flush()
+    server.close()
     return 0
 
 

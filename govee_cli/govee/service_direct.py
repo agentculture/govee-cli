@@ -23,6 +23,7 @@ explicitly; CLI/MCP use it when no serve is running (see ``service.LampService.c
 
 from __future__ import annotations
 
+import contextlib
 import sqlite3
 import threading
 import time
@@ -52,6 +53,7 @@ from govee_cli.stats import store
 DEFAULT_VERIFY_TIMEOUT = 3.0
 DEFAULT_POLL_INTERVAL = 0.25
 DEFAULT_CACHE_TTL = 300.0
+MISS_TTL = 15.0  # how long a failed discovery is reused before scanning again
 COLOR_TOLERANCE = 24  # per RGB channel; lamps quantise colour
 KELVIN_TOLERANCE = 150
 FADE_JOIN_TIMEOUT = 2.0  # how long a new write waits for a cancelled fade's thread to stop
@@ -179,10 +181,16 @@ class DirectBackend:
         self.background_fades = background_fades
         self._fade_lock = threading.Lock()
         self._fades: dict[str, _ActiveFade] = {}
+        # Serve is threaded: cancelling the old fade, sending and registering the new one must be
+        # one step, or two writes could each start a fade (both seeing none running).
+        self._write_lock = threading.Lock()
         # The LAN reply port is exclusive per host, so LAN I/O is serialised (serve is threaded).
         self._lan_lock = threading.RLock()
         self._cache_lock = threading.Lock()
         self._cache: Optional[tuple[float, list[Device]]] = None
+        # A failed discovery (no lamp, or an error) is remembered briefly, so an offline lamp does
+        # not make every request (console polls, the poller) queue behind a new multi-second scan.
+        self._miss: Optional[tuple[float, Optional[CliError]]] = None
 
     # -- discovery --
 
@@ -214,9 +222,19 @@ class DirectBackend:
             now = self.clock()
             if not refresh and self._cache and now - self._cache[0] < self.cache_ttl:
                 return list(self._cache[1])
-            devices = self._discover()
+            if not refresh and self._miss and now - self._miss[0] < MISS_TTL:
+                if self._miss[1] is not None:
+                    raise self._miss[1]
+                return []
+            try:
+                devices = self._discover()
+            except CliError as exc:
+                self._miss = (now, exc)
+                raise
             if devices:
-                self._cache = (now, devices)
+                self._cache, self._miss = (now, devices), None
+            else:
+                self._miss = (now, None)
             return list(devices)
 
     def _device(self, selector: Optional[str]) -> Device:
@@ -276,6 +294,27 @@ class DirectBackend:
         fade_seconds: Optional[float] = None,
     ) -> ApplyResult:
         dev = self._device(device)
+        with self._writing():
+            return self._apply(dev, change, apply, device, source, actor, fade_seconds)
+
+    def _writing(self) -> Any:
+        """The write lock when fades run in the background, else a no-op.
+
+        A foreground fade runs inside ``apply``, so holding the lock there would block nothing
+        useful and only delay a ``cancel_fade`` from another thread; one caller writes at a time.
+        """
+        return self._write_lock if self.background_fades else contextlib.nullcontext()
+
+    def _apply(
+        self,
+        dev: Device,
+        change: Change,
+        apply: bool,
+        device: Optional[str],
+        source: str,
+        actor: Any,
+        fade_seconds: Optional[float],
+    ) -> ApplyResult:
         seconds = fade_mod.resolve_fade_seconds(change, fade_seconds)
         default = fade_mod.default_fade_seconds() if change.on is not None else None
         hint_fade = seconds if (fade_seconds is not None or seconds) else None
@@ -329,8 +368,11 @@ class DirectBackend:
             )
         commands = [cloud_mod.scene_command(match)]
         cli = cli_for_scene(match.name, device)
-        cancelled = self._cancel_device_fade(dev) if apply else None
-        result = self._run(dev, commands, cli, "scene", {"scene": match.name}, apply, source, actor)
+        with self._writing():
+            cancelled = self._cancel_device_fade(dev) if apply else None
+            result = self._run(
+                dev, commands, cli, "scene", {"scene": match.name}, apply, source, actor
+            )
         result.cancelled_fade = cancelled
         return result
 
@@ -356,6 +398,16 @@ class DirectBackend:
         with self._fade_lock:
             devices = [f.device for f in self._fades.values()]
         return any([self._cancel_device_fade(d) is not None for d in devices])
+
+    def wait_for_fades(self) -> None:
+        """Block until every background fade has ended (``govee mcp serve`` at EOF)."""
+        while True:
+            with self._fade_lock:
+                threads = [f.thread for f in self._fades.values() if f.thread is not None]
+            if not threads:
+                return
+            for thread in threads:
+                thread.join()
 
     def _cancel_device_fade(self, dev: Device) -> Optional[str]:
         with self._fade_lock:
@@ -423,7 +475,10 @@ class DirectBackend:
         )
         runner.cancel = active.cancel
         with self._fade_lock:
+            previous = self._fades.get(dev.id)
             self._fades[dev.id] = active
+        if previous is not None:  # never leave an unregistered fade running
+            previous.cancel.set()
         if self.background_fades:
             active.thread = threading.Thread(
                 target=self._fade_thread, args=(active,), name=f"fade-{plan.id}", daemon=True

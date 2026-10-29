@@ -13,14 +13,15 @@ def _collect() -> dict[str, object]:
 
     from govee_cli.stats import store
 
+    tz = store.LocalTimezone()  # the same local days the web console counts
     try:
-        avg = store.avg_brightness_today()
+        avg = store.avg_brightness_today(tz=tz)
         return {
             "tiles": {
-                "on_today_h": store.on_today_h(),
-                "on_week_h": store.on_week_h(),
-                "commands_7d": store.commands_7d(),
-                "agent_commands_7d": store.agent_commands_7d(),
+                "on_today_h": store.on_today_h(tz=tz),
+                "on_week_h": store.on_week_h(tz=tz),
+                "commands_7d": store.commands_7d(tz=tz),
+                "agent_commands_7d": store.agent_commands_7d(tz=tz),
                 "avg_brightness_today": avg,
             },
             "recent_events": store.recent_events(10),

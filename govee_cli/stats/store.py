@@ -90,6 +90,42 @@ def _utc(now: Optional[datetime]) -> datetime:
     return now if now.tzinfo else now.replace(tzinfo=timezone.utc)
 
 
+class LocalTimezone(tzinfo):
+    """The host's local timezone, DST included, from ``time.localtime`` (stdlib only).
+
+    Used to bucket the stats by local days and hours (approved deviation d5); the console, ``govee
+    stats`` and the MCP ``get_stats`` tool all pass it so they agree on what "today" is.
+    """
+
+    def utcoffset(self, dt: Optional[datetime]) -> timedelta:
+        if dt is None:
+            return timedelta(seconds=-time.timezone)
+        return timedelta(seconds=time.localtime(self._wall_ts(dt)).tm_gmtoff)
+
+    def dst(self, dt: Optional[datetime]) -> timedelta:
+        return self.utcoffset(dt) - timedelta(seconds=-time.timezone)
+
+    def tzname(self, dt: Optional[datetime]) -> str:
+        if dt is None:
+            return time.tzname[0]
+        return time.localtime(self._wall_ts(dt)).tm_zone
+
+    def fromutc(self, dt: datetime) -> datetime:
+        if dt.tzinfo is not self:
+            raise ValueError("fromutc: dt.tzinfo is not self")
+        ts = dt.replace(tzinfo=timezone.utc).timestamp()
+        lt = time.localtime(ts)
+        return datetime(*lt[:6], dt.microsecond, tzinfo=self)
+
+    @staticmethod
+    def _wall_ts(dt: datetime) -> float:
+        tt = (dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second, dt.weekday(), 0, -1)
+        return time.mktime(tt)
+
+    def __repr__(self) -> str:
+        return "LocalTimezone()"
+
+
 def _local(now: Optional[datetime], tz: Optional[tzinfo]) -> datetime:
     """``now`` (default: the current time) as an aware datetime in ``tz`` (default UTC)."""
     return _utc(now).astimezone(tz or timezone.utc)

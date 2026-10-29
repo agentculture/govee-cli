@@ -33,6 +33,8 @@ def _is_local(address) -> bool:
 def _isolate(monkeypatch, tmp_path):
     for name in _GOVEE_ENV:
         monkeypatch.delenv(name, raising=False)
+    # A `govee serve` running on this machine must not be found: point the probe at a closed port.
+    monkeypatch.setenv("GOVEE_SERVE_URL", "http://127.0.0.1:9")
     monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path / "state"))
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
 

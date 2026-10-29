@@ -75,7 +75,7 @@ recorded the rest as proposed, and the user reviews them on the PR.
 - `d11` (approved, the user's requirement) — fades. On and off fade by
   default (1.5 s), `--fade` covers brightness, colour and temperature, and
   serve runs the fades.
-- Proposed `d1`, `d2`, `d6`, `d8`, `d9`, `d10`, `d12`–`d27`. Each record is
+- Proposed `d1`, `d2`, `d6`, `d8`, `d9`, `d10`, `d12`–`d31`. Each record is
   listed by `devague deviate --list`. The notable ones:
   - `d10`: no `SO_REUSEADDR` (the agent's brief was wrong).
   - `d15`: the discovery fallback, after the real lamp ignored multicast
@@ -89,6 +89,13 @@ recorded the rest as proposed, and the user reviews them on the PR.
   - `d26`: the user-only `t14` checks become follow-ups.
   - `d27`: the static console is excluded from Sonar's coverage metric only
     (Python new-code coverage is 92.3 %).
+  - `d28`–`d30`: fixes for 9 of the 10 findings of the user's `/code-review`
+    on PR #3 (fade race in serve, MCP fades blocking stdio, a once-per-process
+    serve choice in MCP, `--refresh` not forwarded, UTC day counts, a fade-in
+    dip on an unread lamp, a stale remembered level, rescans while the lamp is
+    offline, doctor failing while serve runs). Finding 8 (https Origin) is
+    already covered by `d20`.
+  - `d31`: serve ignores repeat signals during shutdown (found live).
 - **The main agent mislabelled ids, without a record at the time.** In its
   messages, agent briefs, code comments and deltas `b2` and `b10`, it called
   the cloud-key decision "d4" and the systemd follow-up "d3" (lapse `l6`).
@@ -111,12 +118,20 @@ recorded the rest as proposed, and the user reviews them on the PR.
 | `t4` / `t12` (`d21`, proposed) | The actor gained `lamp_fade_on`/`lamp_fade_off` (`d11`), and every command passes `--source rules`. | acceptable |
 | `t3` | Two layout defects survived the `t3` merge and were fixed in `t13`: the bulb shifted 22 px when the panes switched, and the controls overflowed at 390 px. | acceptable |
 | `t14` (`d26`, proposed) | The user-only checks were moved to post-merge follow-ups. The agent has no phone and cannot see the lamp, and access to the user's culture-rules token was refused. /assess: `defer_to_gate3` 0.824. | needs-follow-up |
+| `t7` / `t9` / `t8` (`d28`–`d30`, proposed) | Code review on PR #3 found concurrency and correctness defects in the delivered fades, MCP server, discovery cache, stats and doctor. | acceptable |
+| `t14` (`d31`, proposed) | The live re-test found serve crashing on a second SIGTERM during shutdown. | acceptable |
 | `t14` (`d22`, proposed) | A fade-out leaves the lamp off at brightness 1. The Govee app or the button then light it at 1 %; govee itself restores the level. | needs-follow-up |
 
 ## Evidence
 
 - tests: the full suite is 605 passed and 1 skipped (the pre-existing
-  cross-repo report) at `ed3048d`; coverage is 92.21 % (floor 60 %).
+  cross-repo report) at `ed3048d`; coverage is 92.21 % (floor 60 %). After
+  the code-review fixes it is 632 passed and 1 skipped, coverage 93 %.
+- sensitivity shown for the review fixes:
+  `tests/test_fade.py::test_concurrent_fades_leave_exactly_one_running`
+  failed 3 of 3 runs without the write lock, and
+  `tests/test_web_server.py::test_a_second_sigterm_during_shutdown_does_not_skip_the_cleanup`
+  aborted the run without the signal guard.
 - evidence records `e1`–`e21` against obligations `o1`–`o19`. All pass. They
   are filed as proposed, so they await the user's confirmation. The tests
   behind them are named in each record and were run at `ef5689d`.
@@ -165,7 +180,7 @@ have since been fixed.
   - `govee rules actor > /tmp/a.json`, then
     `culture-rules actors create --body @/tmp/a.json` as a dry run.
 - Adjudication — confirm or reject the proposed deviations (`d1`, `d2`, `d6`,
-  `d8`–`d10`, `d12`–`d27`), lapses `l1`–`l6`, evidence `e1`–`e22` and deltas.
+  `d8`–`d10`, `d12`–`d31`), lapses `l1`–`l6`, evidence `e1`–`e22` and deltas.
   Owner: the user, at gate 3.
 - `d16` — decide whether the devague-added `.gitignore` lines
   (`.devague/reviews/`, `.devague/questions/`) stay.

@@ -232,7 +232,8 @@ class ServeBackend:
     # -- LampService backend interface --
 
     def devices(self, *, refresh: bool = False, source: str = "cli", actor: Any = None):
-        body = self._request("GET", "/api/devices", source=source, actor=actor)
+        query = {"refresh": "1"} if refresh else None
+        body = self._request("GET", "/api/devices", source=source, actor=actor, query=query)
         return [_device(d) for d in body.get("devices") or []]
 
     def state(self, device: Optional[str] = None, *, source: str = "cli", actor: Any = None):

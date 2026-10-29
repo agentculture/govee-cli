@@ -262,11 +262,17 @@ def plan_fade(
         else:
             ramp.first = [lan_mod.build_turn(False)]
         verify = Change(on=False)
+    elif change.on is True and start is None:
+        # The lamp could not be read: it may already be lit, so a dip to 1 % could be a visible
+        # flash. Turn it on as asked, without a ramp.
+        ramp.first = _instant(change)
     elif change.on is True and not lamp_on:
-        target = change.brightness or remembered
+        # The lamp's own level wins; the level remembered from a fade-out only replaces the
+        # brightness 1 that the fade-out left behind.
+        target = change.brightness
         if not target and start is not None and start.brightness > 1:
             target = start.brightness
-        target = int(target or 100)
+        target = int(target or remembered or 100)
         ramp.first = [lan_mod.build_brightness(1), lan_mod.build_turn(True)]
         if change.color is not None:
             ramp.first.append(lan_mod.build_color(change.color))

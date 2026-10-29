@@ -29,9 +29,10 @@ from __future__ import annotations
 import argparse
 import os
 import tempfile
-from typing import Any
+from typing import Any, Optional
 
 from govee_cli.cli._commands.whoami import find_culture_yaml, read_agent_fields
+from govee_cli.cli._errors import CliError
 from govee_cli.cli._output import emit_result
 
 #: Shared by every AGENTS.md-reading backend (codex, acp, copilot).
@@ -232,6 +233,9 @@ def _check_discovery(scan: bool) -> dict[str, Any]:
             "LAN scan skipped (--no-scan or GOVEE_DOCTOR_NO_SCAN)",
             severity="info",
         )
+    served = _discovery_via_serve()
+    if served is not None:
+        return served
     report = _lan_scan()
     tried = ", ".join(report.get("methods_tried") or []) or "none"
     if report.get("replied"):
@@ -246,6 +250,28 @@ def _check_discovery(scan: bool) -> dict[str, Any]:
         f"no lamp answered on the LAN{why}; methods tried: {tried}",
         REMEDIATION_LAN,
     )
+
+
+def _discovery_via_serve() -> Optional[dict[str, Any]]:
+    """While ``govee serve`` runs it owns UDP 4002, so ask it instead of scanning (None: not up)."""
+    from govee_cli.govee.service import LampService
+    from govee_cli.govee.service_serve import serve_base_url, serve_running
+
+    base = serve_base_url()
+    if not serve_running(base):
+        return None
+    try:
+        devices = LampService.connect().devices()
+    except CliError as exc:
+        return _check(
+            "lan-discovery", False, f"govee serve at {base}: {exc.message}", exc.remediation
+        )
+    if not devices:
+        return _check(
+            "lan-discovery", False, f"govee serve at {base} sees no lamp", REMEDIATION_LAN
+        )
+    found = "; ".join(f"{d.name} ({d.model}) via {'/'.join(d.transports)}" for d in devices)
+    return _check("lan-discovery", True, f"found {found} through govee serve at {base}")
 
 
 def _check_api_key() -> dict[str, Any]:

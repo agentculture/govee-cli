@@ -2,7 +2,7 @@
   "plan_slug": "govee-lamp-integration",
   "schema_version": 2,
   "created": "2026-10-29T06:46:31Z",
-  "updated": "2026-10-29T08:44:18Z",
+  "updated": "2026-10-29T23:16:26Z",
   "deviations": [
     {
       "id": "d1",
@@ -368,6 +368,58 @@
       "status": "proposed",
       "classification": "acceptable",
       "seq": 49
+    },
+    {
+      "id": "d28",
+      "what": "Code-review fixes to fades (PR #3 /code-review): writes in govee serve are serialised by a write lock and registering a fade cancels any fade it replaces, so concurrent writes leave exactly one fade running; a fade-on whose start state could not be read turns the lamp on without the dip to 1 %; the fade-in target is now the request's brightness, else the lamp's own level when > 1, else the level remembered from a fade-out, else 100 (was: remembered beat the lamp's level, even when stale)",
+      "task_ref": "t7",
+      "reason": "review findings 1, 6 and 7: a race in threaded serve, a visible flash on a lost devStatus reply, and a stale remembered level overriding a level set in the Govee app",
+      "affects": [
+        "t10"
+      ],
+      "origin": "llm",
+      "status": "proposed",
+      "classification": "acceptable",
+      "seq": 50
+    },
+    {
+      "id": "d29",
+      "what": "MCP server: without govee serve its fades run on a background thread (set_light returns status 'sent' at fade start, like serve) and at stdin EOF it waits for running fades to finish; it re-checks for govee serve on every tool call and keeps one backend per kind, instead of choosing once per process",
+      "task_ref": "t9",
+      "reason": "review findings 2 and 3: a foreground fade blocked the stdio loop so cancel_fade could never stop it, and serve starting or stopping mid-session broke every later call",
+      "affects": [],
+      "origin": "llm",
+      "status": "proposed",
+      "classification": "acceptable",
+      "seq": 51
+    },
+    {
+      "id": "d30",
+      "what": "Direct backend reuses a failed discovery for 15 s (MISS_TTL; --refresh bypasses); ServeBackend forwards refresh; govee stats and MCP get_stats pass LocalTimezone like the console (moved to stats/store.py); govee doctor's lan-discovery asks govee serve when it runs instead of binding UDP 4002; tests point GOVEE_SERVE_URL at a closed port so a local serve is never found. Finding 8 (https Origin) is not fixed: d20 already declares the HTTPS reverse-proxy setup unsupported",
+      "task_ref": "t8",
+      "reason": "review findings 4, 5, 9 and 10: stale device list, UTC vs local day counts, an offline lamp serialising every request behind a rescan, and doctor reporting a healthy serve setup as broken",
+      "affects": [
+        "t7",
+        "t9",
+        "t13"
+      ],
+      "origin": "llm",
+      "status": "proposed",
+      "classification": "acceptable",
+      "seq": 52
+    },
+    {
+      "id": "d31",
+      "what": "serve ignores further SIGTERM/SIGINT while its shutdown cleanup runs (poller stop, fade cancel, socket close), then restores both handlers",
+      "task_ref": "t14",
+      "reason": "found in the live re-test of the review fixes: 'uv run govee serve' forwards the SIGTERM it receives, so serve got two; the second landed in the poller join and killed serve with a traceback before it cancelled fades. Re-verified live: two SIGTERMs mid-fade -> exit 0, 'govee serve stopped', no traceback",
+      "affects": [
+        "t10"
+      ],
+      "origin": "llm",
+      "status": "proposed",
+      "classification": "acceptable",
+      "seq": 53
     }
   ],
   "evidence": [

@@ -341,3 +341,56 @@ def test_set_scene_apply_sends_the_cloud_scene_command(monkeypatch):
     assert result["applied"] is True
     assert [c.transport for _d, c in cloud.sent] == ["cloud"]
     assert cloud.sent[0][1].payload["value"] == {"paramId": 1, "id": 7}
+
+
+# --- code-review fixes: background fades and a per-call serve check -----------------------------
+
+
+def test_make_service_runs_direct_fades_in_the_background(monkeypatch):
+    seen = {}
+
+    def connect(**kwargs):
+        seen.update(kwargs)
+        return "svc"
+
+    monkeypatch.setattr(server.LampService, "connect", staticmethod(connect))
+    assert server.make_service("mcp", "x") == "svc"
+    assert seen["background_fades"] is True
+
+
+def test_service_follows_serve_starting_and_stopping(monkeypatch):
+    up = {"now": False}
+    built = []
+
+    def make(source, actor):
+        built.append(object())
+        return built[-1]
+
+    monkeypatch.setattr(server, "_serve_up", lambda: up["now"])
+    monkeypatch.setattr(server, "make_service", make)
+    s = server.Server()
+    direct = s.service()
+    assert s.service() is direct and len(built) == 1
+    up["now"] = True
+    routed = s.service()
+    assert routed is not direct and len(built) == 2
+    up["now"] = False
+    assert s.service() is direct, "the in-process backend (and its fades) is kept"
+
+
+def test_eof_lets_a_running_fade_finish(monkeypatch):
+    lamp = FakeTransport([DEV], state=OFF)
+    svc = LampService.direct(
+        source="mcp",
+        actor="x",
+        lan=lamp,
+        cloud=FakeTransport([]),
+        background_fades=True,
+        verify_timeout=0.0,
+        poll_interval=0.0,
+    )
+    monkeypatch.setattr(server, "make_service", lambda s, a: svc)
+    r = session([init_msg(), call(2, "set_light", on=True, fade_seconds=0.5, apply=True)])
+    assert payload(r[1])["applied"] is True
+    assert svc.active_fade() is None, "run() returned only after the fade ended"
+    assert lamp.sent[-1][1].payload["msg"]["cmd"] == "brightness"

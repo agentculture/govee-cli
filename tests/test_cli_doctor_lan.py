@@ -98,3 +98,39 @@ def test_env_no_scan(capsys, monkeypatch):
     monkeypatch.setattr(doctor_mod, "_lan_scan", lambda: (_ for _ in ()).throw(AssertionError))
     rc, rep = report(capsys)
     assert check(rep, "lan-discovery")["severity"] == "info"
+
+
+def test_discovery_asks_govee_serve_when_it_runs(capsys, monkeypatch, scan):
+    # serve owns UDP 4002; a scan of our own would fail with PortBusy on a healthy setup.
+    from govee_cli.govee import service as service_mod
+    from govee_cli.govee import service_serve
+    from govee_cli.govee.types import Device
+
+    class Served:
+        def devices(self):
+            return [Device(id="AA", name="Floor", model="H6076", transports=("lan",))]
+
+    monkeypatch.setattr(service_serve, "serve_running", lambda base: True)
+    monkeypatch.setattr(service_mod.LampService, "connect", classmethod(lambda cls: Served()))
+    monkeypatch.setattr(doctor_mod, "_lan_scan", lambda: (_ for _ in ()).throw(AssertionError))
+    rc, rep = report(capsys)
+    disc = check(rep, "lan-discovery")
+    assert (
+        disc["passed"] and "through govee serve" in disc["message"] and "Floor" in disc["message"]
+    )
+
+
+def test_discovery_through_serve_reports_a_missing_token(capsys, monkeypatch, scan):
+    from govee_cli.cli._errors import CliError
+    from govee_cli.govee import service as service_mod
+    from govee_cli.govee import service_serve
+
+    def no_token(cls):
+        raise CliError(2, "govee serve is running but this client has no token", "govee token new")
+
+    monkeypatch.setattr(service_serve, "serve_running", lambda base: True)
+    monkeypatch.setattr(service_mod.LampService, "connect", classmethod(no_token))
+    rc, rep = report(capsys)
+    disc = check(rep, "lan-discovery")
+    assert not disc["passed"] and "no token" in disc["message"]
+    assert disc["remediation"] == "govee token new"

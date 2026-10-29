@@ -347,6 +347,45 @@ def test_sigterm_takes_the_clean_shutdown_path_and_restores_the_handler(monkeypa
     assert signal.getsignal(signal.SIGTERM) is before
 
 
+def test_a_second_sigterm_during_shutdown_does_not_skip_the_cleanup(monkeypatch):
+    # Found live: `uv run govee serve` forwarded the same SIGTERM, and the second one landed in
+    # the poller join, so serve died with a traceback before cancelling fades.
+    import os
+    import signal
+
+    stopped = []
+
+    class FakePoller:
+        def __init__(self, service):
+            pass
+
+        def start(self):
+            pass
+
+        def stop(self, timeout=5.0):
+            os.kill(os.getpid(), signal.SIGTERM)
+            os.kill(os.getpid(), signal.SIGINT)
+            time.sleep(0.05)
+            stopped.append("poller")
+
+    service = make_service()
+    monkeypatch.setattr(web, "Poller", FakePoller)
+    monkeypatch.setattr(web, "_build_service", lambda: service)
+    monkeypatch.setattr(service, "cancel_fade", lambda *a, **k: stopped.append("fades") or False)
+
+    def fake_serve_forever(self, poll_interval=0.5):
+        os.kill(os.getpid(), signal.SIGTERM)
+        time.sleep(5)
+        raise AssertionError("SIGTERM did not interrupt serve_forever")
+
+    monkeypatch.setattr(web.GoveeServer, "serve_forever", fake_serve_forever)
+    before_term, before_int = signal.getsignal(signal.SIGTERM), signal.getsignal(signal.SIGINT)
+    assert web.run(host="127.0.0.1", port=0) == 0
+    assert stopped == ["poller", "fades"]
+    assert signal.getsignal(signal.SIGTERM) is before_term
+    assert signal.getsignal(signal.SIGINT) is before_int
+
+
 def test_slow_body_is_dropped_quickly_not_after_the_request_timeout(srv, monkeypatch):
     # colleague review: an unauthenticated client trickling a declared body held a handler
     # thread for the whole 30 s request timeout. Body reads now time out after BODY_TIMEOUT.

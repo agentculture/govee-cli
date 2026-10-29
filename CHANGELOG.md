@@ -26,7 +26,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
-- Test suite is hermetic: tests/conftest.py clears GOVEE_* env, isolates XDG dirs and blocks every non-loopback send or connect.
+- Test suite is hermetic: tests/conftest.py clears GOVEE_* env, isolates XDG dirs, points the serve probe at a closed port and blocks every non-loopback send or connect.
+- Code review on PR #3: two concurrent writes to `govee serve` can no longer leave two fades running; MCP fades run in the background without serve and the MCP server re-checks for serve on every call; `devices --refresh` is forwarded to serve; `govee stats` and MCP `get_stats` count local days like the console; a fade-in no longer dips a lamp it could not read and prefers the lamp's own brightness over a stale remembered one; a failed discovery is reused for 15 s instead of rescanning on every request; `govee doctor` asks serve for the lamp while serve owns UDP 4002.
 
 ## [0.10.1] - 2026-10-20
 

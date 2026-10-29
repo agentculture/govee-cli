@@ -387,6 +387,30 @@ def test_no_device_found_is_env_error():
         assert hint in exc.value.remediation
 
 
+def test_failed_discovery_is_reused_briefly_then_retried():
+    # An offline lamp must not make every console poll re-run a multi-second scan.
+    class CountingLan(FakeTransport):
+        def __init__(self, devices) -> None:
+            super().__init__(devices)
+            self.scans = 0
+
+        def discover(self):
+            self.scans += 1
+            return super().discover()
+
+    from govee_cli.govee.service_direct import MISS_TTL
+
+    lan = CountingLan([])
+    clock = FakeClock()
+    service = make(lan, RaisingCloud(MissingKey()), clock=clock)
+    assert service.devices() == [] and service.devices() == []
+    assert lan.scans == 1
+    assert service.devices(refresh=True) == [] and lan.scans == 2
+    lan.devices = [LAN_DEV]
+    clock.t += MISS_TTL + 1
+    assert [d.id for d in service.devices()] == [LAN_DEV.id] and lan.scans == 3
+
+
 def test_scene_without_key_is_env_error():
     with pytest.raises(CliError) as exc:
         make(FakeTransport([LAN_DEV]), RaisingCloud(MissingKey())).set_scene("Sunset")
@@ -759,3 +783,16 @@ def test_fade_seconds_validated_before_routing(serve, monkeypatch):
     with pytest.raises(ValueError):
         routed().apply(Change(on=True), apply=True, fade_seconds=-1)
     assert serve.api() == []
+
+
+def test_serve_backend_forwards_refresh(monkeypatch):
+    from govee_cli.govee.service_serve import ServeBackend
+
+    seen = []
+    backend = ServeBackend("http://127.0.0.1:9", "t" * 32)
+    monkeypatch.setattr(
+        backend, "_request", lambda *a, **kw: seen.append(kw.get("query")) or {"devices": []}
+    )
+    backend.devices()
+    backend.devices(refresh=True)
+    assert seen == [None, {"refresh": "1"}]
