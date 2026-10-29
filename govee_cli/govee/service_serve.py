@@ -22,6 +22,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 from govee_cli.cli._errors import EXIT_ENV_ERROR, EXIT_USER_ERROR, CliError
+from govee_cli.govee.fade import FadePlan
 from govee_cli.govee.service_types import (
     REMEDIATION_TOKEN,
     ApplyResult,
@@ -122,12 +123,17 @@ def _command(item: dict) -> Command:
 
 
 def _apply_result(body: dict) -> ApplyResult:
+    fade = body.get("fade")
+    cancelled = body.get("cancelled_fade")
     return ApplyResult(
         applied=bool(body.get("applied")),
         commands=[_command(c) for c in body.get("commands") or []],
         cli=[str(c) for c in body.get("cli") or []],
         status=str(body.get("status", "")),
         event_ids=[],
+        fade=FadePlan.from_dict(fade) if isinstance(fade, dict) else None,
+        warnings=[str(w) for w in body.get("warnings") or []],
+        cancelled_fade=str(cancelled) if cancelled is not None else None,
     )
 
 
@@ -257,13 +263,38 @@ class ServeBackend:
         ]
 
     def apply(
-        self, change: Change, *, apply: bool, device: Optional[str], source: str, actor: Any
+        self,
+        change: Change,
+        *,
+        apply: bool,
+        device: Optional[str],
+        source: str,
+        actor: Any,
+        fade_seconds: Optional[float] = None,
     ) -> ApplyResult:
-        req = {**change.to_dict(), "apply": bool(apply)}
+        req: dict[str, Any] = {**change.to_dict(), "apply": bool(apply)}
         if device is not None:
             req["device"] = device
+        if fade_seconds is not None:  # omitted: serve applies its own GOVEE_FADE_DEFAULT
+            req["fade_seconds"] = float(fade_seconds)
         body = self._request("POST", "/api/light", source=source, actor=actor, body=req)
         return _apply_result(body)
+
+    def active_fade(
+        self, device: Optional[str] = None, *, source: str = "cli", actor: Any = None
+    ) -> Optional[dict]:
+        body = self._request(
+            "GET", "/api/fade", source=source, actor=actor, query={"device": device}
+        )
+        active = body.get("active")
+        return active if isinstance(active, dict) else None
+
+    def cancel_fade(
+        self, device: Optional[str] = None, *, source: str = "cli", actor: Any = None
+    ) -> bool:
+        req: dict[str, Any] = {} if device is None else {"device": device}
+        body = self._request("POST", "/api/fade/cancel", source=source, actor=actor, body=req)
+        return bool(body.get("cancelled"))
 
     def set_scene(
         self, name: str, *, apply: bool, device: Optional[str], source: str, actor: Any

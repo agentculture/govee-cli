@@ -76,7 +76,17 @@ def test_hidden_rule_kept() -> None:
 
 
 @pytest.mark.parametrize(
-    "route", ["/api/state", "/api/light", "/api/scene", "/api/scenes", "/api/stats", "/api/events"]
+    "route",
+    [
+        "/api/state",
+        "/api/light",
+        "/api/scene",
+        "/api/scenes",
+        "/api/stats",
+        "/api/events",
+        "/api/fade",
+        "/api/fade/cancel",
+    ],
 )
 def test_app_calls_api_routes(route: str) -> None:
     assert f'"{route}' in _read("app.js")
@@ -93,3 +103,30 @@ def test_no_sample_data_left() -> None:
     js = _read("app.js")
     for marker in ("spark-daria", "Desk lamp", "rnd()", "H6008"):
         assert marker not in js, f"sample data marker {marker!r} still in app.js"
+
+
+# --- fades (approved deviation d11) ---------------------------------------------------------
+
+
+def test_fade_control_offers_the_durations() -> None:
+    html = _read("index.html")
+    select = re.search(r'<select[^>]*id="fade"[^>]*>(.*?)</select>', html, re.S)
+    assert select, "missing the Fade select"
+    values = re.findall(r'<option[^>]*value="([^"]*)"', select.group(1))
+    assert values == ["", "0", "1.5", "5", "30", "300", "1200"]
+    assert re.search(r'<label[^>]+for="fade"', html)
+
+
+def test_active_fade_bar_with_progress_and_stop_button() -> None:
+    html = _read("index.html")
+    bar = re.search(r'<div[^>]*id="fadeBar"[^>]*>', html)
+    assert bar and "hidden" in bar.group(0)
+    assert re.search(r'<progress[^>]*id="fadeProgress"', html)
+    assert re.search(r'<button[^>]*id="fadeStop"[^>]*>Stop fade</button>', html)
+
+
+def test_app_sends_fade_seconds_and_shows_warnings() -> None:
+    js = _read("app.js")
+    assert "fade_seconds" in js
+    assert "warnings" in js
+    assert '"#fadeStop"' in js and '"#fadeProgress"' in js

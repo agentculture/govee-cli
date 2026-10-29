@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 import shlex
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 from govee_cli.cli._errors import EXIT_ENV_ERROR, EXIT_USER_ERROR, CliError
 from govee_cli.govee.cloud import (
@@ -18,6 +18,9 @@ from govee_cli.govee.cloud import (
 from govee_cli.govee.lan import LanError, PortBusy
 from govee_cli.govee.types import KELVIN_MAX, KELVIN_MIN, Command, Device, LampState
 from govee_cli.stats.store import SOURCES
+
+if TYPE_CHECKING:  # fade imports Change from here
+    from govee_cli.govee.fade import FadePlan
 
 _HEX = re.compile(r"^#?([0-9a-fA-F]{6})$")
 
@@ -94,16 +97,23 @@ class Change:
 class ApplyResult:
     """Outcome of ``apply``/``set_scene``. ``commands`` are the planned (and, if applied, sent)
     wire commands; ``cli`` are equivalent ``govee`` invocations; ``event_ids`` are local event-log
-    rows (empty when routed through serve, which logs on its side)."""
+    rows (empty when routed through serve, which logs on its side).
+
+    Fades (approved deviation d11): ``fade`` is the plan when the change fades (its ``commands``
+    are then every step's commands, in order), ``warnings`` e.g. a fade degraded to instant over
+    the cloud, ``cancelled_fade`` the id of a running fade this write cancelled."""
 
     applied: bool
     commands: list[Command]
     cli: list[str]
     status: str
     event_ids: list[int] = field(default_factory=list)
+    fade: Optional["FadePlan"] = None
+    warnings: list[str] = field(default_factory=list)
+    cancelled_fade: Optional[str] = None
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        out: dict[str, Any] = {
             "applied": self.applied,
             "commands": [
                 {"verb": c.verb, "transport": c.transport, "payload": c.payload}
@@ -112,7 +122,12 @@ class ApplyResult:
             "cli": list(self.cli),
             "status": self.status,
             "event_ids": list(self.event_ids),
+            "fade": self.fade.to_dict() if self.fade is not None else None,
+            "warnings": list(self.warnings),
         }
+        if self.cancelled_fade is not None:
+            out["cancelled_fade"] = self.cancelled_fade
+        return out
 
 
 @dataclass(frozen=True)
@@ -159,27 +174,40 @@ class SceneInfo:
 # --- cli hints -------------------------------------------------------------------------------
 
 
-def _hint(args: list[str], device: Optional[str]) -> str:
+def _hint(args: list[str], device: Optional[str], fade: Optional[float] = None) -> str:
     parts = ["govee", *args]
     if device:
         parts += ["--device", device]
+    if fade is not None:
+        parts += ["--fade", f"{fade:g}"]
     parts.append("--apply")
     return " ".join(shlex.quote(p) for p in parts)
 
 
-def cli_for_change(change: Change, device: Optional[str] = None) -> list[str]:
-    """Equivalent ``govee light ...`` invocations, one per changed attribute."""
+def cli_for_change(
+    change: Change,
+    device: Optional[str] = None,
+    fade: Optional[float] = None,
+    default_fade: Optional[float] = None,
+) -> list[str]:
+    """Equivalent ``govee light ...`` invocations, one per changed attribute.
+
+    ``fade`` is the fade duration in seconds; ``--fade`` is added where it differs from the
+    CLI's default for that verb (``default_fade`` for on/off, instant for the others)."""
+    level = fade if fade else None  # brightness/color/temp default to instant
+    power = fade if fade is not None and fade != default_fade else None
     out = []
     if change.on is True:
-        out.append(_hint(["light", "on"], device))
+        out.append(_hint(["light", "on"], device, power))
     if change.brightness is not None:
-        out.append(_hint(["light", "brightness", str(change.brightness)], device))
+        out.append(_hint(["light", "brightness", str(change.brightness)], device, level))
     if change.color is not None:
-        out.append(_hint(["light", "color", (hex_color(change.color) or "")[1:]], device))
+        hexc = (hex_color(change.color) or "")[1:]
+        out.append(_hint(["light", "color", hexc], device, level))
     if change.kelvin is not None:
-        out.append(_hint(["light", "temp", str(change.kelvin)], device))
+        out.append(_hint(["light", "temp", str(change.kelvin)], device, level))
     if change.on is False:
-        out.append(_hint(["light", "off"], device))
+        out.append(_hint(["light", "off"], device, power))
     return out
 
 

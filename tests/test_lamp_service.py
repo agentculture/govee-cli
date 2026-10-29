@@ -47,6 +47,8 @@ def _isolated_env(tmp_path, monkeypatch):
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
     monkeypatch.delenv("GOVEE_TOKEN", raising=False)
     monkeypatch.delenv("GOVEE_API_KEY", raising=False)
+    # These t7 tests pin instant on/off; default fades (d11) are covered in tests/test_fade.py.
+    monkeypatch.setenv("GOVEE_FADE_DEFAULT", "0")
     # Never detect a real `govee serve` that may run on the developer's machine.
     monkeypatch.setenv("GOVEE_SERVE_URL", f"http://127.0.0.1:{_free_port()}")
 
@@ -696,3 +698,64 @@ def test_apply_result_to_dict_matches_api_shape():
         "payload": build_turn(True).payload,
     }
     assert isinstance(Command(**data["commands"][0]), Command)
+
+
+# --- fades through serve (approved deviation d11) ---------------------------------------------
+
+
+def test_routed_fade_sends_fade_seconds_and_parses_fade_fields(serve, monkeypatch):
+    monkeypatch.setenv("GOVEE_TOKEN", "client-secret")
+    fade = {"seconds": 30.0, "steps": 42, "interval_ms": 150, "id": "f1"}
+    serve.responses[("POST", "/api/light")] = (
+        200,
+        {
+            "applied": True,
+            "commands": [{"verb": "brightness", "transport": "lan", "payload": {}}],
+            "cli": ["govee light brightness 10 --fade 30 --apply"],
+            "status": "sent",
+            "fade": fade,
+            "warnings": ["something"],
+            "cancelled_fade": "f0",
+        },
+    )
+    result = routed().apply(Change(brightness=10), apply=True, fade_seconds=30)
+    (req,) = serve.api()
+    assert req["body"] == {"brightness": 10, "apply": True, "fade_seconds": 30.0}
+    assert result.fade is not None and result.fade.id == "f1" and result.fade.seconds == 30
+    assert result.warnings == ["something"] and result.cancelled_fade == "f0"
+    assert result.to_dict()["fade"] == fade
+
+
+def test_routed_fade_omitted_when_not_given(serve, monkeypatch):
+    monkeypatch.setenv("GOVEE_TOKEN", "client-secret")
+    result = routed().apply(Change(on=True), apply=True)
+    (req,) = serve.api()
+    assert "fade_seconds" not in req["body"]
+    assert result.fade is None and result.warnings == [] and result.cancelled_fade is None
+
+
+def test_routed_active_and_cancel_fade(serve, monkeypatch):
+    monkeypatch.setenv("GOVEE_TOKEN", "client-secret")
+    active = {
+        "id": "f1",
+        "device": {"id": "AA:BB"},
+        "started": "x",
+        "seconds": 5,
+        "target": {"on": True},
+        "progress": 0.5,
+    }
+    serve.responses[("GET", "/api/fade")] = (200, {"active": active})
+    serve.responses[("POST", "/api/fade/cancel")] = (200, {"cancelled": True})
+    service = routed()
+    assert service.active_fade() == active
+    assert service.cancel_fade(device="Desk Lamp") is True
+    get, post = serve.api()
+    assert get["method"] == "GET" and get["path"] == "/api/fade"
+    assert post["path"] == "/api/fade/cancel" and post["body"] == {"device": "Desk Lamp"}
+
+
+def test_fade_seconds_validated_before_routing(serve, monkeypatch):
+    monkeypatch.setenv("GOVEE_TOKEN", "client-secret")
+    with pytest.raises(ValueError):
+        routed().apply(Change(on=True), apply=True, fade_seconds=-1)
+    assert serve.api() == []

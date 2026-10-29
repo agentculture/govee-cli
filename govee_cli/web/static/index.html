@@ -80,6 +80,26 @@
         </div>
 
         <div class="ctl-row">
+          <div class="ctl-head"><label for="fade">Fade</label><span class="hint">Ramped over LAN by govee serve</span></div>
+          <select id="fade" class="fade-select">
+            <option value="" selected>Auto: on and off fade 1.5 s, the rest is instant</option>
+            <option value="0">Instant</option>
+            <option value="1.5">1.5 s</option>
+            <option value="5">5 s</option>
+            <option value="30">30 s</option>
+            <option value="300">5 min</option>
+            <option value="1200">20 min</option>
+          </select>
+          <div class="fade-bar" id="fadeBar" role="status" hidden>
+            <div class="fade-bar-head">
+              <span class="fade-text" id="fadeText">Fading</span>
+              <button type="button" class="btn" id="fadeStop">Stop fade</button>
+            </div>
+            <progress id="fadeProgress" max="1" value="0" aria-label="Fade progress"></progress>
+          </div>
+        </div>
+
+        <div class="ctl-row">
           <div class="ctl-head"><label for="bright">Brightness</label><output id="brightOut" for="bright">&#x2013;</output></div>
           <input type="range" id="bright" min="1" max="100" value="50">
         </div>
