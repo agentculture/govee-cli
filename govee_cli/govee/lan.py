@@ -25,12 +25,16 @@ from __future__ import annotations
 
 import errno
 import json
+import logging
 import os
 import select
 import socket
 import struct
+import tempfile
 import time
-from typing import Any, Optional
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any, Callable, Iterable, Optional
 
 from govee_cli.govee.types import KELVIN_MAX, KELVIN_MIN, Command, Device, LampState
 
@@ -44,10 +48,16 @@ CONTROL_PORT = 4003
 STATUS_PORT = 4003
 
 ENV_INTERFACE = "GOVEE_LAN_INTERFACE"
+ENV_HOSTS = "GOVEE_LAN_HOSTS"
 DEFAULT_SCAN_TIMEOUT = 2.0
 DEFAULT_STATUS_TIMEOUT = 1.0
 
 _SIOCGIFADDR = 0x8915  # Linux ioctl: get interface IPv4 address
+_SIOCGIFNETMASK = 0x891B  # Linux ioctl: get interface IPv4 netmask
+_SWEEP_BURST = 32  # unicast scans sent back to back during a sweep
+_SWEEP_PAUSE = 0.005  # seconds between sweep bursts
+_SWEEP_MAX = 254
+_log = logging.getLogger(__name__)
 _ROUTE_PROBE = ("8.8.8.8", 53)  # connect() on UDP sends nothing; it only selects a route
 _MAX_DATAGRAM = 65535
 
@@ -120,8 +130,9 @@ def parse_message(data: bytes) -> Optional[tuple[str, dict[str, Any]]]:
     return cmd, body
 
 
-def _device_from_scan(body: dict[str, Any]) -> Optional[Device]:
-    dev_id, ip = body.get("device"), body.get("ip")
+def _device_from_scan(body: dict[str, Any], sender_ip: Optional[str] = None) -> Optional[Device]:
+    """Build a Device from a scan reply; real lamps send no ``ip``, so use the datagram source."""
+    dev_id, ip = body.get("device"), body.get("ip") or sender_ip
     if not dev_id or not ip:
         return None
     sku = str(body.get("sku") or "unknown")
@@ -198,6 +209,96 @@ def interface_info(interface: Optional[str] = None) -> dict[str, Optional[str]]:
     return {"interface": None, "ip": default_route_ip(), "source": "default-route"}
 
 
+def interface_netmask(value: str) -> Optional[str]:
+    """Netmask of a named Linux interface (``SIOCGIFNETMASK``), or ``None`` if unknown."""
+    if _is_ipv4(value):
+        return None
+    try:
+        import fcntl
+
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+            res = fcntl.ioctl(s.fileno(), _SIOCGIFNETMASK, struct.pack("256s", value[:15].encode()))
+    except (OSError, ImportError):
+        return None
+    return socket.inet_ntoa(res[20:24])
+
+
+def subnet_targets(ip: str, netmask: Optional[str] = None) -> list[str]:
+    """Host addresses of ``ip``'s subnet to sweep: never more than 254, never ``ip`` itself.
+
+    A missing or wider-than-/24 netmask is treated as /24; loopback has nothing to sweep.
+    """
+    if ip.startswith("127.") or not _is_ipv4(ip):
+        return []
+    mask = struct.unpack("!I", socket.inet_aton(netmask))[0] if netmask else 0xFFFFFF00
+    if not _is_ipv4(netmask or "255.255.255.0") or mask < 0xFFFFFF00:
+        mask = 0xFFFFFF00
+    me = struct.unpack("!I", socket.inet_aton(ip))[0]
+    network = me & mask
+    broadcast = network | (~mask & 0xFFFFFFFF)
+    hosts = [h for h in range(network + 1, broadcast) if h != me]
+    return [socket.inet_ntoa(struct.pack("!I", h)) for h in hosts[:_SWEEP_MAX]]
+
+
+def parse_hosts(value: Iterable[str] | str) -> list[str]:
+    """Validate a comma-separated string (or iterable) of IPv4 addresses; raise ``LanError``."""
+    items = value.split(",") if isinstance(value, str) else list(value)
+    hosts = [h.strip() for h in items if h and h.strip()]
+    for host in hosts:
+        if not _is_ipv4(host):
+            raise LanError(
+                f"invalid {ENV_HOSTS} entry {host!r}: not an IPv4 address; set {ENV_HOSTS} to "
+                f"comma-separated IPv4 addresses, e.g. 192.0.2.10,192.0.2.11"
+            )
+    return hosts
+
+
+def default_cache_path() -> Path:
+    """``$XDG_STATE_HOME/govee-cli/lan-devices.json`` (default ``~/.local/state``)."""
+    base = os.environ.get("XDG_STATE_HOME") or str(Path.home() / ".local" / "state")
+    return Path(base) / "govee-cli" / "lan-devices.json"
+
+
+def _read_cache(path: Optional[Path]) -> dict[str, dict[str, Any]]:
+    if path is None:
+        return {}
+    try:
+        data = json.loads(Path(path).read_text())
+    except FileNotFoundError:
+        return {}
+    except (OSError, ValueError) as exc:
+        _log.debug("ignoring unreadable LAN cache %s: %s", path, exc)
+        return {}
+    if not isinstance(data, dict):
+        _log.debug("ignoring malformed LAN cache %s", path)
+        return {}
+    return {k: v for k, v in data.items() if isinstance(v, dict) and _is_ipv4(str(v.get("ip", "")))}
+
+
+def _write_cache(path: Optional[Path], entries: dict[str, dict[str, Any]]) -> None:
+    """Atomic write (tempfile + ``os.replace``), mode 0600; failures are logged, never raised."""
+    if path is None or not entries:
+        return
+    path = Path(path)
+    tmp = None
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        fd, tmp = tempfile.mkstemp(dir=path.parent, prefix=".lan-devices.")
+        with os.fdopen(fd, "w") as fh:
+            json.dump(entries, fh, indent=2, sort_keys=True)
+        os.chmod(tmp, 0o600)
+        os.replace(tmp, path)
+        tmp = None
+    except OSError as exc:
+        _log.debug("cannot write LAN cache %s: %s", path, exc)
+    finally:
+        if tmp is not None:
+            try:
+                os.unlink(tmp)
+            except OSError:
+                pass
+
+
 # --- transport -------------------------------------------------------------------------------
 
 
@@ -216,6 +317,10 @@ class LanTransport:
         status_port: int = STATUS_PORT,
         scan_timeout: float = DEFAULT_SCAN_TIMEOUT,
         status_timeout: float = DEFAULT_STATUS_TIMEOUT,
+        hosts: Optional[Iterable[str]] = None,
+        cache_path: Any = "default",
+        sweep: bool = True,
+        sweep_targets: Optional[Callable[[], list[str]]] = None,
     ) -> None:
         self.interface = interface
         self.group = group
@@ -226,6 +331,12 @@ class LanTransport:
         self.status_port = status_port
         self.scan_timeout = scan_timeout
         self.status_timeout = status_timeout
+        self.hosts = None if hosts is None else list(hosts)
+        self.cache_path = default_cache_path() if cache_path == "default" else cache_path
+        self.sweep = sweep
+        self.sweep_targets = sweep_targets
+        self.last_methods: dict[str, str] = {}
+        self.methods_tried: list[str] = []
 
     # -- sockets --
 
@@ -264,29 +375,87 @@ class LanTransport:
 
     # -- Transport protocol --
 
+    def _send_scan(self, sock: socket.socket, targets: Iterable[tuple[str, int]]) -> None:
+        payload = json.dumps(SCAN_REQUEST).encode()
+        for target in targets:
+            try:
+                sock.sendto(payload, target)
+            except OSError as exc:
+                _log.debug("scan send to %s failed: %s", target, exc)
+
+    def _collect(
+        self,
+        sock: socket.socket,
+        found: dict[str, Device],
+        methods: dict[str, str],
+        classify: Callable[[str], str],
+    ) -> None:
+        deadline = time.monotonic() + self.scan_timeout
+        for cmd, body, sender in self._receive(sock, deadline):
+            if cmd != "scan":
+                continue
+            device = _device_from_scan(body, sender)
+            if device is not None and device.id not in found:
+                found[device.id] = device
+                methods[device.id] = classify(sender)
+
+    def _sweep_list(self, iface: str, iface_ip: str) -> list[str]:
+        if self.sweep_targets is not None:
+            return list(self.sweep_targets())[:_SWEEP_MAX]
+        return subnet_targets(iface_ip, interface_netmask(iface) if iface else None)
+
     def discover(self) -> list[Device]:
-        """Multicast a scan and collect replies for ``scan_timeout`` seconds."""
-        iface_ip = interface_info(self.interface)["ip"]
+        """Find lamps: unicast hosts + cached IPs + multicast, then a subnet sweep if all fail.
+
+        ``last_methods`` / ``methods_tried`` record how each device was found (see
+        :meth:`scan_report`). The cache is refreshed with every reply.
+        """
+        info = interface_info(self.interface)
+        iface_ip = str(info["ip"])
+        hosts = parse_hosts(self.hosts if self.hosts is not None else os.environ.get(ENV_HOSTS, ""))
+        cache = _read_cache(self.cache_path)
+        cached_ips = [str(v["ip"]) for v in cache.values() if str(v["ip"]) not in hosts]
+        cached_ips = list(dict.fromkeys(cached_ips))
         sock = self._listener()
+        found: dict[str, Device] = {}
+        methods: dict[str, str] = {}
+        tried: list[str] = []
+        self.last_methods, self.methods_tried = methods, tried
         try:
             sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, 1)
-            sock.setsockopt(
-                socket.IPPROTO_IP, socket.IP_MULTICAST_IF, socket.inet_aton(str(iface_ip))
-            )
-            sock.sendto(json.dumps(SCAN_REQUEST).encode(), (self.group, self.scan_port))
-            found: dict[str, Device] = {}
-            deadline = time.monotonic() + self.scan_timeout
-            for cmd, body, _ in self._receive(sock, deadline):
-                if cmd != "scan":
-                    continue
-                device = _device_from_scan(body)
-                if device is not None and device.id not in found:
-                    found[device.id] = device
-            return list(found.values())
+            sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_IF, socket.inet_aton(iface_ip))
+            if hosts:
+                tried.append("hosts")
+            if cached_ips:
+                tried.append("cache")
+            tried.append("multicast")
+            unicast = [(ip, self.scan_port) for ip in [*hosts, *cached_ips]]
+            self._send_scan(sock, [*unicast, (self.group, self.scan_port)])
+
+            def classify(sender: str) -> str:
+                if sender in hosts:
+                    return "hosts"
+                return "cache" if sender in cached_ips else "multicast"
+
+            self._collect(sock, found, methods, classify)
+            if not found and self.sweep:
+                tried.append("sweep")
+                targets = self._sweep_list(self.interface or "", iface_ip)
+                for i in range(0, len(targets), _SWEEP_BURST):
+                    self._send_scan(
+                        sock, [(ip, self.scan_port) for ip in targets[i : i + _SWEEP_BURST]]
+                    )
+                    time.sleep(_SWEEP_PAUSE)
+                self._collect(sock, found, methods, lambda _s: "sweep")
         except OSError as exc:
             raise LanError(f"LAN scan failed: {exc}") from exc
         finally:
             sock.close()
+        if found:
+            now = datetime.now(timezone.utc).isoformat(timespec="seconds")
+            cache.update({d.id: {"ip": d.ip, "sku": d.model, "seen": now} for d in found.values()})
+            _write_cache(self.cache_path, cache)
+        return list(found.values())
 
     def get_state(self, device: Device) -> Optional[LampState]:
         """Send ``devStatus`` and wait ``status_timeout`` seconds; ``None`` when no reply."""
@@ -323,12 +492,14 @@ class LanTransport:
     def scan_report(self) -> dict[str, Any]:
         """Scan once and report for ``govee doctor``; never raises.
 
-        Returns ``{interface: {interface, ip, source}, replied, devices: [...], error}``.
+        Returns ``{interface, replied, devices: [{id, name, model, ip, method}], methods_tried,
+        error}``; ``method`` is ``hosts``, ``cache``, ``multicast`` or ``sweep``.
         """
         report: dict[str, Any] = {
             "interface": {"interface": self.interface, "ip": None, "source": None},
             "replied": False,
             "devices": [],
+            "methods_tried": [],
             "error": None,
         }
         try:
@@ -337,8 +508,16 @@ class LanTransport:
         except LanError as exc:
             report["error"] = str(exc)
             return report
+        report["methods_tried"] = list(self.methods_tried)
         report["devices"] = [
-            {"id": d.id, "name": d.name, "model": d.model, "ip": d.ip} for d in devices
+            {
+                "id": d.id,
+                "name": d.name,
+                "model": d.model,
+                "ip": d.ip,
+                "method": self.last_methods.get(d.id),
+            }
+            for d in devices
         ]
         report["replied"] = bool(devices)
         return report
