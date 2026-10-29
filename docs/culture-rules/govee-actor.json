@@ -1,0 +1,92 @@
+{
+  "id": "spark-govee",
+  "name": "Govee lamp (spark)",
+  "description": "Controls the Govee lamp through the govee CLI on spark. Every command applies the change.",
+  "kind": "runner",
+  "machine": "spark",
+  "capabilities": [
+    "lamp"
+  ],
+  "params": {
+    "commands": {
+      "lamp_on": {
+        "argv": [
+          "/home/spark/.local/bin/govee",
+          "light",
+          "on",
+          "--apply",
+          "--json"
+        ],
+        "params": {},
+        "timeout": 30
+      },
+      "lamp_off": {
+        "argv": [
+          "/home/spark/.local/bin/govee",
+          "light",
+          "off",
+          "--apply",
+          "--json"
+        ],
+        "params": {},
+        "timeout": 30
+      },
+      "lamp_brightness": {
+        "argv": [
+          "/home/spark/.local/bin/govee",
+          "light",
+          "brightness",
+          "{pct}",
+          "--apply",
+          "--json"
+        ],
+        "params": {
+          "pct": "int"
+        },
+        "timeout": 30
+      },
+      "lamp_color": {
+        "argv": [
+          "/home/spark/.local/bin/govee",
+          "light",
+          "color",
+          "{hex}",
+          "--apply",
+          "--json"
+        ],
+        "params": {
+          "hex": "string"
+        },
+        "timeout": 30
+      },
+      "lamp_temp": {
+        "argv": [
+          "/home/spark/.local/bin/govee",
+          "light",
+          "temp",
+          "{kelvin}",
+          "--apply",
+          "--json"
+        ],
+        "params": {
+          "kelvin": "int"
+        },
+        "timeout": 30
+      },
+      "lamp_scene": {
+        "argv": [
+          "/home/spark/.local/bin/govee",
+          "light",
+          "scene",
+          "{name}",
+          "--apply",
+          "--json"
+        ],
+        "params": {
+          "name": "string"
+        },
+        "timeout": 30
+      }
+    }
+  }
+}
