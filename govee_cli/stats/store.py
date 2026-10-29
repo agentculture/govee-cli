@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 import os
 import sqlite3
+import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Iterator, Optional
@@ -57,16 +58,26 @@ def connect() -> sqlite3.Connection:
     conn = sqlite3.connect(str(path), timeout=5.0, isolation_level=None)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA busy_timeout=5000")
-    conn.execute("PRAGMA journal_mode=WAL")
-    conn.execute("PRAGMA synchronous=NORMAL")
-    conn.executescript(_SCHEMA)
-    if conn.execute("SELECT COUNT(*) FROM schema_version").fetchone()[0] == 0:
-        conn.execute(
-            "INSERT INTO schema_version (version) SELECT ? "
-            "WHERE NOT EXISTS (SELECT 1 FROM schema_version)",
-            (SCHEMA_VERSION,),
-        )
-    return conn
+    # Switching a fresh database to WAL (and creating the schema) can return SQLITE_BUSY
+    # without honouring busy_timeout when several connections open it at once; retry.
+    deadline = time.monotonic() + 5.0
+    while True:
+        try:
+            conn.execute("PRAGMA journal_mode=WAL")
+            conn.execute("PRAGMA synchronous=NORMAL")
+            conn.executescript(_SCHEMA)
+            if conn.execute("SELECT COUNT(*) FROM schema_version").fetchone()[0] == 0:
+                conn.execute(
+                    "INSERT INTO schema_version (version) SELECT ? "
+                    "WHERE NOT EXISTS (SELECT 1 FROM schema_version)",
+                    (SCHEMA_VERSION,),
+                )
+            return conn
+        except sqlite3.OperationalError as exc:
+            if "locked" not in str(exc) or time.monotonic() > deadline:
+                conn.close()
+                raise
+            time.sleep(0.02)
 
 
 def _utc(now: Optional[datetime]) -> datetime:

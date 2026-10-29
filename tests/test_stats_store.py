@@ -186,3 +186,26 @@ def test_tiles():
     assert store.agent_commands_7d(now=NOW) == 2
     assert store.avg_brightness_today(now=NOW) == pytest.approx((100 * 2 + 50 * 3) / 5)
     assert store.avg_brightness_today(now=at(0, 0, day=1)) is None
+
+
+def test_concurrent_first_connect_never_raises_locked():
+    # Switching a brand-new database to WAL can return SQLITE_BUSY without honouring
+    # busy_timeout; many threads opening a fresh DB at once must all still succeed.
+    import threading
+
+    errors = []
+
+    def opener():
+        try:
+            store.connect().close()
+        except Exception as exc:  # noqa: BLE001
+            errors.append(repr(exc))
+
+    for _ in range(15):
+        store.db_path().unlink(missing_ok=True)
+        threads = [threading.Thread(target=opener) for _ in range(8)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+    assert errors == []
