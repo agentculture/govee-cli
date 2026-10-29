@@ -239,10 +239,6 @@ skills.local.yaml
 # .qwen/settings.json.example to .qwen/settings.json locally, never commit it.
 .qwen/settings.json
 
-# devague working state (not committed by default)
+# devague working state (added by devague export/question; not committed by default)
 .devague/reviews/
-
 .devague/questions/
-
-# devague working state (not committed by default)
-.devague/reviews/
