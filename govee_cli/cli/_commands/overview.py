@@ -37,6 +37,7 @@ _VERBS = [
     "token new|list|revoke — client tokens for serve",
     "serve — web console and API",
     "mcp serve — MCP server over stdio",
+    "rules actor — print the culture-rules runner actor definition",
 ]
 
 

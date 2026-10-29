@@ -37,6 +37,7 @@ Commands
   govee token new|list|revoke        Client tokens for serve (new --save writes the file).
   govee serve [--host --port --rotate-token]  Web console + API.
   govee mcp serve                    MCP server over stdio.
+  govee rules actor                  Print the culture-rules runner actor for this machine.
   govee whoami | learn | explain <path> | overview | doctor | cli overview
 
 Every write verb takes --device X, --fade SECONDS and --apply.
@@ -89,6 +90,8 @@ _COMMANDS = [
     (["serve"], "Run the web console and API."),
     (["mcp", "serve"], "Run the MCP server over stdio."),
     (["mcp", "overview"], "Describe the mcp verbs."),
+    (["rules", "actor"], "Print the culture-rules runner actor definition."),
+    (["rules", "overview"], "Describe the rules verbs."),
 ]
 
 

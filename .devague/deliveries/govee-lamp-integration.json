@@ -2,7 +2,7 @@
   "plan_slug": "govee-lamp-integration",
   "schema_version": 2,
   "created": "2026-10-29T06:46:31Z",
-  "updated": "2026-10-29T08:05:15Z",
+  "updated": "2026-10-29T08:27:02Z",
   "deviations": [
     {
       "id": "d1",
@@ -310,6 +310,21 @@
       "status": "proposed",
       "classification": "acceptable",
       "seq": 23
+    },
+    {
+      "id": "d24",
+      "what": "culture-rules actor is no longer a committed JSON: 'govee rules actor [--bin PATH] [--machine NAME]' prints the runner definition with the running govee's absolute path (output identical to the former docs/culture-rules/govee-actor.json for the same path); also fixed a SonarCloud S930 BLOCKER: 'govee light fade-status' in text mode crashed with TypeError while a fade ran",
+      "task_ref": "t4",
+      "reason": "PR #3 CI: harness-smoke's steward portability lint fails committed /home/<user>/ paths and has no exclusion; runner argv[0] must be absolute and is machine-specific. /assess (general, thor): generator_verb 0.732, placeholder_and_sed 0.183, usr_local_bin 0.076, keep_home_path 0.009; files in scratchpad assess-actor-path.*",
+      "affects": [
+        "t4",
+        "t8",
+        "t12"
+      ],
+      "origin": "llm",
+      "status": "proposed",
+      "classification": "acceptable",
+      "seq": 45
     }
   ],
   "evidence": [

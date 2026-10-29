@@ -28,6 +28,7 @@ installed command is `govee`.
 - `govee token new|list|revoke` — client tokens for `govee serve`.
 - `govee serve` — web console and API; all lamp traffic then routes through it.
 - `govee mcp serve` — MCP server over stdio.
+- `govee rules actor` — culture-rules runner actor definition for this machine.
 - `govee whoami|learn|explain|overview|doctor|cli overview` — introspection.
 
 ## Exit-code policy
@@ -426,6 +427,44 @@ Lists the `mcp` verbs.
     govee mcp overview [--json]
 """
 
+_RULES = """\
+# govee rules
+
+Integration with culture-rules, the mesh rules engine. Schedules and triggers
+live in culture-rules; govee-cli only describes itself as a runner actor.
+
+## Usage
+
+    govee rules actor [--bin PATH] [--machine NAME] [--json]
+    govee rules overview
+"""
+
+_RULES_ACTOR = """\
+# govee rules actor
+
+Print the culture-rules `runner` actor definition for this machine: commands
+lamp_on, lamp_off, lamp_brightness, lamp_color, lamp_temp, lamp_scene,
+lamp_fade_on and lamp_fade_off, each running this `govee` binary (absolute
+path, since runner commands get only PATH=/usr/local/bin:/usr/bin:/bin) with
+`--source rules --apply --json`. Read-only: it changes nothing. Import it with
+`culture-rules actors create --body @actor.json` (dry run first).
+
+## Usage
+
+    govee rules actor > actor.json
+    govee rules actor --bin /opt/govee/bin/govee --machine spark
+"""
+
+_RULES_OVERVIEW = """\
+# govee rules overview
+
+Lists the `rules` verbs.
+
+## Usage
+
+    govee rules overview [--json]
+"""
+
 
 ENTRIES: dict[tuple[str, ...], str] = {
     (): _ROOT,
@@ -461,4 +500,7 @@ ENTRIES: dict[tuple[str, ...], str] = {
     ("mcp",): _MCP,
     ("mcp", "serve"): _MCP_SERVE,
     ("mcp", "overview"): _MCP_OVERVIEW,
+    ("rules",): _RULES,
+    ("rules", "actor"): _RULES_ACTOR,
+    ("rules", "overview"): _RULES_OVERVIEW,
 }

@@ -66,6 +66,7 @@ live in culture-rules, not here: govee-cli has no timers of its own.
 | `token new --name N [--save]`, `token list`, `token revoke N` | Pair browsers, apps and MCP clients with `govee serve`. |
 | `serve [--host H] [--port P] [--rotate-token]` | Run the web console and API (default `0.0.0.0:8742`). |
 | `mcp serve` | Run the MCP server on stdio. |
+| `rules actor` | Print the culture-rules runner actor for this machine (read-only). |
 | `doctor [--no-scan]` | Health checks, including LAN interface, lamp discovery, API key presence and the stats database. |
 | `whoami`, `learn`, `explain <path>`, `overview`, `cli overview` | Identity and self-description for agents. |
 

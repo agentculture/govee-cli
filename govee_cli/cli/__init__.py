@@ -3,7 +3,7 @@
 The agent-first global verbs (``whoami``, ``learn``, ``explain``, ``overview``,
 ``doctor``) are registered here under :mod:`govee_cli.cli._commands`,
 alongside the ``cli`` noun group and the Govee verbs (``devices``, ``light``, ``stats``,
-``token``, ``serve``, ``mcp``). Each registers via its own ``register()``.
+``token``, ``serve``, ``mcp``, ``rules``). Each registers via its own ``register()``.
 
 Error propagation contract
 --------------------------
@@ -70,6 +70,7 @@ def _build_parser() -> argparse.ArgumentParser:
     from govee_cli.cli._commands import light as _light_group
     from govee_cli.cli._commands import mcp as _mcp_group
     from govee_cli.cli._commands import overview as _overview_cmd
+    from govee_cli.cli._commands import rules as _rules_group
     from govee_cli.cli._commands import serve as _serve_cmd
     from govee_cli.cli._commands import stats as _stats_cmd
     from govee_cli.cli._commands import token as _token_group
@@ -103,6 +104,7 @@ def _build_parser() -> argparse.ArgumentParser:
     _token_group.register(sub)
     _serve_cmd.register(sub)
     _mcp_group.register(sub)
+    _rules_group.register(sub)
 
     return parser
 

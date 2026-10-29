@@ -150,8 +150,9 @@ Rules that keep it that way:
   (MCP) or a console send performs a write.
 - **Every verb supports `--json`** and keeps the stdout/stderr split above.
 - **No schedules in govee-cli.** Time-based behaviour belongs to
-  culture-rules, which drives the lamp through the runner actor in
-  `docs/culture-rules/govee-actor.json`.
+  culture-rules, which drives the lamp through the runner actor that
+  `govee rules actor` generates per machine (never commit one: its
+  absolute path is machine-specific and fails the portability lint).
 - **Tests never touch the real network.** `tests/conftest.py` clears `GOVEE_*`
   env, isolates the XDG dirs and blocks every non-loopback send or connect.
   Build services with fake `lan=` and `cloud=` transports.

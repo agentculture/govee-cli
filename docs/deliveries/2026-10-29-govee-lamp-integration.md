@@ -45,7 +45,7 @@ Quoted verbatim from the `devague summary` skeleton:
 | `t1` | delivered | `govee_cli/govee/types.py`, `fake.py`; merge `1945739` |
 | `t2` | delivered | `govee_cli/stats/store.py` (WAL, events, samples, chart queries); merge `4fc5dce`. The main agent fixed a test that forked (`98a72a2`) and a race on the first concurrent open (`115ea44`). |
 | `t3` | delivered | `govee_cli/web/static/` console; merge `f070df5` after the first merge was reverted on a scan-secrets false positive. Layout fixes followed in `t13` (`62cffe6`). |
-| `t4` | delivered | `docs/culture-rules/govee-actor.json` + README, `docs/systemd/govee-serve.service`, `.mcp.json`, `docs/mcp.md`; merge `1ddf31e`. The fade and `--source rules` commands were added in `t12`. |
+| `t4` | delivered | culture-rules actor (committed JSON, later replaced by the `govee rules actor` generator after PR #3's portability CI, `d24`) + README, `docs/systemd/govee-serve.service`, `.mcp.json`, `docs/mcp.md`; merge `1ddf31e`. The fade and `--source rules` commands were added in `t12`. |
 | `t5` | delivered | `govee_cli/govee/lan.py`; merge `ab0cc2d`. The discovery fallback (`d15`) was merged in `7d2ea7e`, and an early return was added in `1657e45`. |
 | `t6` | delivered | `govee_cli/govee/cloud.py` against the router/api/v1 endpoints confirmed in Govee's docs; merge `f0ffbc5` |
 | `t7` | delivered | `govee_cli/govee/service*.py` with routing through serve (`d3`); merge `e44e683`. Fades (`d11`) were merged in `0a4fa3c`. |

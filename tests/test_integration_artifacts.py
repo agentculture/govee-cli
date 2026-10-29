@@ -5,7 +5,7 @@ import os
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-ACTOR = ROOT / "docs" / "culture-rules" / "govee-actor.json"
+BIN = "/opt/govee/bin/govee"  # any absolute path: `govee rules actor` fills in the real one
 UNIT = ROOT / "docs" / "systemd" / "govee-serve.service"
 MCP_JSON = ROOT / ".mcp.json"
 
@@ -31,7 +31,9 @@ EXPECTED = {
 
 
 def _actor():
-    return json.loads(ACTOR.read_text())
+    from govee_cli.cli._commands.rules import actor_definition
+
+    return actor_definition(BIN, "spark")
 
 
 def test_actor_is_runner_on_spark():
@@ -61,7 +63,12 @@ def test_every_argv_is_absolute_govee_applying_json_and_not_an_interpreter():
 
 
 def test_no_secret_literals_in_actor():
-    assert "GOVEE_API_KEY=" not in ACTOR.read_text()
+    assert "GOVEE_API_KEY=" not in json.dumps(_actor())
+
+
+def test_no_actor_json_with_a_machine_path_is_committed():
+    # The shared portability lint fails committed /home/<user>/ paths (PR #3 CI).
+    assert not (ROOT / "docs" / "culture-rules" / "govee-actor.json").exists()
 
 
 def test_mcp_json_runs_govee_mcp_serve():

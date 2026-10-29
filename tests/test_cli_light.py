@@ -243,3 +243,12 @@ def test_source_rejects_other_values(capsys):
         main(["light", "on", "--source", "web"])
     assert exc.value.code == 1
     assert "hint:" in capsys.readouterr().err
+
+
+def test_fade_status_text_with_an_active_fade(capsys, monkeypatch):
+    # SonarCloud S930 (PR #3): the text branch passed json_mode positionally -> TypeError.
+    active = {"id": "f1", "kind": "fade_on", "seconds": 30.0, "progress": 0.5}
+    monkeypatch.setattr(LampService, "active_fade", lambda self, device=None, **kw: active)
+    rc, out, err = run(capsys, "light", "fade-status")
+    assert rc == 0, err
+    assert "fade running" in out and "progress=0.5" in out

@@ -1,8 +1,8 @@
 # govee-cli as a culture-rules actor
 
-`govee-actor.json` registers the lamp with
+`govee rules actor` prints the definition that registers the lamp with
 [culture-rules](https://github.com/agentculture/culture-rules) as an actor of
-kind `runner` on machine `spark`. Rules and workflows can then call named lamp
+kind `runner` on this machine. Rules and workflows can then call named lamp
 commands. govee-cli ships no schedules; when a command fires is the rule's
 business.
 
@@ -33,16 +33,23 @@ off. No `argv[0]` is a shell or interpreter, so the culture-rules inline guard
 
 ## Import
 
-The definition assumes `govee` is at `/home/spark/.local/bin/govee`, where
-`uv tool install govee-cli` puts it. If yours lives elsewhere, edit
-`argv[0]` in all eight commands before importing (`which govee`).
+Runner commands start with only `PATH=/usr/local/bin:/usr/bin:/bin`, so every
+`argv[0]` must be the absolute path of `govee`, and that path differs per
+machine. No definition is committed for that reason. Generate it on the
+machine that runs the lamp, where `govee rules actor` fills in its own binary
+path and the host name:
+
+```bash
+govee rules actor > /tmp/govee-actor.json                  # read-only; check it
+govee rules actor --bin "$(command -v govee)" --machine spark > /tmp/govee-actor.json
+```
 
 Run the import with your `CULTURE_RULES_TOKEN` in the environment. Without
 `--apply` it is a dry run:
 
 ```bash
-culture-rules actors create --body @docs/culture-rules/govee-actor.json          # dry run
-culture-rules actors create --body @docs/culture-rules/govee-actor.json --apply
+culture-rules actors create --body @/tmp/govee-actor.json          # dry run
+culture-rules actors create --body @/tmp/govee-actor.json --apply
 ```
 
 A bundle directory works with `culture-rules actors import <dir> --apply`
@@ -57,7 +64,8 @@ name with typed arguments:
 { "actor": "spark-govee", "command": "lamp_color", "args": { "hex": "FF0000" } }
 ```
 
-That runs `/home/spark/.local/bin/govee light color FF0000 --apply --json`.
+That runs `govee light color FF0000 --source rules --apply --json` through the
+absolute path the definition was generated with.
 Wire it to your CI-failed trigger in the rule or workflow as usual.
 
 ## Run it with govee serve

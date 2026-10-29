@@ -123,7 +123,8 @@ def cmd_fade_status(args: argparse.Namespace) -> int:
     elif active is None:
         emit_result("no fade running", json_mode=False)
     else:
-        emit_result("fade running: " + ", ".join(f"{k}={v}" for k, v in active.items()), False)
+        line = "fade running: " + ", ".join(f"{k}={v}" for k, v in active.items())
+        emit_result(line, json_mode=False)
     return 0
 
 
