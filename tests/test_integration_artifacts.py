@@ -20,6 +20,8 @@ REFUSED = {
 
 EXPECTED = {
     "lamp_on": {},
+    "lamp_fade_on": {"seconds": "int"},
+    "lamp_fade_off": {"seconds": "int"},
     "lamp_off": {},
     "lamp_brightness": {"pct": "int"},
     "lamp_color": {"hex": "string"},
@@ -39,7 +41,7 @@ def test_actor_is_runner_on_spark():
     assert actor["id"] and actor["name"]
 
 
-def test_actor_has_the_six_commands_with_params():
+def test_actor_has_the_eight_commands_with_params():
     commands = _actor()["params"]["commands"]
     assert set(commands) == set(EXPECTED)
     for name, params in EXPECTED.items():
@@ -79,3 +81,10 @@ def test_unit_restarts_on_failure_with_env_file_outside_repo():
         assert path.startswith("%h/") and "git" not in path
     assert "ExecStart=%h/.local/bin/govee serve" in text
     assert "WantedBy=default.target" in text
+
+
+def test_every_command_logs_as_rules():
+    for name, cmd in _actor()["params"]["commands"].items():
+        argv = cmd["argv"]
+        i = argv.index("--source")
+        assert argv[i + 1] == "rules", name

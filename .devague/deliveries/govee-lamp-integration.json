@@ -2,7 +2,7 @@
   "plan_slug": "govee-lamp-integration",
   "schema_version": 2,
   "created": "2026-10-29T06:46:31Z",
-  "updated": "2026-10-29T07:22:13Z",
+  "updated": "2026-10-29T07:39:56Z",
   "deviations": [
     {
       "id": "d1",
@@ -230,6 +230,45 @@
       "status": "proposed",
       "classification": "acceptable",
       "seq": 17
+    },
+    {
+      "id": "d18",
+      "what": "MCP server adds tools get_fade and cancel_fade (d11 extension beyond the five planned tools) and a documented test-only env hook GOVEE_MCP_TEST_FAKE=1 in production code that swaps in an in-memory fake lamp for the subprocess test; running-fade and successful scene activation over MCP are not yet tested (t13 to cover)",
+      "task_ref": "t9",
+      "reason": "t9 agent: fade control for agents (d11) and a hermetic subprocess test",
+      "affects": [
+        "t13"
+      ],
+      "origin": "llm",
+      "status": "proposed",
+      "classification": "acceptable",
+      "seq": 18
+    },
+    {
+      "id": "d19",
+      "what": "CLI: doctor gains --no-scan / GOVEE_DOCTOR_NO_SCAN (the default doctor run scans the LAN); the four new doctor checks (lan-interface, lan-discovery, api-key-present, stats-db-writable) are severity warning and never make healthy false; extra verbs light state|scenes|fade-status|fade-stop|overview, token revoke --all, mcp overview; JSON dry-run of a fade adds fade_preview. Main agent: CI teken step sets GOVEE_DOCTOR_NO_SCAN=1 so CI never sweeps a runner's network (7f28580)",
+      "task_ref": "t8",
+      "reason": "keep identity tests (healthy/rc 0) valid when the lamp is offline, and keep CI off real networks",
+      "affects": [
+        "t13"
+      ],
+      "origin": "llm",
+      "status": "proposed",
+      "classification": "acceptable",
+      "seq": 19
+    },
+    {
+      "id": "d20",
+      "what": "Web server specifics beyond the contract: strict Origin == http://<Host> (direct LAN/Tailscale-IP access works; behind an HTTPS reverse proxy such as 'tailscale serve' writes would 403 and every client would look loopback, so that setup is unsupported); CSP style-src allows 'unsafe-inline' (app.js sets style attributes; scripts stay self-only); extra error codes not_found / method_not_allowed; unknown body fields -> 400; HTTP/1.0, no HEAD; an actually-sent >16 KiB body may see a reset instead of 413; stats days split at real local midnights (DST-correct)",
+      "task_ref": "t10",
+      "reason": "t10 agent design choices; documented for the user's review",
+      "affects": [
+        "t12"
+      ],
+      "origin": "llm",
+      "status": "proposed",
+      "classification": "acceptable",
+      "seq": 20
     }
   ],
   "evidence": [],

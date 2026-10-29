@@ -33,7 +33,7 @@ def _write(args: argparse.Namespace, change_fn, label: str) -> int:
     json_mode = bool(args.json)
     try:
         change = change_fn(args)
-        service = _lamp.connect()
+        service = _lamp.connect(getattr(args, "source", "cli"))
         result = service.apply(change, apply=args.apply, device=args.device, fade_seconds=args.fade)
     except ValueError as exc:
         raise _lamp.user_errors(exc) from None
@@ -71,7 +71,9 @@ def cmd_scene(args: argparse.Namespace) -> int:
     if args.fade is not None:
         emit_diagnostic("note: scenes change instantly; --fade is ignored")
     try:
-        result = _lamp.connect().set_scene(args.name, apply=args.apply, device=args.device)
+        result = _lamp.connect(getattr(args, "source", "cli")).set_scene(
+            args.name, apply=args.apply, device=args.device
+        )
     except ValueError as exc:
         raise _lamp.user_errors(exc) from None
     _lamp.emit_apply(result, label=f"scene {args.name}", json_mode=bool(args.json))
@@ -149,6 +151,12 @@ def _common(p: argparse.ArgumentParser, *, write: bool, fade: bool = True) -> No
     if write:
         p.add_argument(
             "--apply", action="store_true", help="Send the change (default: dry run, print plan)."
+        )
+        p.add_argument(
+            "--source",
+            choices=("cli", "rules"),
+            default="cli",
+            help="Log the change as coming from cli (default) or rules (the culture-rules runner).",
         )
         p.add_argument(
             "--fade",

@@ -1,55 +1,117 @@
 # govee-cli
 
-Agent-first CLI that controls Govee smart lights at home: discover devices, on/off, brightness, color, color temperature and scenes, via Govee's official Developer API and the local LAN API. Safe-by-default writes (dry-run unless --apply), --json output for agents.
+Agent-first CLI that controls a Govee lamp at home: discover it, switch it
+on and off, set brightness, color, color temperature and scenes, and fade
+between them, over the local LAN API with Govee's cloud Developer API as a
+fallback. It also runs a web console with usage stats and an MCP server for
+agents. Writes are dry runs unless `--apply`, and every command has `--json`.
 
-> **Status: early scaffold.** The repo was generated from
-> `culture-agent-template` and so far ships the agent-first CLI skeleton
-> (identity and introspection verbs), the mesh identity, the skill kit, and
-> CI/deploy. The Govee device verbs are **planned** — see [Roadmap](#roadmap).
+Built for a Govee **H6076** floor lamp and tested against it; other Govee
+lights that offer **LAN Control** should work the same way.
 
 ## Quickstart
 
 ```bash
 uv sync
-uv run pytest -n auto                 # run the test suite
-uv run govee whoami                   # identity from culture.yaml
-uv run govee learn                    # self-teaching prompt (add --json)
-uv run teken cli doctor . --strict    # the agent-first rubric gate CI runs
+uv run govee devices                   # find lamps (LAN first, cloud fallback)
+uv run govee light on                  # dry run: prints what it would send
+uv run govee light on --apply          # actually turn it on (fades in over 1.5 s)
+uv run govee light color FF6A2B --fade 5 --apply
+uv run govee light temp 2700 --apply
+uv run govee stats                     # usage tiles and recent events
 ```
 
 The installed command is **`govee`**; `python -m govee_cli` works too.
 
-## CLI
+Before the first run, open the lamp in the Govee Home app, go to its
+settings and turn on **LAN Control**. That is all the LAN path needs.
 
-Available today:
+## Three ways in
+
+| Entry point | For | Command |
+|-------------|-----|---------|
+| CLI | you and scripts | `govee light ...`, `govee devices`, `govee stats` |
+| Web console | phones and browsers on the LAN or Tailscale | `govee serve`, then open the pairing link |
+| MCP server | AI agents (Claude Code, the AgentCulture mesh) | `govee mcp serve` (see [`docs/mcp.md`](docs/mcp.md)) |
+
+Culture-rules can drive the lamp too, through a runner actor; see
+[`docs/culture-rules/README.md`](docs/culture-rules/README.md). Schedules
+live in culture-rules, not here: govee-cli has no timers of its own.
+
+## Safety rules
+
+- **Every write is a dry run unless you say otherwise:** `--apply` on the
+  CLI, `apply: true` over MCP, "Send to lamp" (or Live mode) in the console.
+  A dry run prints the exact command that would go on the wire.
+- **Every command is logged** with its source (`cli`, `mcp`, `web`, `rules`)
+  and the actor. Web console previews are the one exception: they are not
+  logged.
+- **The API key never leaves the environment.** It is read from
+  `GOVEE_API_KEY` (or from `~/.config/govee-cli/env` by the systemd unit) and
+  never printed or committed.
+
+## Commands
 
 | Verb | What it does |
 |------|--------------|
-| `whoami` | Report this agent's nick, version, backend, and model from `culture.yaml`. |
-| `learn` | Print a structured self-teaching prompt. |
-| `explain <path>` | Markdown docs for any noun/verb path. |
-| `overview` | Read-only descriptive snapshot of the agent. |
-| `doctor` | Check the agent-identity invariants (prompt-file-present, backend-consistency). |
-| `cli overview` | Describe the CLI surface itself. |
+| `devices [--refresh]` | List lamps found on the LAN and in the Govee account. |
+| `light on`, `light off` | Power. Fades by default (`GOVEE_FADE_DEFAULT`, 1.5 s); `--fade 0` snaps. |
+| `light brightness N` | Brightness 1-100. |
+| `light color HEX` | RGB color, e.g. `FF6A2B`. |
+| `light temp K` | White color temperature, 2000-9000 K. |
+| `light scene NAME` | A Govee scene (cloud only; needs `GOVEE_API_KEY`). |
+| `light state`, `light scenes` | Read the lamp and its scene list. |
+| `light fade-status`, `light fade-stop` | Watch or stop a running fade. |
+| `stats` | On-time today and this week, commands, recent events. |
+| `token new --name N [--save]`, `token list`, `token revoke N` | Pair browsers, apps and MCP clients with `govee serve`. |
+| `serve [--host H] [--port P] [--rotate-token]` | Run the web console and API (default `0.0.0.0:8742`). |
+| `mcp serve` | Run the MCP server on stdio. |
+| `doctor [--no-scan]` | Health checks, including LAN interface, lamp discovery, API key presence and the stats database. |
+| `whoami`, `learn`, `explain <path>`, `overview`, `cli overview` | Identity and self-description for agents. |
 
-Every command supports `--json`. Results go to stdout, errors/diagnostics to
-stderr (never mixed). Exit codes: `0` success, `1` user error, `2` environment
-error, `3+` reserved.
+Light verbs take `--device NAME|ID`, `--fade SECONDS` (0-3600) and `--json`.
+Every command supports `--json`. Results go to stdout, errors and
+diagnostics to stderr (never mixed). Exit codes: `0` success, `1` user
+error, `2` environment error (lamp unreachable, missing key, rate limited),
+`3+` reserved.
+
+## How it reaches the lamp
+
+- **LAN first.** Discovery tries the lamp's last known address, Govee's
+  multicast scan, and, if nothing answers, a quick unicast sweep of the
+  local /24 (multicast does not reach every lamp on every Wi-Fi). Pin the
+  interface with `GOVEE_LAN_INTERFACE` or the addresses with
+  `GOVEE_LAN_HOSTS`. LAN writes are checked against the lamp's reported
+  state and logged as confirmed or unconfirmed.
+- **Cloud as fallback** (`GOVEE_API_KEY`), and always for scenes. Fades need
+  LAN; over the cloud a change applies instantly with a warning.
+- **`govee serve` owns the lamp while it runs.** The CLI and the MCP server
+  then send everything through it, using a token from `GOVEE_TOKEN` or the
+  file `govee token new --name me --save` writes. Only serve needs the key.
+
+## The web console
+
+```bash
+govee serve                              # listens on 0.0.0.0:8742
+govee token new --name phone             # prints a one-time pairing link
+```
+
+Open the link on the phone. The token travels in the URL fragment, so it
+never reaches the server's logs. Every API call, reads included, needs a
+paired device. The console shows the lamp, a dry-run "What will be sent"
+panel, fades, recent activity and usage charts. `govee serve
+--rotate-token` revokes every paired device.
+
+To keep it running, install the user unit in
+[`docs/systemd/govee-serve.service`](docs/systemd/govee-serve.service).
+Put `GOVEE_API_KEY=...` in `~/.config/govee-cli/env` (mode 0600) if you use
+scenes.
+
+Stats live in `~/.local/state/govee-cli/stats.db`. Gaps in the charts mean
+`govee serve` was not sampling, never that the lamp was off.
 
 The CLI is cited from [teken](https://github.com/agentculture/teken)
 (`afi-cli`), and the runtime package has **no third-party dependencies**.
-
-## Roadmap
-
-(planned) Govee device control:
-
-- **Discovery** of lights on the LAN and on the Govee account.
-- **Control:** on/off, brightness, color, color temperature, and scenes.
-- **Two transports:** Govee's official Developer API (cloud, API key) and
-  the local LAN API (no key).
-- **Safe-by-default writes:** every state-changing verb is a dry-run that
-  reports what it would send, unless `--apply` is passed.
-- **`--json`** on every verb, so agents can drive it.
 
 ## Prompt files by harness
 

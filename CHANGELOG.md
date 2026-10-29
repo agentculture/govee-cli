@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.0] - 2026-10-29
+
+### Added
+
+- Govee lamp control, built and tested against a Govee H6076 floor lamp: `govee devices`, `govee light on|off|brightness|color|temp|scene` (dry run unless `--apply`), `govee light state|scenes|fade-status|fade-stop`, `govee stats`, `govee token new|list|revoke`.
+- LAN transport over UDP (discovery via cached address, `GOVEE_LAN_HOSTS`, multicast and a /24 unicast sweep fallback; status on 4003; one listener per host on 4002) and a cloud transport for Govee's router/api/v1 Developer API (`GOVEE_API_KEY`, rate-limit aware).
+- LampService, the single code path to the lamp: plan-then-send so a dry run equals what `--apply` sends, LAN-first with cloud fallback, verified LAN writes logged as confirmed/unconfirmed, and routing through `govee serve` whenever it runs.
+- Fades: on/off fade by default (`GOVEE_FADE_DEFAULT`, 1.5 s), `--fade SECONDS` (0-3600) for brightness, color and temperature cross-fades, run by `govee serve` in the background and cancelled by any newer command.
+- `govee serve`: token-gated web console and JSON API (every route but /api/health needs a paired token; same-origin writes; 16 KiB body cap; pairing links carry the token in the URL fragment) with lamp controls, a dry-run preview, activity feed and usage charts, plus a 60 s state poller.
+- `govee mcp serve`: MCP server over stdio with list_devices, get_state, set_light, set_scene, get_stats, get_fade and cancel_fade; writes are dry runs unless apply is true.
+- Stats store in sqlite (WAL) with events and samples, chart queries in local time, and gaps (never 'off') where serve was not sampling.
+- Integration docs: culture-rules runner actor (`docs/culture-rules/`, commands log as source rules), `.mcp.json` and `docs/mcp.md`, a systemd user unit, and doctor checks for the LAN interface, lamp discovery, API key presence and the stats database.
+- devague spec, plan, approved split and deviation ledger for the build under `docs/specs/`, `docs/plans/` and `.devague/`.
+
+### Changed
+
+- README, CLAUDE.md, AGENTS.override.md, AGENTS.colleague.md and QWEN.md now describe the shipped Govee domain instead of the template scaffold.
+- CI's teken rubric step sets GOVEE_DOCTOR_NO_SCAN=1 so CI never scans a runner's network.
+
+### Fixed
+
+- Test suite is hermetic: tests/conftest.py clears GOVEE_* env, isolates XDG dirs and blocks every non-loopback send or connect.
+
 ## [0.10.1] - 2026-10-20
 
 ### Changed

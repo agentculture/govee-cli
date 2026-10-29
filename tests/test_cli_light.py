@@ -228,3 +228,18 @@ def test_every_service_hint_parses(hint):
     assert tokens[0] == "govee"
     args = _build_parser().parse_args(tokens[1:])
     assert args.command == "light" and args.apply is True
+
+
+def test_source_rules_is_passed_to_the_service_and_logged(capsys, fake_service):
+    rc, out, _ = run(capsys, "light", "brightness", "40", "--source", "rules", "--json")
+    assert rc == 0
+    assert fake_service[-1] == ("rules", "tester")
+    rc, _, _ = run(capsys, "light", "on", "--json")
+    assert fake_service[-1][0] == "cli"
+
+
+def test_source_rejects_other_values(capsys):
+    with pytest.raises(SystemExit) as exc:
+        main(["light", "on", "--source", "web"])
+    assert exc.value.code == 1
+    assert "hint:" in capsys.readouterr().err

@@ -24,11 +24,15 @@ color temperature and scenes — via Govee's official Developer API (cloud) and
 the local LAN API. Writes are safe by default (dry-run unless `--apply`), and
 every command supports `--json`.
 
-**Current state:** the repo was scaffolded from `culture-agent-template`. So
-far it carries only the identity/introspection CLI verbs (`whoami`, `learn`,
-`explain`, `overview`, `doctor`, `cli overview`), the skill kit, and CI. **No
-Govee device code exists yet.** If asked about device control, report that it
-is planned, not built.
+**Current state:** the Govee domain is built and was tested against the real
+lamp (a Govee H6076 floor lamp). Verbs: `devices`, `light` (on, off,
+brightness, color, temp, scene, state, scenes, fade-status, fade-stop),
+`stats`, `token`, `serve` (web console and API) and `mcp serve` (MCP over
+stdio), plus the identity verbs (`whoami`, `learn`, `explain`, `overview`,
+`doctor`, `cli overview`). Every lamp operation goes through one module,
+`govee_cli/govee/service.py`. Writes are dry runs unless `--apply`; the web
+console needs a paired token for every call; schedules live in culture-rules,
+not here.
 
 ## Four harnesses, four files, no shared base
 
@@ -54,10 +58,15 @@ whatever `culture.yaml` declares.
 govee_cli/                agent-first CLI (cited from teken's python-cli reference)
   cli/                    parser, error/output contract, _commands/ (one module per verb)
   explain/                markdown catalog for `explain`
+  govee/                  LampService (the one path to the lamp), LAN + cloud transports, fades
+  web/                    `govee serve`: HTTP API, static console, state poller
+  mcp/                    MCP server over stdio
+  auth/                   named, hashed pairing tokens
+  stats/                  sqlite event log and state samples
 tests/                    pytest suite
 scripts/                  harness-smoke.py, scan-secrets.py (CI gates)
 .claude/skills/           vendored guildmaster skill kit (cite-don't-import)
-docs/                     harness selection/automation contract, skill provenance
+docs/                     specs, plans, MCP + culture-rules + systemd docs, harness docs
 culture.yaml              mesh identity (suffix + backend) and test gate
 .github/workflows/        tests + deploy (PyPI Trusted Publishing)
 ```

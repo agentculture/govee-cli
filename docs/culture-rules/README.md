@@ -19,9 +19,15 @@ The runner registry lives in `params.commands`. Each entry has an `argv` list
 | `lamp_color` | `govee light color {hex}` | `hex` (string, no `#`) |
 | `lamp_temp` | `govee light temp {kelvin}` | `kelvin` (int) |
 | `lamp_scene` | `govee light scene {name}` | `name` (string) |
+| `lamp_fade_on` | `govee light on --fade {seconds}` | `seconds` (int, 0-3600) |
+| `lamp_fade_off` | `govee light off --fade {seconds}` | `seconds` (int, 0-3600) |
+
+`lamp_on` and `lamp_off` already fade over the default 1.5 s. The two fade
+commands have a 3660 s timeout so a long fade (a 20-minute wake-up, say) is
+never killed mid-way; with `govee serve` running they return at once anyway.
 
 Every `argv` starts with the absolute path of the `govee` binary and ends with
-`--apply --json`. Rules act on purpose, so the dry-run default is switched
+`--source rules --apply --json`. Rules act on purpose, so the dry-run default is switched
 off. No `argv[0]` is a shell or interpreter, so the culture-rules inline guard
 (`culture_rules/actors/inline_guard.py`) never refuses them.
 
@@ -29,7 +35,7 @@ off. No `argv[0]` is a shell or interpreter, so the culture-rules inline guard
 
 The definition assumes `govee` is at `/home/spark/.local/bin/govee`, where
 `uv tool install govee-cli` puts it. If yours lives elsewhere, edit
-`argv[0]` in all six commands before importing (`which govee`).
+`argv[0]` in all eight commands before importing (`which govee`).
 
 Run the import with your `CULTURE_RULES_TOKEN` in the environment. Without
 `--apply` it is a dry run:
@@ -54,13 +60,24 @@ name with typed arguments:
 That runs `/home/spark/.local/bin/govee light color FF0000 --apply --json`.
 Wire it to your CI-failed trigger in the rule or workflow as usual.
 
-## Secrets
+## Run it with govee serve
 
-The runner starts commands with a minimal environment (`PATH` and `LANG`
-only). The LAN commands need no key. `lamp_scene` goes through the Govee cloud
-and needs `GOVEE_API_KEY`. Never put the key in the actor JSON: culture-rules
-refuses literal secrets, and a `grant:<NAME>` reference only helps where
-culture-rules injects the value into the process. As of this writing the
-code runner does not forward any environment to registered commands, so
-verify that `lamp_scene` can see the key on your setup before relying on it
-(see "How secrets work here" in the culture-rules `docs/actors/README.md`).
+Keep `govee serve` running on spark (see `docs/systemd/govee-serve.service`).
+While it runs, every lamp command routes through it, so:
+
+- the API key only has to live in serve's environment
+  (`~/.config/govee-cli/env`), which also makes `lamp_scene` work even though
+  runner commands start with only `PATH` and `LANG`;
+- fades run inside serve, outlive the command, and a later command cancels
+  them;
+- the runner needs a client token. Its environment has no `GOVEE_TOKEN`, so
+  save one to the file govee reads instead, once, as the same user:
+
+  ```bash
+  govee token new --name culture-rules --save
+  ```
+
+Every command passes `--source rules`, so the event log and the console's
+"Who changes the lamp" chart show these changes as Rules. Without serve, LAN commands still work directly, but
+`lamp_scene` cannot see `GOVEE_API_KEY` (the runner forwards no environment)
+and a long fade blocks the step until it finishes.

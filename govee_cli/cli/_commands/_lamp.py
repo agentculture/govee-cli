@@ -22,10 +22,13 @@ def actor() -> str:
         return "unknown"
 
 
-def connect() -> LampService:
-    """Service handle: routed through ``govee serve`` when it runs, else direct."""
+def connect(source: str = "cli") -> LampService:
+    """Service handle: routed through ``govee serve`` when it runs, else direct.
+
+    ``source`` is ``cli`` for people and scripts, ``rules`` when the culture-rules runner calls.
+    """
     try:
-        return LampService.connect(source="cli", actor=actor())
+        return LampService.connect(source=source, actor=actor())
     except ValueError as exc:
         raise map_error(exc) from None
 
