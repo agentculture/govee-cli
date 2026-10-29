@@ -2,7 +2,7 @@
   "plan_slug": "govee-lamp-integration",
   "schema_version": 2,
   "created": "2026-10-29T06:46:31Z",
-  "updated": "2026-10-29T07:39:56Z",
+  "updated": "2026-10-29T07:46:08Z",
   "deviations": [
     {
       "id": "d1",
@@ -269,6 +269,20 @@
       "status": "proposed",
       "classification": "acceptable",
       "seq": 20
+    },
+    {
+      "id": "d21",
+      "what": "light write verbs gain --source cli|rules (default cli) and every culture-rules actor command passes --source rules, so rule-driven changes land under the Rules series in stats instead of cli; the runner's minimal env cannot carry it any other way",
+      "task_ref": "t12",
+      "reason": "store, API and console already model a 'rules' source but nothing could set it",
+      "affects": [
+        "t4",
+        "t8"
+      ],
+      "origin": "llm",
+      "status": "proposed",
+      "classification": "acceptable",
+      "seq": 21
     }
   ],
   "evidence": [],

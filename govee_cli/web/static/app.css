@@ -132,7 +132,9 @@ code, .mono { font-family: var(--mono); font-size: .85em; }
 .lamp-stage {
   position: relative; overflow: hidden; border-radius: var(--radius-l); box-shadow: var(--shadow);
   background: var(--sheet); min-height: 25rem;
-  display: grid; place-items: center; padding: 1.5rem;
+  /* Anchor the lamp to the top, not the centre: the stage stretches to the controls column,
+     whose height changes with the Color/White pane, and centring would move the bulb. */
+  display: grid; place-items: start center; padding: 2.5rem 1.5rem 1.5rem;
 }
 .lamp-stage::before {
   content: ""; position: absolute; inset: -20%;
@@ -156,9 +158,10 @@ code, .mono { font-family: var(--mono); font-size: .85em; }
 }
 .lamp-diff[data-shown="false"] { visibility: hidden; }
 
-.controls { display: grid; gap: 1.1rem; align-content: start; }
-.ctl-row { display: grid; gap: .5rem; }
-.ctl-head { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; }
+/* minmax(0, 1fr): a long <select> option must not widen the column past the card on phones */
+.controls { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1.1rem; align-content: start; }
+.ctl-row { display: grid; grid-template-columns: minmax(0, 1fr); gap: .5rem; }
+.ctl-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: .25rem 1rem; }
 .ctl-head label, .ctl-head h3 { font-weight: 750; font-size: .95rem; }
 .ctl-head output { font-variant-numeric: tabular-nums; color: var(--quiet); font-weight: 650; font-size: var(--step--1); }
 .power { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
@@ -180,7 +183,7 @@ input[type="range"] { width: 100%; accent-color: var(--cobalt); height: 28px; }
 .mode-tabs button[aria-selected="true"] { background: var(--sheet); color: var(--ink); box-shadow: var(--shadow); }
 .hint { color: var(--muted); font-size: var(--step--1); }
 /* fades (approved deviation d11) */
-.fade-select { justify-self: start; max-width: 100%; min-block-size: 38px; border: 1px solid var(--rule); background: var(--sheet); color: var(--ink); border-radius: 999px; padding-block: .35rem; padding-inline: .9rem; font: inherit; font-size: .875rem; font-weight: 600; }
+.fade-select { justify-self: start; min-width: 0; width: auto; max-width: 100%; min-block-size: 38px; border: 1px solid var(--rule); background: var(--sheet); color: var(--ink); border-radius: 999px; padding-block: .35rem; padding-inline: .9rem; font: inherit; font-size: .875rem; font-weight: 600; }
 .fade-select:hover { border-color: var(--cobalt); }
 .fade-bar { display: grid; gap: .45rem; padding-block: .6rem; padding-inline: .8rem; border-radius: var(--radius-m); background: var(--cobalt-soft); }
 .fade-bar-head { display: flex; justify-content: space-between; align-items: center; gap: .75rem; flex-wrap: wrap; }

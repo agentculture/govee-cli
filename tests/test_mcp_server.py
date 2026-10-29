@@ -64,7 +64,13 @@ def factory(lan, monkeypatch):
     def make(source, actor):
         made.append((source, actor))
         return LampService.direct(
-            source=source, actor=actor, lan=lan, cloud=FakeTransport([]), sleep=lambda s: None
+            source=source,
+            actor=actor,
+            lan=lan,
+            cloud=FakeTransport([]),
+            sleep=lambda s: None,
+            verify_timeout=0.0,
+            poll_interval=0.0,
         )
 
     monkeypatch.setattr(server, "make_service", make)
@@ -285,3 +291,53 @@ def test_subprocess_dry_run_then_apply(tmp_path):
     os.environ["XDG_STATE_HOME"] = str(tmp_path / "state")
     events = [e for e in store.recent_events() if e["actor"] == "sub-client"]
     assert events and all(e["source"] == "mcp" for e in events)
+
+
+# --- t13: the paths t9 left untested (d18) ----------------------------------------------------
+
+
+def test_running_fade_is_visible_and_cancellable_over_mcp(monkeypatch):
+    lamp = FakeTransport([DEV], state=OFF)
+    svc = LampService.direct(
+        source="mcp", actor="x", lan=lamp, cloud=FakeTransport([]), background_fades=True
+    )
+    monkeypatch.setattr(server, "make_service", lambda s, a: svc)
+    try:
+        r = session(
+            [
+                init_msg(),
+                call(2, "set_light", on=True, fade_seconds=30, apply=True),
+                call(3, "get_fade"),
+                call(4, "cancel_fade"),
+                call(5, "get_fade"),
+            ]
+        )
+    finally:
+        svc.cancel_fade()
+    started = payload(r[1])
+    assert started["applied"] is True and started["fade"]["seconds"] == 30
+    active = payload(r[2])["fade"]
+    assert active is not None and active["seconds"] == 30 and 0 <= active["progress"] < 1
+    assert payload(r[3]) == {"cancelled": True}
+    assert payload(r[4])["fade"] is None
+    assert lamp.sent, "the fade sent at least its first step before the cancel"
+
+
+def test_set_scene_apply_sends_the_cloud_scene_command(monkeypatch):
+    from govee_cli.govee.cloud import Scene
+
+    class Cloud(FakeTransport):
+        def scenes(self, device):
+            return [Scene("Sunset", {"paramId": 1, "id": 7})]
+
+    cloud_dev = Device(id=DEV.id, name="Floor Lamp", model="H6076", transports=("cloud",))
+    cloud = Cloud([cloud_dev], state=ON)
+    svc = LampService.direct(
+        source="mcp", actor="x", lan=FakeTransport([DEV], state=ON), cloud=cloud
+    )
+    monkeypatch.setattr(server, "make_service", lambda s, a: svc)
+    r = session([init_msg(), call(2, "set_scene", name="sunset", apply=True)])
+    result = payload(r[1])
+    assert result["applied"] is True
+    assert [c.transport for _d, c in cloud.sent] == ["cloud"]
+    assert cloud.sent[0][1].payload["value"] == {"paramId": 1, "id": 7}
