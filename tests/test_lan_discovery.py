@@ -147,3 +147,27 @@ def test_subnet_targets_slash24_and_cap():
     narrow = lan.subnet_targets("192.0.2.77", "255.255.255.252")
     assert narrow == ["192.0.2.78"]
     assert lan.subnet_targets("127.0.0.1") == []
+
+
+def test_discovery_returns_early_once_every_expected_address_answered():
+    # Live finding (t14): with the lamp cached, every CLI call still waited the whole scan window.
+    import time
+
+    with FakeLanDevice() as dev:
+        t = _t(dev, hosts=[LOOPBACK], cache_path=None, scan_timeout=3.0)
+        start = time.monotonic()
+        devices = t.discover()
+        elapsed = time.monotonic() - start
+    assert [d.id for d in devices] == [DEV_ID]
+    assert elapsed < 1.0
+
+
+def test_discovery_still_waits_the_window_when_an_expected_address_is_silent():
+    import time
+
+    with FakeLanDevice() as dev:
+        t = _t(dev, hosts=[LOOPBACK, SILENT], cache_path=None, scan_timeout=0.6)
+        start = time.monotonic()
+        t.discover()
+        elapsed = time.monotonic() - start
+    assert elapsed >= 0.55

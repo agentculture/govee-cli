@@ -50,6 +50,7 @@ STATUS_PORT = 4003
 ENV_INTERFACE = "GOVEE_LAN_INTERFACE"
 ENV_HOSTS = "GOVEE_LAN_HOSTS"
 DEFAULT_SCAN_TIMEOUT = 2.0
+EARLY_GRACE = 0.3  # seconds to keep listening once every expected address answered
 DEFAULT_STATUS_TIMEOUT = 1.0
 
 _SIOCGIFADDR = 0x8915  # Linux ioctl: get interface IPv4 address
@@ -389,15 +390,31 @@ class LanTransport:
         found: dict[str, Device],
         methods: dict[str, str],
         classify: Callable[[str], str],
+        expected: Iterable[str] = (),
     ) -> None:
+        """Collect scan replies until the window ends.
+
+        Once every ``expected`` address (hosts + cached IPs) has answered, wait only
+        ``EARLY_GRACE`` more for other replies instead of the whole ``scan_timeout``.
+        """
         deadline = time.monotonic() + self.scan_timeout
-        for cmd, body, sender in self._receive(sock, deadline):
-            if cmd != "scan":
-                continue
-            device = _device_from_scan(body, sender)
-            if device is not None and device.id not in found:
-                found[device.id] = device
-                methods[device.id] = classify(sender)
+        pending = set(expected)
+        while True:
+            for cmd, body, sender in self._receive(sock, deadline):
+                if cmd != "scan":
+                    continue
+                pending.discard(sender)
+                device = _device_from_scan(body, sender)
+                if device is not None and device.id not in found:
+                    found[device.id] = device
+                    methods[device.id] = classify(sender)
+                if expected and not pending:
+                    shortened = min(deadline, time.monotonic() + EARLY_GRACE)
+                    if shortened < deadline:
+                        deadline = shortened
+                        break  # re-enter _receive with the shorter deadline
+            else:
+                return
 
     def _sweep_list(self, iface: str, iface_ip: str) -> list[str]:
         if self.sweep_targets is not None:
@@ -437,7 +454,7 @@ class LanTransport:
                     return "hosts"
                 return "cache" if sender in cached_ips else "multicast"
 
-            self._collect(sock, found, methods, classify)
+            self._collect(sock, found, methods, classify, expected=[*hosts, *cached_ips])
             if not found and self.sweep:
                 tried.append("sweep")
                 targets = self._sweep_list(self.interface or "", iface_ip)
