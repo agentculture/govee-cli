@@ -74,14 +74,18 @@ def test_lan_sample_written_and_interval_60():
 
 def test_cloud_only_interval_300():
     cloud = FakeTransport([CLOUD_DEV], state=LampState(on=True, brightness=70, kelvin=3000))
-    p = Poller(LampService.direct(cloud=cloud), clock=Clock())
+    p = Poller(LampService.direct(lan=FakeTransport([]), cloud=cloud), clock=Clock())
     assert p.sample_once() == 300
     (row,) = _rows()
     assert row["kelvin"] == 3000 and row["rgb"] is None
 
 
 def test_cloud_interval_never_below_300():
-    p = Poller(LampService.direct(), cloud_interval=10, lan_interval=60)
+    p = Poller(
+        LampService.direct(lan=FakeTransport([]), cloud=FakeTransport([])),
+        cloud_interval=10,
+        lan_interval=60,
+    )
     assert p.cloud_interval == 300
 
 
