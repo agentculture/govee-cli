@@ -2,7 +2,7 @@
   "plan_slug": "govee-lamp-integration",
   "schema_version": 2,
   "created": "2026-10-29T06:46:31Z",
-  "updated": "2026-10-29T08:41:02Z",
+  "updated": "2026-10-29T08:44:18Z",
   "deviations": [
     {
       "id": "d1",
@@ -354,6 +354,20 @@
       "status": "proposed",
       "classification": "needs-follow-up",
       "seq": 48
+    },
+    {
+      "id": "d27",
+      "what": "sonar.coverage.exclusions=govee_cli/web/static/**: the static console is excluded from SonarCloud's coverage metric only (still analyzed for bugs and vulnerabilities); it has no JS test runner and is verified by Playwright e2e and static pytest checks",
+      "task_ref": "t13",
+      "reason": "PR #3 coverage gate at 79.96%: all 491 new app.js lines counted as uncovered (no JS coverage report); Python new code is about 92% covered. /assess (general, thor): exclude_static_from_coverage 0.824, both_exclude_and_tests 0.137, more_python_tests 0.028, add_js_coverage 0.011; files in scratchpad assess-jscov.*",
+      "affects": [
+        "t13",
+        "t3"
+      ],
+      "origin": "llm",
+      "status": "proposed",
+      "classification": "acceptable",
+      "seq": 49
     }
   ],
   "evidence": [
