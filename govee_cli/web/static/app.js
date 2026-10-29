@@ -35,7 +35,17 @@
   const validToken = v => typeof v === "string" && TOKEN_RE.test(v);
   const store = {
     get() { try { const v = localStorage.getItem(TOKEN_KEY) || ""; return validToken(v) ? v : ""; } catch (e) { return ""; } },
-    set(v) { if (!validToken(v)) return false; try { localStorage.setItem(TOKEN_KEY, v); } catch (e) { /* storage blocked */ } return true; },
+    set(v) {
+      if (!validToken(v)) {
+        return false;
+      }
+      try {
+        localStorage.setItem(TOKEN_KEY, v);
+      } catch (e) {
+        // storage blocked (private mode): the token lives for this page only
+      }
+      return true;
+    },
     clear() { try { localStorage.removeItem(TOKEN_KEY); } catch (e) { /* storage blocked */ } },
   };
   // A pairing link looks like http://host:8742/#token=<secret>: keep the secret, drop it from the URL.
