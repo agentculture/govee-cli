@@ -37,6 +37,18 @@ jobs:
         env:
           SONAR_HOST_URL: https://sonarcloud.io
 
+      # No unresolved SonarCloud issue on the PR. A code smell leaves the quality gate
+      # green, so this fails the job while the PR has any OPEN or CONFIRMED issue;
+      # ACCEPTED and FALSE_POSITIVE ones pass. Cited from culture-rules (#43), as in
+      # culture-library.
+      - name: SonarCloud unresolved issues
+        if: env.SONAR_TOKEN != '' && github.event_name == 'pull_request'
+        env:
+          SONAR_HOST_URL: https://sonarcloud.io
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: python3 scripts/sonar-pr-issues.py
+
   lint:
     runs-on: ubuntu-latest
     permissions:
@@ -75,6 +87,9 @@ jobs:
           markdownlint-cli2 "**/*.md" "#node_modules" "#.local" "#.claude/skills" "#.teken"
 
       - name: afi rubric gate
+        # govee doctor scans the LAN for lamps by default; never sweep a CI runner's network
+        env:
+          GOVEE_DOCTOR_NO_SCAN: "1"
         run: uv run teken cli doctor . --strict
 
   harness-smoke:

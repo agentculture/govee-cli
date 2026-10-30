@@ -1,0 +1,1139 @@
+{
+  "slug": "govee-lamp-integration",
+  "title": "govee lamp integration",
+  "schema_version": 6,
+  "status": "exported",
+  "created": "2026-10-29T05:47:24Z",
+  "updated": "2026-10-30T00:17:12Z",
+  "claims": [
+    {
+      "id": "c1",
+      "kind": "announcement",
+      "text": "govee-cli controls our Govee lamp from the CLI, an MCP server agents and the culture mesh can connect to, and a local web console with usage statistics",
+      "origin": "user",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h1",
+          "text": "One govee_cli core module is the only code path to the lamp; CLI, MCP and web handlers all call it (no duplicated transport code)",
+          "status": "confirmed",
+          "instruction": ""
+        }
+      ],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "",
+      "revisions": []
+    },
+    {
+      "id": "c2",
+      "kind": "requirement",
+      "text": "Govee transport clients (cloud Developer API over HTTPS, LAN API over UDP 4001/4002/4003) built on stdlib urllib/socket/json, since pyproject.toml has dependencies = [] and CLAUDE.md forbids third-party runtime deps",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h2",
+          "text": "pyproject.toml dependencies stays [] after the change; transports import only stdlib",
+          "status": "confirmed",
+          "instruction": ""
+        }
+      ],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "",
+      "revisions": []
+    },
+    {
+      "id": "c3",
+      "kind": "requirement",
+      "text": "New noun groups (devices, light, stats, mcp, serve) register via cli/__init__.py::_build_parser like _commands/cli.py, raise CliError with exit 2 for unreachable device/missing key, and update learn, overview _VERBS and explain catalog together for teken cli doctor --strict",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h3",
+          "text": "teken cli doctor . --strict passes and every new verb has an explain catalog entry",
+          "status": "confirmed",
+          "instruction": ""
+        }
+      ],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "",
+      "revisions": []
+    },
+    {
+      "id": "c4",
+      "kind": "requirement",
+      "text": "Mutating verbs (on/off/brightness/color/temp/scene) dry-run unless --apply, in CLI and MCP alike; every verb has --json",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h4",
+          "text": "Without --apply (CLI) / apply:true (MCP, web) no packet or HTTPS write leaves the host \u2014 asserted with a fake transport that records sends",
+          "status": "confirmed",
+          "instruction": ""
+        }
+      ],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "",
+      "revisions": []
+    },
+    {
+      "id": "c5",
+      "kind": "boundary",
+      "text": "API key is read from env (GOVEE_API_KEY), never committed; device IPs/MACs never in committed JSON; scripts/scan-secrets.py stays green",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h5",
+          "text": "scripts/scan-secrets.py passes; GOVEE_API_KEY is only read from the environment",
+          "status": "confirmed",
+          "instruction": ""
+        }
+      ],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "",
+      "revisions": []
+    },
+    {
+      "id": "c6",
+      "kind": "assumption",
+      "text": "MCP server is a stdlib JSON-RPC-over-stdio 'govee mcp serve' exposed via a committed .mcp.json, which only the govee-cli resident loads (cultureagent agent_runner.py:146-150 setting_sources=['project'], cwd = own repo). docs ship a snippet other agent repos add to their own .mcp.json for direct access; culture-rules and the resident remain the other routes",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "",
+      "revisions": [
+        {
+          "text": "MCP server is a stdlib JSON-RPC-over-stdio 'govee mcp serve', exposed to Claude-backed agents via a committed .mcp.json; culture core has no MCP integration (grep of ~/git/culture/culture found none), so culture agents get it through their Claude backend",
+          "kind": "assumption",
+          "reason": "challenge pass: adjacent-systems lens found the 'any Claude-backed agent' wording false"
+        },
+        {
+          "text": "MCP server is a stdlib JSON-RPC-over-stdio 'govee mcp serve' exposed via a committed .mcp.json. Only the govee-cli resident loads it: cultureagent's Claude runner uses setting_sources=['project'] with cwd = the agent's own repo (cultureagent/clients/claude/agent_runner.py:146-150); other agents reach the lamp via the culture-rules runner actor or by asking govee-cli on the mesh",
+          "kind": "assumption",
+          "reason": "user answer to q1: direct MCP too"
+        }
+      ]
+    },
+    {
+      "id": "c7",
+      "kind": "requirement",
+      "text": "Statistics: every applied command and periodic state poll is logged to a local sqlite3 store under XDG state dir (outside git); web console charts usage from it",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h6",
+          "text": "Stats DB path resolves under XDG_STATE_HOME (default ~/.local/state/govee-cli/), never inside the repo",
+          "status": "confirmed",
+          "instruction": ""
+        }
+      ],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "",
+      "revisions": []
+    },
+    {
+      "id": "c8",
+      "kind": "assumption",
+      "text": "Web console is static HTML/JS shipped as package data and served by stdlib http.server via 'govee serve' on localhost, with a small JSON API over the same core as CLI/MCP",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "",
+      "revisions": []
+    },
+    {
+      "id": "c9",
+      "kind": "requirement",
+      "text": "Same-PR update of AGENTS.override.md, AGENTS.colleague.md, QWEN.md alongside CLAUDE.md; version bump",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h7",
+          "text": "AGENTS.override.md, AGENTS.colleague.md, QWEN.md are updated in the same PR and pyproject version is bumped",
+          "status": "confirmed",
+          "instruction": ""
+        }
+      ],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "",
+      "revisions": []
+    },
+    {
+      "id": "c10",
+      "kind": "decision",
+      "text": "Transport: both \u2014 LAN API first, cloud Developer API fallback; user enables LAN Control in Govee Home and supplies GOVEE_API_KEY (user answer, 2026-10-29)",
+      "origin": "user",
+      "status": "confirmed",
+      "honesty_conditions": [],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "",
+      "revisions": []
+    },
+    {
+      "id": "c11",
+      "kind": "decision",
+      "text": "Agents: stdio MCP server via committed .mcp.json plus a mesh skill/doc stating the rules \u2014 dry-run by default, --apply to write, every write logged (user answer)",
+      "origin": "user",
+      "status": "confirmed",
+      "honesty_conditions": [],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "",
+      "revisions": []
+    },
+    {
+      "id": "c12",
+      "kind": "decision",
+      "text": "Web console binds 0.0.0.0 so LAN/Tailscale devices can reach it (user answer); the no-auth risk must be mitigated in-spec",
+      "origin": "user",
+      "status": "confirmed",
+      "honesty_conditions": [],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "",
+      "revisions": []
+    },
+    {
+      "id": "c13",
+      "kind": "decision",
+      "text": "Process: full devague spec + plan before building (user answer)",
+      "origin": "user",
+      "status": "confirmed",
+      "honesty_conditions": [],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "",
+      "revisions": []
+    },
+    {
+      "id": "c14",
+      "kind": "audience",
+      "text": "Ori at home (CLI + phone browser on LAN/Tailscale) and AgentCulture agents \u2014 the govee-cli resident and any Claude-backed mesh agent \u2014 via MCP",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h8",
+          "text": "Both audiences have a working entry point: a browser URL for Ori and an MCP tool list for agents",
+          "status": "confirmed",
+          "instruction": ""
+        }
+      ],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "",
+      "revisions": []
+    },
+    {
+      "id": "c15",
+      "kind": "before_state",
+      "text": "The repo is a template skeleton: no Govee code; the lamp is only controllable from the Govee Home phone app; agents cannot touch it; no usage history exists",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h9",
+          "text": "git ls-files at 341ad19 contains no Govee transport code",
+          "status": "confirmed",
+          "instruction": ""
+        }
+      ],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "",
+      "revisions": []
+    },
+    {
+      "id": "c16",
+      "kind": "after_state",
+      "text": "'govee devices', 'govee light on|off|brightness|color|temp|scene --apply', 'govee stats', 'govee mcp serve' and 'govee serve' all drive the lamp through one core; the web console shows live state, controls and usage charts",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h10",
+          "text": "Each listed verb exists in govee --help and has a test",
+          "status": "confirmed",
+          "instruction": ""
+        }
+      ],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "",
+      "revisions": []
+    },
+    {
+      "id": "c17",
+      "kind": "why_it_matters",
+      "text": "Agents can make the lamp an ambient signal for the mesh (and Ori gets a faster console than the app), while dry-run defaults and a write log keep agent actions safe and auditable",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h11",
+          "text": "Every applied write records source (cli/mcp/web) and actor in the event log",
+          "status": "confirmed",
+          "instruction": ""
+        }
+      ],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "",
+      "revisions": []
+    },
+    {
+      "id": "c18",
+      "kind": "boundary",
+      "text": "No third-party runtime deps; no Govee account login/password flow (API key only); no BLE transport; no committed key, IP or MAC",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h12",
+          "text": "No BLE, no account-password login, no third-party runtime import anywhere in govee_cli/",
+          "status": "confirmed",
+          "instruction": ""
+        }
+      ],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "",
+      "revisions": []
+    },
+    {
+      "id": "c19",
+      "kind": "non_goal",
+      "text": "Authoring specific culture-rules rules (e.g. CI failed -> lamp red) is the user's work in the rules editor; this spec ships only the runner actor definition and one documented example rule",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "",
+      "revisions": [
+        {
+          "text": "Mesh-event-triggered automations (e.g. lamp red when CI fails) are a follow-up spec, not this one",
+          "kind": "non_goal",
+          "reason": "user's 'culture rules' is the culture-rules engine, discovered 2026-10-29"
+        }
+      ]
+    },
+    {
+      "id": "c20",
+      "kind": "requirement",
+      "text": "Every web console endpoint (reads and writes) requires a bearer token generated on first 'govee serve' and stored 0600 in the XDG config dir; an unpaired browser gets only the pairing screen; pairing hardening per c32",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h13",
+          "text": "Write endpoint returns 401 without a valid token; token file mode is 0600",
+          "status": "confirmed",
+          "instruction": ""
+        }
+      ],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "test: POST /api/light without token -> 401; with token -> 200 (dry-run unless apply:true)",
+      "revisions": [
+        {
+          "text": "Web console write endpoints require a bearer token generated on first 'govee serve' and stored 0600 in the XDG config dir; reads (state, stats) are open; the token is shown once in the terminal and as a QR-free pairing URL ?token=... that the page stores in localStorage",
+          "kind": "requirement",
+          "reason": "user answer to q2: token for reads too"
+        }
+      ]
+    },
+    {
+      "id": "c21",
+      "kind": "requirement",
+      "text": "Stats views: on-time per day (bar), brightness/color-temp over time (line), commands by source cli/mcp/web/agent (bar), last-24h state timeline; data from sqlite events + state samples taken by 'govee serve' every 60s",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h14",
+          "text": "Each of the four charts renders from real sqlite rows, with an empty state when there is no data",
+          "status": "confirmed",
+          "instruction": ""
+        }
+      ],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "",
+      "revisions": []
+    },
+    {
+      "id": "c22",
+      "kind": "success_signal",
+      "text": "From a phone on the LAN, toggling the lamp in the web console changes the physical lamp in < 2 s over LAN, and the action appears in stats within 60 s",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h15",
+          "text": "Measured in a manual LAN test on the real lamp after the build",
+          "status": "confirmed",
+          "instruction": ""
+        }
+      ],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "",
+      "revisions": []
+    },
+    {
+      "id": "c23",
+      "kind": "success_signal",
+      "text": "A Claude agent with only .mcp.json can list devices and turn the lamp on in 2 tool calls (dry-run then apply); 100% of applied writes from cli/mcp/web land in the event log",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h16",
+          "text": "MCP integration test drives tools/list + tools/call over stdio against a fake transport",
+          "status": "confirmed",
+          "instruction": ""
+        }
+      ],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "",
+      "revisions": []
+    },
+    {
+      "id": "c24",
+      "kind": "success_signal",
+      "text": "uv run pytest -n auto passes with coverage >= 60% using fake LAN/cloud transports (no lamp needed in CI); teken cli doctor --strict and scan-secrets stay green",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h17",
+          "text": "CI run on the PR shows pytest, lint, teken doctor and scan-secrets green",
+          "status": "confirmed",
+          "instruction": ""
+        }
+      ],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "",
+      "revisions": []
+    },
+    {
+      "id": "c25",
+      "kind": "requirement",
+      "text": "govee-cli ships a culture-rules 'runner' actor definition (docs/culture-rules/govee-actor.json) registering argv commands lamp_on, lamp_off, lamp_brightness {pct}, lamp_color {hex}, lamp_temp {kelvin}, lamp_scene {name}, each 'govee light ... --apply --json'; it is imported with 'culture-rules actors import' (dry run unless --apply) by the user, not by govee-cli",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h18",
+          "text": "The definition passes 'culture-rules actors create --json' dry run (the user runs it with their CULTURE_RULES_TOKEN); no argv entry is a shell/interpreter (inline_guard would refuse it)",
+          "status": "confirmed",
+          "instruction": ""
+        }
+      ],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "validate the JSON against culture_rules.model.actor.Actor (kind=runner) and culture_rules/actors/code.py's command registry shape",
+      "revisions": []
+    },
+    {
+      "id": "c26",
+      "kind": "requirement",
+      "text": "Web console: the custom color picker previews the color on the lamp visual while it is still open (before selection); the color is committed or sent only on pick. Showing or hiding the dry-run preview note must not move the lamp visual (user feedback on prototype v1, 2026-10-29)",
+      "origin": "user",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h19",
+          "text": "A Playwright check of the real console: dispatching 'input' on the custom color picker changes the lamp visual's color without sending a command, 'change' commits it, and the bulb's bounding box is identical with the preview note shown and hidden",
+          "status": "confirmed",
+          "instruction": ""
+        }
+      ],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "",
+      "revisions": []
+    },
+    {
+      "id": "c27",
+      "kind": "decision",
+      "text": "No schedules or time-based behavior in govee-cli (quiet hours dropped). Schedules live in culture-rules; govee-cli stays a stateless actor it can call (user decision 2026-10-29)",
+      "origin": "user",
+      "status": "confirmed",
+      "honesty_conditions": [],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "",
+      "revisions": []
+    },
+    {
+      "id": "c28",
+      "kind": "non_goal",
+      "text": "govee-cli has no scheduler, timers, quiet hours or time-of-day rules; any schedule is a culture-rules rule invoking the govee runner actor",
+      "origin": "user",
+      "status": "confirmed",
+      "honesty_conditions": [],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "",
+      "revisions": []
+    },
+    {
+      "id": "c29",
+      "kind": "requirement",
+      "text": "One LAN listener per host: Govee devices reply to UDP 4002 regardless of source port, so while 'govee serve' runs, the CLI and MCP server send LAN reads/writes through serve's loopback API; without serve they bind 4002 themselves, and a busy port exits 2 with 'port 4002 is in use (govee serve or another Govee integration)'",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h20",
+          "text": "With a fake serve holding 4002, a CLI LAN call goes through the loopback API; with 4002 held by a foreign socket and no serve, the CLI exits 2 with the port-in-use message",
+          "status": "confirmed",
+          "instruction": ""
+        }
+      ],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "",
+      "revisions": []
+    },
+    {
+      "id": "c30",
+      "kind": "requirement",
+      "text": "LAN writes are UDP with no acknowledgement, so an applied write is logged 'sent', then verified by a devStatus read within 3 s and updated to 'confirmed' or 'unconfirmed'; stats and the activity feed show the difference",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h21",
+          "text": "A fake LAN device that drops the packet yields an event logged 'unconfirmed'; one that applies it yields 'confirmed'",
+          "status": "confirmed",
+          "instruction": ""
+        }
+      ],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "",
+      "revisions": []
+    },
+    {
+      "id": "c31",
+      "kind": "requirement",
+      "text": "LAN multicast is pinned to an interface (GOVEE_LAN_INTERFACE or --interface, default: the interface of the default route); 'govee doctor' reports the interface used, whether discovery got any reply, and the remediation list (enable LAN Control in Govee Home, allow inbound UDP 4002, pick another interface)",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h22",
+          "text": "govee doctor --json lists the interface used and a lan-discovery check with remediation when no device replies",
+          "status": "confirmed",
+          "instruction": ""
+        }
+      ],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "",
+      "revisions": []
+    },
+    {
+      "id": "c32",
+      "kind": "requirement",
+      "text": "Web console token hardening: the pairing link carries the token in the URL fragment (#token=, never sent to the server or logged); the page moves it to localStorage and clears the hash; writes need the Authorization header (no cookie, so no CSRF) and a same-origin Origin header; comparison uses hmac.compare_digest; 'govee serve --rotate-token' invalidates every paired device; request bodies capped at 16 KiB",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h23",
+          "text": "The four web tests (401 no token, 403 wrong Origin, 401 after rotate, 413 oversize) pass; server access log never contains the token",
+          "status": "confirmed",
+          "instruction": ""
+        }
+      ],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "tests: POST without token 401, wrong Origin 403, rotated token 401, 17 KiB body 413",
+      "revisions": []
+    },
+    {
+      "id": "c33",
+      "kind": "requirement",
+      "text": "Stats store opens sqlite in WAL mode with busy_timeout 5000 ms because serve's poller, the CLI and the MCP server write concurrently; a schema_version table makes later migrations explicit",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h24",
+          "text": "Two processes writing events concurrently for 5 s produce no 'database is locked' error; PRAGMA journal_mode returns wal",
+          "status": "confirmed",
+          "instruction": ""
+        }
+      ],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "",
+      "revisions": []
+    },
+    {
+      "id": "c34",
+      "kind": "requirement",
+      "text": "The culture-rules runner actor definition pins machine: spark (the host on the lamp's LAN) and uses the absolute path to the govee binary, because runner commands start with a minimal environment (culture_rules/actors/code.py docstring); LAN verbs need no key, and the scene command documents that GOVEE_API_KEY must be injected via grant or it exits 2",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h25",
+          "text": "The actor JSON has machine 'spark', every argv[0] is absolute, and no argv is a shell or interpreter",
+          "status": "confirmed",
+          "instruction": ""
+        }
+      ],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "",
+      "revisions": []
+    },
+    {
+      "id": "c35",
+      "kind": "requirement",
+      "text": "Cloud usage stays far under the Developer API's daily cap (10,000 requests/key/day per community docs, unverified officially): state polling uses LAN; when only cloud is available serve polls every 5 min at most; HTTP 429 exits 2 with the reset time from the response headers",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h26",
+          "text": "A fake cloud returning 429 with reset headers makes the CLI exit 2 and print the reset time; serve's cloud-only poll interval is >= 300 s",
+          "status": "confirmed",
+          "instruction": ""
+        }
+      ],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "",
+      "revisions": []
+    },
+    {
+      "id": "c36",
+      "kind": "requirement",
+      "text": "docs ship a systemd --user unit for 'govee serve' (restart on failure, EnvironmentFile for GOVEE_API_KEY outside the repo), since stats sampling only happens while serve runs; stats show gaps where serve was down instead of interpolating",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h27",
+          "text": "systemd-analyze verify passes on the shipped unit; a stats chart over a serve outage shows a gap, not 'off'",
+          "status": "confirmed",
+          "instruction": ""
+        }
+      ],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "",
+      "revisions": []
+    },
+    {
+      "id": "c37",
+      "kind": "decision",
+      "text": "Other mesh agents may reach the lamp directly: docs ship a .mcp.json snippet any agent repo can add (writes still dry-run unless apply), alongside culture-rules and the govee-cli resident (user answer to q1, 2026-10-29)",
+      "origin": "user",
+      "status": "confirmed",
+      "honesty_conditions": [],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "",
+      "revisions": []
+    },
+    {
+      "id": "c38",
+      "kind": "decision",
+      "text": "Every web console API call, reads included, requires a paired device token; unpaired visitors see only a pairing screen (user answer to q2, 2026-10-29)",
+      "origin": "user",
+      "status": "confirmed",
+      "honesty_conditions": [],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "",
+      "revisions": []
+    },
+    {
+      "id": "c39",
+      "kind": "requirement",
+      "text": "The CLI rolls new tokens so agents can pair apps and MCP servers locally: 'govee token new --name <label>' mints a named token (printed once, plus a #token= pairing link), 'govee token list' shows names/created/last-used (never the secret), 'govee token revoke <name>' removes one; 'govee serve --rotate-token' still revokes all. Tokens are stored hashed in a 0600 file under the XDG config dir; the MCP server and CLI use a token (GOVEE_TOKEN or their own minted one) when routing through serve's loopback API (user requirement, 2026-10-29)",
+      "origin": "user",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h28",
+          "text": "A token minted with 'govee token new' authenticates against serve's API, appears by name in 'token list' without its secret, and returns 401 immediately after 'token revoke'; the token file holds only hashes and has mode 0600",
+          "status": "confirmed",
+          "instruction": ""
+        }
+      ],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "",
+      "revisions": []
+    }
+  ],
+  "open_vagueness": [
+    {
+      "id": "v1",
+      "text": "LAN scan (multicast 239.255.255.250:4001, pinned to wlP9s9 192.168.1.157) got no reply: lamp model, LAN-control toggle, or firewall unknown",
+      "kind": "unknown_blocking",
+      "claim_id": null,
+      "resolved": true,
+      "resolution": "User chose both transports, LAN first; user will enable LAN Control and provide an API key. Why the scan got no reply is diagnosed by 'govee doctor' at build time, not a spec blocker.",
+      "resolution_claim_id": null
+    },
+    {
+      "id": "v2",
+      "text": "Which port the devStatus query must target (4003 per most clients; one homebridge-govee comment says 4002) \u2014 verify against the real lamp before relying on F2's verification",
+      "kind": "unknown_nonblocking",
+      "claim_id": null,
+      "resolved": false,
+      "resolution": "",
+      "resolution_claim_id": null
+    },
+    {
+      "id": "v3",
+      "text": "Stats retention: ~525k sample rows per year at 60 s; no pruning in v1, revisit if the DB passes 100 MB",
+      "kind": "unknown_nonblocking",
+      "claim_id": null,
+      "resolved": false,
+      "resolution": "",
+      "resolution_claim_id": null
+    }
+  ],
+  "scope_entries": [
+    {
+      "id": "s1",
+      "surface": "pyproject.toml + CLAUDE.md 'CLI architecture'",
+      "finding": "runtime deps are empty and must stay so; clients, MCP and web server must be stdlib",
+      "seeds": [
+        "c2"
+      ]
+    },
+    {
+      "id": "s2",
+      "surface": "govee_cli/cli/__init__.py, _errors.py, learn.py, overview.py, explain/catalog.py",
+      "finding": "registration/error/rubric contract applies to every new verb; template strings still say 'clonable template'",
+      "seeds": [
+        "c3"
+      ]
+    },
+    {
+      "id": "s3",
+      "surface": "CLAUDE.md 'Govee domain constraints'",
+      "finding": "safe-by-default writes and --json are project rules; MCP tools must honour the same apply flag",
+      "seeds": [
+        "c4"
+      ]
+    },
+    {
+      "id": "s4",
+      "surface": "scripts/scan-secrets.py",
+      "finding": "fails CI on credential-shaped strings and non-localhost URLs in JSON; key from env only",
+      "seeds": [
+        "c5"
+      ]
+    },
+    {
+      "id": "s5",
+      "surface": "~/git/culture/culture (grep mcp)",
+      "finding": "no MCP handling in culture; Claude-backend agents load project .mcp.json",
+      "seeds": [
+        "c6"
+      ]
+    },
+    {
+      "id": "s6",
+      "surface": "stdlib sqlite3 / .gitignore",
+      "finding": "stats store must live outside the repo; sqlite3 is stdlib",
+      "seeds": [
+        "c7"
+      ]
+    },
+    {
+      "id": "s7",
+      "surface": "pyproject.toml hatch wheel packages=[govee_cli]",
+      "finding": "files under govee_cli/ ship in the wheel, so the site can be package data",
+      "seeds": [
+        "c8"
+      ]
+    },
+    {
+      "id": "s8",
+      "surface": "CLAUDE.md 'Harnesses and identity' + Conventions",
+      "finding": "four harness files must stay in sync; every PR bumps version",
+      "seeds": [
+        "c9"
+      ]
+    },
+    {
+      "id": "s9",
+      "surface": "~/git/culture-rules (model/actor.py, actors/code.py, docs/actors/http.md; live service culture-rules serve on spark)",
+      "finding": "culture-rules is the mesh rules engine (rules -> workflows -> actors); a runner actor runs registered argv commands with typed params, shell=False, so govee-cli plugs in as config, no culture-rules code change; the API needs CULTURE_RULES_TOKEN which this session lacks",
+      "seeds": [
+        "c25"
+      ]
+    },
+    {
+      "id": "s10",
+      "surface": "artifact prototype https://claude.ai/artifact/LpqHehb6KuL5S51YCV26wD",
+      "finding": "clickable console prototype (embodiment design tokens, sample data) built so the user reviews the site before the spec converges; stats charts: today color strip + brightness line, hours on per day, commands by source (validated CLI/Web/MCP palette), weekday x hour heatmap",
+      "seeds": [
+        "c21"
+      ]
+    },
+    {
+      "id": "s11",
+      "surface": "challenge pass / concurrency+hardware lens: Govee LAN protocol (replies on UDP 4002, per openHAB/homebridge-govee docs) + ss -ulnp on spark (4001-4003 free today)",
+      "finding": "multiple govee processes cannot all receive LAN replies; poller in serve would race CLI/MCP queries",
+      "seeds": [
+        "c29"
+      ]
+    },
+    {
+      "id": "s12",
+      "surface": "challenge pass / failure-mode lens: LAN API turn/brightness/colorwc (no reply documented)",
+      "finding": "'applied' in the log would overclaim; the lamp may have dropped the packet",
+      "seeds": [
+        "c30"
+      ]
+    },
+    {
+      "id": "s13",
+      "surface": "challenge pass / adjacent-systems lens: spark network (ip -4 addr: ~20 interfaces incl. docker bridges, tailscale; LAN scan got no reply on default and wlP9s9)",
+      "finding": "multicast can leave on the wrong interface; inbound firewall for 4002 could not be checked without sudo",
+      "seeds": [
+        "c31"
+      ]
+    },
+    {
+      "id": "s14",
+      "surface": "challenge pass / security lens: cultureagent agent_runner.py:148 permission_mode=bypassPermissions",
+      "finding": "agents run with no permission prompts, so the server-side dry-run default and the write log are the only guard on agent writes; reinforces c4",
+      "seeds": [
+        "c6"
+      ]
+    },
+    {
+      "id": "s15",
+      "surface": "challenge pass / security lens: c20 + prototype pairing copy (?token= query string)",
+      "finding": "query-string tokens leak into browser history and proxy logs; no revoke path existed",
+      "seeds": [
+        "c32"
+      ]
+    },
+    {
+      "id": "s16",
+      "surface": "challenge pass / concurrency lens: c7 stats store, writers = serve poller + CLI + MCP + culture-rules runner invocations",
+      "finding": "default rollback-journal sqlite would raise 'database is locked' under concurrent writers",
+      "seeds": [
+        "c33"
+      ]
+    },
+    {
+      "id": "s17",
+      "surface": "challenge pass / operations lens: culture_rules/actors/code.py (minimal env, temp cwd, shell=False) + culture-rules machines spark/thor/spark2",
+      "finding": "a step scheduled on thor or with a bare 'govee' argv would fail; cloud key absent in runner env",
+      "seeds": [
+        "c34"
+      ]
+    },
+    {
+      "id": "s18",
+      "surface": "challenge pass / operations lens: Govee cloud API limits (web search: 10k/day/key, ~10/min/device, community sources)",
+      "finding": "60 s cloud polling + agent writes could approach per-device limits",
+      "seeds": [
+        "c35"
+      ]
+    },
+    {
+      "id": "s19",
+      "surface": "challenge pass / lifecycle lens: c21 stats sampling 'taken by govee serve every 60s'",
+      "finding": "no process lifecycle was specified; downtime would silently look like 'lamp off'",
+      "seeds": [
+        "c36"
+      ]
+    },
+    {
+      "id": "s20",
+      "surface": "challenge pass / reversibility lens: all lamp writes (on/off/brightness/color/temp/scene)",
+      "finding": "every write is reversible by another write; no destructive operation in scope; clean, residual risk is only an unwanted visible change, bounded by dry-run default",
+      "seeds": []
+    },
+    {
+      "id": "s21",
+      "surface": "challenge pass / migration lens: repo at 341ad19 (template skeleton, no prior Govee data or users)",
+      "finding": "greenfield, nothing to migrate now; schema_version (F8) covers future stats migrations",
+      "seeds": []
+    },
+    {
+      "id": "s22",
+      "surface": "challenge pass / observability lens: govee doctor + event log + stats gaps",
+      "finding": "covered by F2/F3/F11 findings; not examined: alerting when the lamp goes unreachable (left to culture-rules)",
+      "seeds": []
+    }
+  ],
+  "lapses": [
+    {
+      "id": "l1",
+      "code": "control-absent",
+      "what": "t1 agent wrote tests and implementation in one pass; tests were never observed failing before the code existed (TDD red step skipped)",
+      "skipped_check": "run new tests against a stub to see them fail first",
+      "refs": [
+        "plan t1 / tests/test_govee_types.py"
+      ],
+      "origin": "llm",
+      "status": "approved"
+    },
+    {
+      "id": "l2",
+      "code": "assumption-for-measurement",
+      "what": "t15 concurrency safety of the token store (flock + re-read before last_used write) was reasoned about but not tested with multiple processes",
+      "skipped_check": "multi-process revoke-vs-verify race test",
+      "refs": [
+        "t15 / govee_cli/auth/tokens.py"
+      ],
+      "origin": "llm",
+      "status": "approved"
+    },
+    {
+      "id": "l3",
+      "code": "grader-unverified",
+      "what": "t4 culture-rules actor JSON was shaped from source and docs/demo/actor.json, never validated by culture-rules itself (needs the user's token)",
+      "skipped_check": "culture-rules actors create --json dry run",
+      "refs": [
+        "t4 / docs/culture-rules/govee-actor.json"
+      ],
+      "origin": "llm",
+      "status": "approved"
+    },
+    {
+      "id": "l4",
+      "code": "assumption-for-measurement",
+      "what": "Main agent told the user ufw was likely dropping Govee replies, inferred from 'systemctl is-active ufw' = active; 'ufw status' (run by the user) showed the firewall inactive. The service state stood in for the actual rule state",
+      "skipped_check": "ask for 'sudo ufw status' before presenting the firewall as the likely cause",
+      "refs": [
+        "risk r3 / LAN discovery"
+      ],
+      "origin": "llm",
+      "status": "approved"
+    },
+    {
+      "id": "l5",
+      "code": "control-absent",
+      "what": "Test suite was not hermetic: poller tests built LampService.direct() with a real LanTransport, so running the gate during d15 sent a real multicast scan and one ~253-packet unicast sweep to the home LAN and got replies from the real lamp (scan only, no control commands). Fixed in 3e0071c with a conftest guard that blocks non-loopback sends and clears GOVEE_* env",
+      "skipped_check": "a suite-wide network isolation fixture from the first wave",
+      "refs": [
+        "tests/test_poller.py, tests/conftest.py, d15"
+      ],
+      "origin": "llm",
+      "status": "approved"
+    },
+    {
+      "id": "l6",
+      "code": "provenance-missing",
+      "what": "Main agent swapped deviation ids d3 and d4 in its messages to the user, the agent briefs, code comments and deltas b2/b10: d3 is the cloud-key routing decision, d4 the systemd verify follow-up. The user's approvals covered both, so no approval changed meaning; references were corrected and b2/b10 superseded by b12/b13",
+      "skipped_check": "read the recorded id back from 'devague deviate --list' before citing it",
+      "refs": [
+        "d3, d4, b2, b10, d11 text"
+      ],
+      "origin": "llm",
+      "status": "approved"
+    }
+  ],
+  "obligations": [
+    {
+      "id": "o1",
+      "claim_id": "c2",
+      "seam": "pyproject.toml [project].dependencies + import graph of govee_cli/",
+      "behavior": "dependencies stays [] and no govee_cli module imports a non-stdlib package",
+      "source_text": "Govee transport clients (cloud Developer API over HTTPS, LAN API over UDP 4001/4002/4003) built on stdlib urllib/socket/json, since pyproject.toml has dependencies = [] and CLAUDE.md forbids third-party runtime deps",
+      "origin": "llm",
+      "status": "approved"
+    },
+    {
+      "id": "o2",
+      "claim_id": "c3",
+      "seam": "teken cli doctor . --strict over the built CLI",
+      "behavior": "every new noun/verb is registered, has an explain catalog entry, and learn/overview mention it",
+      "source_text": "New noun groups (devices, light, stats, mcp, serve) register via cli/__init__.py::_build_parser like _commands/cli.py, raise CliError with exit 2 for unreachable device/missing key, and update learn, overview _VERBS and explain catalog together for teken cli doctor --strict",
+      "origin": "llm",
+      "status": "approved"
+    },
+    {
+      "id": "o3",
+      "claim_id": "c4",
+      "seam": "govee_cli/core.py LampService.apply() with a recording FakeTransport, via CLI, MCP tools/call and web POST",
+      "behavior": "without apply no packet or HTTPS request is recorded; with apply exactly the previewed command is sent",
+      "source_text": "Mutating verbs (on/off/brightness/color/temp/scene) dry-run unless --apply, in CLI and MCP alike; every verb has --json",
+      "origin": "llm",
+      "status": "approved"
+    },
+    {
+      "id": "o4",
+      "claim_id": "c5",
+      "seam": "scripts/scan-secrets.py over the repo + govee_cli/transport/cloud.py key lookup",
+      "behavior": "scan passes and the API key is read only from os.environ['GOVEE_API_KEY']",
+      "source_text": "API key is read from env (GOVEE_API_KEY), never committed; device IPs/MACs never in committed JSON; scripts/scan-secrets.py stays green",
+      "origin": "llm",
+      "status": "approved"
+    },
+    {
+      "id": "o5",
+      "claim_id": "c7",
+      "seam": "govee_cli/stats/store.py db_path()",
+      "behavior": "path resolves under XDG_STATE_HOME (default ~/.local/state/govee-cli/stats.db), never inside the repo",
+      "source_text": "Statistics: every applied command and periodic state poll is logged to a local sqlite3 store under XDG state dir (outside git); web console charts usage from it",
+      "origin": "llm",
+      "status": "approved"
+    },
+    {
+      "id": "o6",
+      "claim_id": "c16",
+      "seam": "govee --help and tests/ for devices, light, stats, mcp, serve",
+      "behavior": "each verb exists, supports --json, and has at least one test",
+      "source_text": "'govee devices', 'govee light on|off|brightness|color|temp|scene --apply', 'govee stats', 'govee mcp serve' and 'govee serve' all drive the lamp through one core; the web console shows live state, controls and usage charts",
+      "origin": "llm",
+      "status": "approved"
+    },
+    {
+      "id": "o7",
+      "claim_id": "c20",
+      "seam": "govee_cli/web/server.py POST /api/light + token file",
+      "behavior": "401 without a valid bearer token; token file mode is 0600",
+      "source_text": "Web console write endpoints require a bearer token generated on first 'govee serve' and stored 0600 in the XDG config dir; reads (state, stats) are open; the token is shown once in the terminal and as a QR-free pairing URL ?token=... that the page stores in localStorage",
+      "origin": "llm",
+      "status": "approved"
+    },
+    {
+      "id": "o8",
+      "claim_id": "c21",
+      "seam": "govee_cli/web/static stats page fed by GET /api/stats",
+      "behavior": "the four charts render from sqlite rows and show an empty state when there are none",
+      "source_text": "Stats views: on-time per day (bar), brightness/color-temp over time (line), commands by source cli/mcp/web/agent (bar), last-24h state timeline; data from sqlite events + state samples taken by 'govee serve' every 60s",
+      "origin": "llm",
+      "status": "approved"
+    },
+    {
+      "id": "o9",
+      "claim_id": "c23",
+      "seam": "govee mcp serve over stdio (initialize, tools/list, tools/call)",
+      "behavior": "an agent lists devices and turns the lamp on in two calls: dry run, then apply",
+      "source_text": "A Claude agent with only .mcp.json can list devices and turn the lamp on in 2 tool calls (dry-run then apply); 100% of applied writes from cli/mcp/web land in the event log",
+      "origin": "llm",
+      "status": "approved"
+    },
+    {
+      "id": "o10",
+      "claim_id": "c25",
+      "seam": "docs/culture-rules/govee-actor.json",
+      "behavior": "parses as a culture-rules Actor of kind runner with commands lamp_on..lamp_scene, each argv ending in --apply --json",
+      "source_text": "govee-cli ships a culture-rules 'runner' actor definition (docs/culture-rules/govee-actor.json) registering argv commands lamp_on, lamp_off, lamp_brightness {pct}, lamp_color {hex}, lamp_temp {kelvin}, lamp_scene {name}, each 'govee light ... --apply --json'; it is imported with 'culture-rules actors import' (dry run unless --apply) by the user, not by govee-cli",
+      "origin": "llm",
+      "status": "approved"
+    },
+    {
+      "id": "o11",
+      "claim_id": "c26",
+      "seam": "web console custom color input (input vs change events)",
+      "behavior": "input previews on the lamp visual without sending; change commits; the bulb's box does not move when the preview note toggles",
+      "source_text": "Web console: the custom color picker previews the color on the lamp visual while it is still open (before selection); the color is committed or sent only on pick. Showing or hiding the dry-run preview note must not move the lamp visual (user feedback on prototype v1, 2026-10-29)",
+      "origin": "llm",
+      "status": "approved"
+    },
+    {
+      "id": "o12",
+      "claim_id": "c29",
+      "seam": "govee_cli/transport/lan.py socket binding + serve loopback routing",
+      "behavior": "only one process binds UDP 4002; others route via serve or exit 2 with the port-in-use message",
+      "source_text": "One LAN listener per host: Govee devices reply to UDP 4002 regardless of source port, so while 'govee serve' runs, the CLI and MCP server send LAN reads/writes through serve's loopback API; without serve they bind 4002 themselves, and a busy port exits 2 with 'port 4002 is in use (govee serve or another Govee integration)'",
+      "origin": "llm",
+      "status": "approved"
+    },
+    {
+      "id": "o13",
+      "claim_id": "c30",
+      "seam": "govee_cli/core.py post-write verification",
+      "behavior": "applied LAN writes move from sent to confirmed/unconfirmed based on a devStatus read within 3 s",
+      "source_text": "LAN writes are UDP with no acknowledgement, so an applied write is logged 'sent', then verified by a devStatus read within 3 s and updated to 'confirmed' or 'unconfirmed'; stats and the activity feed show the difference",
+      "origin": "llm",
+      "status": "approved"
+    },
+    {
+      "id": "o14",
+      "claim_id": "c31",
+      "seam": "govee_cli/transport/lan.py interface selection + doctor lan check",
+      "behavior": "multicast uses the chosen interface and doctor reports it with remediation on silence",
+      "source_text": "LAN multicast is pinned to an interface (GOVEE_LAN_INTERFACE or --interface, default: the interface of the default route); 'govee doctor' reports the interface used, whether discovery got any reply, and the remediation list (enable LAN Control in Govee Home, allow inbound UDP 4002, pick another interface)",
+      "origin": "llm",
+      "status": "approved"
+    },
+    {
+      "id": "o15",
+      "claim_id": "c32",
+      "seam": "govee_cli/web/server.py auth middleware",
+      "behavior": "fragment-only pairing, header-only auth, Origin check, compare_digest, rotate invalidates, 16 KiB cap",
+      "source_text": "Web console token hardening: the pairing link carries the token in the URL fragment (#token=, never sent to the server or logged); the page moves it to localStorage and clears the hash; writes need the Authorization header (no cookie, so no CSRF) and a same-origin Origin header; comparison uses hmac.compare_digest; 'govee serve --rotate-token' invalidates every paired device; request bodies capped at 16 KiB",
+      "origin": "llm",
+      "status": "approved"
+    },
+    {
+      "id": "o16",
+      "claim_id": "c33",
+      "seam": "govee_cli/stats/store.py connect()",
+      "behavior": "WAL + busy_timeout 5000 + schema_version table on every connection",
+      "source_text": "Stats store opens sqlite in WAL mode with busy_timeout 5000 ms because serve's poller, the CLI and the MCP server write concurrently; a schema_version table makes later migrations explicit",
+      "origin": "llm",
+      "status": "approved"
+    },
+    {
+      "id": "o17",
+      "claim_id": "c34",
+      "seam": "docs/culture-rules/govee-actor.json",
+      "behavior": "machine is spark, argv[0] absolute, scene command documents GOVEE_API_KEY injection",
+      "source_text": "The culture-rules runner actor definition pins machine: spark (the host on the lamp's LAN) and uses the absolute path to the govee binary, because runner commands start with a minimal environment (culture_rules/actors/code.py docstring); LAN verbs need no key, and the scene command documents that GOVEE_API_KEY must be injected via grant or it exits 2",
+      "origin": "llm",
+      "status": "approved"
+    },
+    {
+      "id": "o18",
+      "claim_id": "c35",
+      "seam": "govee_cli/transport/cloud.py + serve poller",
+      "behavior": "429 exits 2 with reset time; cloud-only polling interval >= 300 s",
+      "source_text": "Cloud usage stays far under the Developer API's daily cap (10,000 requests/key/day per community docs, unverified officially): state polling uses LAN; when only cloud is available serve polls every 5 min at most; HTTP 429 exits 2 with the reset time from the response headers",
+      "origin": "llm",
+      "status": "approved"
+    },
+    {
+      "id": "o19",
+      "claim_id": "c36",
+      "seam": "docs/systemd/govee-serve.service + stats gap rendering",
+      "behavior": "unit verifies; serve downtime renders as a gap",
+      "source_text": "docs ship a systemd --user unit for 'govee serve' (restart on failure, EnvironmentFile for GOVEE_API_KEY outside the repo), since stats sampling only happens while serve runs; stats show gaps where serve was down instead of interpolating",
+      "origin": "llm",
+      "status": "approved"
+    }
+  ]
+}

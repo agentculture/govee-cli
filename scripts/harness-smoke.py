@@ -110,6 +110,16 @@ STEWARD_WAIVED_PORTABILITY_PATHS = frozenset(
     {
         ".claude/skills/recall/SKILL.md",
         ".claude/skills/remember/SKILL.md",
+        # devague method records for govee-lamp-integration: they quote a user-confirmed
+        # requirement naming the default XDG state path ("default ~/.local/state/govee-cli/").
+        # The delivery ledger is append-only and the claim is user-confirmed, so the text is
+        # carried, not a config reference; waived by exact path (d25), still reported per run.
+        ".devague/frames/govee-lamp-integration.json",
+        ".devague/plans/govee-lamp-integration.json",
+        ".devague/deliveries/govee-lamp-integration.json",
+        "docs/specs/2026-10-29-govee-lamp-integration.md",
+        "docs/plans/2026-10-29-govee-lamp-integration.md",
+        "docs/plans/2026-10-29-govee-lamp-integration-split.md",
     }
 )
 

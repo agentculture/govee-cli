@@ -10,17 +10,14 @@ color, color temperature and scenes — via Govee's official Developer API (clou
 and the local LAN API. Writes are **safe by default** (dry-run unless `--apply`)
 and every command emits `--json` for agent consumers.
 
-**Current state:** the repo was scaffolded from `culture-agent-template`
-(0.10.0) and so far carries only that template's agent-first skeleton — the
-identity/introspection verbs (`whoami`, `learn`, `explain`, `overview`,
-`doctor`, `cli overview`), the harness prompt files, the vendored skill kit, and
-CI/deploy. **No Govee device code exists yet** (see [Roadmap](#roadmap)). Several
-in-code strings still describe the package as "a clonable template for
-AgentCulture mesh agents" — the parser `description` in
-`govee_cli/cli/__init__.py`, `_TEXT`/`_as_json_payload` in `learn.py`, `_ROOT`
-in `explain/catalog.py`, and `_ARTIFACTS` in `overview.py` (which also names the
-wrong resident prompt, `AGENTS.colleague.md`). Update them as the domain verbs
-land.
+**Current state:** the Govee domain is built and tested against the real lamp,
+a Govee **H6076** floor lamp on the home LAN. The CLI has `devices`, `light`
+(on, off, brightness, color, temp, scene, state, scenes, fade-status,
+fade-stop), `stats`, `token`, `serve` (web console and API) and `mcp serve`
+(MCP over stdio), on top of the template's identity verbs (`whoami`, `learn`,
+`explain`, `overview`, `doctor`, `cli overview`). The spec, plan, split and
+delivery record live in `docs/specs/`, `docs/plans/` and `docs/deliveries/`
+(slug `govee-lamp-integration`), and the devague state in `.devague/`.
 
 Siblings in the Organic Development framework: `guildmaster` (skills
 supplier), `steward` (alignment — `steward doctor`), and `teken` (the afi-cli
@@ -52,7 +49,7 @@ uv run isort --check-only govee_cli tests
 uv run flake8 govee_cli tests
 uv run bandit -c pyproject.toml -r govee_cli
 markdownlint-cli2 "**/*.md" "#node_modules" "#.local" "#.claude/skills" "#.teken"
-uv run teken cli doctor . --strict         # agent-first rubric gate
+GOVEE_DOCTOR_NO_SCAN=1 uv run teken cli doctor . --strict   # agent-first rubric gate (no LAN scan)
 ```
 
 Harness smoke check (CI `harness-smoke` job): `uv run python scripts/harness-smoke.py
@@ -74,8 +71,8 @@ The parts that span several files:
 - **Registration.** `govee_cli/cli/__init__.py::_build_parser` imports each
   module under `cli/_commands/` and calls its `register(sub)`. A module adds its
   subparser, its own `--json` flag, and `set_defaults(func=handler)`. New noun
-  groups (e.g. a future `devices` or `light`) register there the same way;
-  `_commands/cli.py` is the worked example of a noun with a sub-verb.
+  groups register there the same way; `_commands/cli.py` is the small worked
+  example of a noun with a sub-verb and `_commands/light.py` the full one.
 - **Error contract.** Handlers return `None`/an int exit code, or **raise
   `CliError(code, message, remediation)`** (`cli/_errors.py`). `_dispatch`
   catches it and wraps any other exception into a `CliError`, so a traceback
@@ -113,23 +110,62 @@ The parts that span several files:
   as `QWEN.md` or `AGENTS.override.md` must never be accepted as a substitute
   for it — `tests/test_doctor_resident_prompt.py` pins that.
 
-## Govee domain constraints
+## Govee domain architecture
 
-These come from the project description. They are design rules for the code
-still to be written, not for code that exists:
+One code path reaches the lamp: **`govee_cli/govee/service.py` (`LampService`)**.
+The CLI, the MCP server (`govee_cli/mcp/server.py`) and the web server
+(`govee_cli/web/server.py`) all call it; nothing else touches a transport.
 
-- **Mutating verbs dry-run by default.** On/off, brightness, color, color
-  temperature and scene changes print what *would* be sent and exit 0; only
-  `--apply` performs the write. Read-only verbs (discovery, state) need no flag.
+- **Two backends.** `LampService.connect()` probes `GET /api/health` on
+  `GOVEE_SERVE_URL` (default `http://127.0.0.1:8742`). If `govee serve`
+  answers, every operation goes through it (`service_serve.py`, a urllib
+  client sending a client token from `GOVEE_TOKEN` or the 0600 file
+  `govee token new --save` writes). Otherwise `service_direct.py` drives the
+  transports itself. Serve builds `LampService.direct(background_fades=True)`.
+  This keeps one owner of UDP port 4002 and of `GOVEE_API_KEY`.
+- **Transports.** `govee/lan.py` (UDP: scan to 4001, control and `devStatus`
+  to 4003, replies on 4002, which only one process per host can hold, hence
+  `PortBusy`) and `govee/cloud.py` (`openapi.api.govee.com/router/api/v1`,
+  capability objects, `Govee-API-Key` header). LAN discovery tries the cached
+  last IP (`$XDG_STATE_HOME/govee-cli/lan-devices.json`), `GOVEE_LAN_HOSTS`,
+  multicast, then a unicast /24 sweep; the real lamp ignores multicast on this
+  Wi-Fi and its scan reply carries no `ip` field. LAN-vs-cloud is chosen when
+  commands are planned, so a dry run always equals what `--apply` sends.
+- **Fades** (`govee/fade.py`). Govee has no transition parameter, so fades are
+  stepped client-side over LAN (>= 150 ms per step, only when the value
+  changes). On/off fade by default (`GOVEE_FADE_DEFAULT`, 5 s); a new
+  command cancels a running fade; over cloud a change applies instantly.
+- **Verified writes and the log.** An applied LAN write is logged `sent`,
+  then re-read and updated to `confirmed` or `unconfirmed`. Events and 60 s
+  state samples live in `govee_cli/stats/store.py` (sqlite, WAL,
+  `$XDG_STATE_HOME/govee-cli/stats.db`); web console dry runs are not logged.
+- **Auth.** `govee_cli/auth/tokens.py` stores named tokens as sha256 hashes
+  (0600 file under `$XDG_CONFIG_HOME/govee-cli/`). Every `/api` route except
+  `/api/health` needs a bearer token, unless the client is on a network the
+  owner passed to `govee serve --trust` (or `GOVEE_TRUSTED_NETWORKS`; default
+  none); writes also need a same-origin `Origin`.
+  `X-Govee-Source` / `X-Govee-Actor` are honoured only from loopback.
+
+Rules that keep it that way:
+
+- **Mutating verbs dry-run by default.** Only `--apply` (CLI), `apply: true`
+  (MCP) or a console send performs a write.
 - **Every verb supports `--json`** and keeps the stdout/stderr split above.
-- **Two transports:** the Govee Developer API (cloud, needs an API key) and the
-  LAN API (local network, no key).
-- **Never commit the API key or a real device endpoint.** `scripts/scan-secrets.py`
+- **No schedules in govee-cli.** Time-based behaviour belongs to
+  culture-rules, which drives the lamp through the runner actor that
+  `govee rules actor` generates per machine (never commit one: its
+  absolute path is machine-specific and fails the portability lint).
+- **Tests never touch the real network.** `tests/conftest.py` clears `GOVEE_*`
+  env, isolates the XDG dirs and blocks every non-loopback send or connect.
+  Build services with fake `lan=` and `cloud=` transports.
+- **Never commit the API key or a real device endpoint** (the lamp's IP or
+  device id included). `scripts/scan-secrets.py`
   fails CI on credential-shaped strings in any tracked file. It also fails on any
   *JSON* file with a `baseUrl`/`endpoint`/`url`/`host` key pointing at a
   non-localhost `http(s)://` URL. Keep API base URLs in Python source or read
   them from the environment, not in committed JSON config. Add test fixtures
-  that need such values to `SELF_EXCLUDE` only deliberately.
+  that need such values to `SELF_EXCLUDE` only deliberately. Also avoid code
+  like `x.startswith("#token=")`: the scanner reads it as a token assignment.
 
 ## Harnesses and identity
 
@@ -193,6 +229,10 @@ optional and only needed when `ask-colleague` runs.
 - **PRs** go through the `cicd` skill (`devex pr` + SonarCloud gating; the
   project key is `agentculture_govee-cli`). The `cicd`/`communicate` scripts
   sign posts as `- govee-cli (Claude)`, resolving the nick from `culture.yaml`.
+  The quality gate passes code smells, so the CI `test` job also runs
+  `scripts/sonar-pr-issues.py` (cited from culture-rules): it fails while the
+  PR has any OPEN or CONFIRMED SonarCloud issue. Fix each one, or accept it
+  in SonarCloud with a reason; accepted and false-positive issues pass.
 - **Deploy:** a push to `main` that touches `pyproject.toml` or `govee_cli/**`
   publishes to PyPI via Trusted Publishing (`.github/workflows/publish.yml`).
   Same-repo PRs publish a `.devN` build to TestPyPI. The `pypi`/`testpypi`
@@ -237,6 +277,7 @@ was inherited from the template. It is about `eidetic-cli`, not this project.
 
 ## Roadmap
 
-(planned) The Govee domain itself: device discovery, then on/off, brightness,
-color, color temperature and scenes, over both the Developer API and the LAN
-API, following the [domain constraints](#govee-domain-constraints) above.
+Nothing planned is unbuilt in the current spec. Follow-ups recorded during the
+build (see `docs/deliveries/` once written): per-segment color on the H6076,
+cross-process fade cancel without `govee serve`, and HTTPS reverse-proxy
+support for the console.

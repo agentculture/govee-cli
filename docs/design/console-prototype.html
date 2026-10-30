@@ -1,0 +1,857 @@
+<title>Govee Lamp Console</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Albert+Sans:wght@400;500;600;700;800;900&display=swap">
+<style>
+/* Layout: embodiment's sticky top bar + pill tabs over a single 72rem page rail;
+   the lamp view is a two-column hero (the lamp itself | its controls), stats is
+   embodiment's "Site state" pattern (tiles, then a chart grid with Table toggles).
+   Tokens are embodiment/web/src/styles/app.css values, cited not imported. */
+:root {
+  --paper: #faf5e8; --sheet: #fffcf3; --well: #f2ead5;
+  --ink: #12301f; --quiet: #4b5d50; --muted: #6f7868;
+  --rule: #e8dfc8; --rule-soft: #f0e8d4;
+  --cobalt: #00684a; --cobalt-soft: #dcefdf; --on-cobalt: #ffffff;
+  --warn: #8a5a00; --warn-soft: #fff1d6;
+  --good: #0ca30c; --warning: #e09c00; --critical: #d03b3b;
+  /* command sources: validated categorical order cli, web, mcp */
+  --s-cli: #2a78d6; --s-web: #eb6834; --s-mcp: #7a4fc9;
+  --lamp-off: #d9d1bc;
+  --shadow: 0 1px 2px rgba(18,48,31,.06), 0 10px 28px rgba(18,48,31,.07);
+  --shadow-lift: 0 2px 6px rgba(18,48,31,.08), 0 22px 48px -12px rgba(18,48,31,.22);
+  --ui: "Albert Sans", "Segoe UI", system-ui, sans-serif;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --step--1: .8125rem; --step-0: .96875rem; --step-1: 1.1875rem; --step-2: 1.5rem; --step-3: 2.25rem;
+  --radius-s: 6px; --radius-m: 12px; --radius-l: 18px;
+  --bar-h: 64px;
+  --glide: cubic-bezier(.2,.8,.2,1);
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #172b47; --sheet: #1d3354; --well: #253f66;
+    --ink: #eef2f7; --quiet: #b9c6d8; --muted: #8fa0b8;
+    --rule: #2c4872; --rule-soft: #243c62;
+    --cobalt: #5fd897; --cobalt-soft: #23485a; --on-cobalt: #10233a;
+    --warn: #ffc16b; --warn-soft: #3a3320;
+    --s-cli: #3987e5; --s-web: #d95926; --s-mcp: #9572e0;
+    --lamp-off: #2c4872;
+    --shadow: 0 1px 2px rgba(5,12,24,.3), 0 10px 28px rgba(5,12,24,.28);
+    --shadow-lift: 0 2px 6px rgba(5,12,24,.35), 0 22px 48px -12px rgba(5,12,24,.6);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #172b47; --sheet: #1d3354; --well: #253f66;
+  --ink: #eef2f7; --quiet: #b9c6d8; --muted: #8fa0b8;
+  --rule: #2c4872; --rule-soft: #243c62;
+  --cobalt: #5fd897; --cobalt-soft: #23485a; --on-cobalt: #10233a;
+  --warn: #ffc16b; --warn-soft: #3a3320;
+  --s-cli: #3987e5; --s-web: #d95926; --s-mcp: #9572e0;
+  --lamp-off: #2c4872;
+  --shadow: 0 1px 2px rgba(5,12,24,.3), 0 10px 28px rgba(5,12,24,.28);
+  --shadow-lift: 0 2px 6px rgba(5,12,24,.35), 0 22px 48px -12px rgba(5,12,24,.6);
+  color-scheme: dark;
+}
+*, *::before, *::after { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { background: var(--paper); color: var(--ink); font-family: var(--ui); font-size: var(--step-0); line-height: 1.5; }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 40; background: var(--paper); }
+h1, h2, h3 { margin: 0; text-wrap: balance; }
+p { margin: 0; }
+button, input { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--cobalt); outline-offset: 2px; border-radius: 4px; }
+code, .mono { font-family: var(--mono); font-size: .85em; }
+
+/* ---------- shared controls (embodiment .btn / .pill-btn / .chip) ---------- */
+.btn, .pill-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: .45rem;
+  border: 1px solid var(--rule); background: var(--sheet); color: var(--ink);
+  border-radius: 999px; padding-block: .4rem; padding-inline: .9rem;
+  font-weight: 650; font-size: .875rem; white-space: nowrap; min-block-size: 38px;
+}
+.btn:hover, .pill-btn:hover { border-color: var(--cobalt); }
+.btn.primary { background: var(--cobalt); color: var(--on-cobalt); border-color: var(--cobalt); }
+.btn:disabled { opacity: .5; cursor: default; }
+.btn:disabled:hover { border-color: var(--rule); }
+.btn.primary:disabled:hover { border-color: var(--cobalt); }
+.pill-btn[aria-pressed="true"] { background: var(--cobalt-soft); border-color: transparent; }
+.chips { display: flex; flex-wrap: wrap; gap: .45rem; }
+.chip {
+  border: 1px solid var(--rule); background: var(--sheet); color: var(--ink);
+  border-radius: 999px; padding-block: .35rem; padding-inline: .85rem; font-size: .875rem; font-weight: 600;
+}
+.chip:hover { border-color: var(--cobalt); }
+.chip[aria-pressed="true"] { background: var(--cobalt); color: var(--on-cobalt); border-color: var(--cobalt); }
+
+/* ---------- top bar ---------- */
+.top {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 30;
+  display: flex; align-items: center; flex-wrap: wrap; gap: .6rem 1rem;
+  min-block-size: var(--bar-h);
+  padding-block: .6rem;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  background: color-mix(in srgb, var(--paper) 88%, transparent);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--rule);
+}
+.brand { display: inline-flex; align-items: center; gap: .55rem; font-weight: 850; font-size: 1.3rem; letter-spacing: -.02em; }
+.brand-dot { width: 14px; height: 14px; border-radius: 50%; background: var(--lamp-css, var(--lamp-off)); box-shadow: 0 0 0 3px color-mix(in srgb, var(--lamp-css, var(--lamp-off)) 30%, transparent); transition: background .4s var(--glide); }
+.tabs { display: flex; gap: 4px; background: var(--well); padding: 4px; border-radius: 999px; }
+.tabs a { padding-block: .3rem; padding-inline: .9rem; border-radius: 999px; color: var(--quiet); font-weight: 700; font-size: .875rem; text-decoration: none; }
+.tabs a:hover { color: var(--ink); }
+.tabs a[aria-current="page"] { background: var(--sheet); color: var(--ink); box-shadow: var(--shadow); }
+.actions { display: flex; align-items: center; gap: .6rem; margin-left: auto; flex-wrap: wrap; }
+.status-pill { display: inline-flex; align-items: center; gap: .45rem; font-size: var(--step--1); color: var(--quiet); font-weight: 600; }
+.status-pill i { width: 8px; height: 8px; border-radius: 50%; background: var(--good); box-shadow: 0 0 0 3px color-mix(in srgb, var(--good) 22%, transparent); }
+.seg { display: inline-flex; background: var(--well); padding: 3px; border-radius: 999px; }
+.seg button { border: 0; background: transparent; border-radius: 999px; padding-block: .28rem; padding-inline: .8rem; font-size: .8125rem; font-weight: 700; color: var(--quiet); }
+.seg button[aria-pressed="true"] { background: var(--sheet); color: var(--ink); box-shadow: var(--shadow); }
+.seg button[data-mode="live"][aria-pressed="true"] { background: var(--warn-soft); color: var(--warn); }
+
+/* ---------- page ---------- */
+.page {
+  max-width: 72rem; margin-inline: auto;
+  padding-block: 1.75rem 4rem;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: grid; gap: 1.25rem;
+}
+.view-title { font-size: var(--step-3); font-weight: 850; line-height: 1.1; letter-spacing: -.02em; }
+.view-lede { color: var(--quiet); max-width: 62ch; margin-top: .35rem; }
+.sample-note {
+  display: flex; gap: .6rem; align-items: center; flex-wrap: wrap;
+  background: var(--warn-soft); color: var(--warn); border-radius: var(--radius-m);
+  padding-block: .55rem; padding-inline: .9rem; font-size: var(--step--1); font-weight: 600;
+}
+.panel { background: var(--sheet); border-radius: var(--radius-l); box-shadow: var(--shadow); padding-block: 1.25rem; padding-inline: 1.35rem; min-width: 0; }
+.panel h2 { font-size: var(--step-1); font-weight: 800; }
+.panel-sub { color: var(--muted); font-size: var(--step--1); margin-top: .1rem; }
+
+/* ---------- the lamp hero ---------- */
+.hero { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); gap: 1.25rem; }
+.lamp-stage {
+  position: relative; overflow: hidden; border-radius: var(--radius-l); box-shadow: var(--shadow);
+  background: var(--sheet); min-height: 25rem;
+  display: grid; place-items: center; padding: 1.5rem;
+}
+.lamp-stage::before {
+  content: ""; position: absolute; inset: -20%;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--lamp-css) calc(var(--glow) * 55%), transparent), transparent 100%);
+  transition: background .6s var(--glide);
+}
+.lamp { position: relative; display: grid; justify-items: center; gap: 1.1rem; text-align: center; }
+.bulb {
+  width: clamp(9rem, 26vw, 12.5rem); aspect-ratio: 1; max-width: 100%; border-radius: 50%;
+  background: radial-gradient(circle at 38% 34%, color-mix(in srgb, #fff calc(var(--glow) * 70%), var(--lamp-css)) 0%, var(--lamp-css) 58%, color-mix(in srgb, var(--lamp-css) 70%, #000) 100%);
+  box-shadow: 0 0 calc(var(--glow) * 90px) calc(var(--glow) * 18px) color-mix(in srgb, var(--lamp-css) 65%, transparent), inset 0 -10px 30px rgba(0,0,0,.12);
+  transition: background .6s var(--glide), box-shadow .6s var(--glide);
+}
+.lamp[data-on="false"] .bulb { background: radial-gradient(circle at 38% 34%, color-mix(in srgb, var(--lamp-off) 70%, var(--sheet)), var(--lamp-off)); box-shadow: inset 0 -10px 30px rgba(0,0,0,.08); }
+.lamp-name { font-size: var(--step-2); font-weight: 850; letter-spacing: -.015em; }
+.lamp-readout { display: flex; flex-wrap: wrap; justify-content: center; gap: .35rem .9rem; color: var(--quiet); font-size: var(--step--1); font-weight: 600; font-variant-numeric: tabular-nums; }
+.lamp-diff { font-size: var(--step--1); color: var(--warn); background: var(--warn-soft); border-radius: 999px; padding-block: .2rem; padding-inline: .7rem; font-weight: 650; }
+
+.controls { display: grid; gap: 1.1rem; align-content: start; }
+.ctl-row { display: grid; gap: .5rem; }
+.ctl-head { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; }
+.ctl-head label, .ctl-head h3 { font-weight: 750; font-size: .95rem; }
+.ctl-head output { font-variant-numeric: tabular-nums; color: var(--quiet); font-weight: 650; font-size: var(--step--1); }
+.power { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+.switch { position: relative; width: 58px; height: 32px; border-radius: 999px; border: 0; background: var(--rule); flex: none; transition: background .25s var(--glide); }
+.switch::after { content: ""; position: absolute; top: 4px; left: 4px; width: 24px; height: 24px; border-radius: 50%; background: var(--sheet); box-shadow: var(--shadow); transition: transform .25s var(--glide); }
+.switch[aria-checked="true"] { background: var(--cobalt); }
+.switch[aria-checked="true"]::after { transform: translateX(26px); }
+input[type="range"] { width: 100%; accent-color: var(--cobalt); height: 28px; }
+.temp-range { appearance: none; -webkit-appearance: none; height: 12px; border-radius: 999px; background: linear-gradient(90deg, #ff8a2a, #ffc78f, #fff4e8, #dfe9ff, #b9ccff); outline-offset: 6px; }
+.temp-range::-webkit-slider-thumb { -webkit-appearance: none; width: 24px; height: 24px; border-radius: 50%; background: var(--sheet); border: 2px solid var(--ink); box-shadow: var(--shadow); }
+.temp-range::-moz-range-thumb { width: 22px; height: 22px; border-radius: 50%; background: var(--sheet); border: 2px solid var(--ink); }
+.swatches { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; }
+.swatch { width: 34px; height: 34px; border-radius: 50%; border: 2px solid var(--sheet); background: var(--c); box-shadow: 0 0 0 1px var(--rule); }
+.swatch[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--ink); }
+.custom-color { display: inline-flex; align-items: center; gap: .4rem; font-size: var(--step--1); font-weight: 650; color: var(--quiet); }
+.custom-color input { width: 34px; height: 34px; border: 0; padding: 0; background: none; border-radius: 50%; }
+.mode-tabs { display: inline-flex; background: var(--well); padding: 3px; border-radius: 999px; justify-self: start; }
+.mode-tabs button { border: 0; background: transparent; border-radius: 999px; padding-block: .25rem; padding-inline: .85rem; font-size: .8125rem; font-weight: 700; color: var(--quiet); }
+.mode-tabs button[aria-selected="true"] { background: var(--sheet); color: var(--ink); box-shadow: var(--shadow); }
+.hint { color: var(--muted); font-size: var(--step--1); }
+
+/* ---------- pending command + activity ---------- */
+.duo { display: grid; grid-template-columns: minmax(0, 6fr) minmax(0, 5fr); gap: 1.25rem; }
+.send-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; flex-wrap: wrap; }
+.badge { display: inline-flex; align-items: center; gap: .35rem; border-radius: 999px; padding-block: .15rem; padding-inline: .6rem; font-size: .75rem; font-weight: 750; background: var(--well); color: var(--quiet); }
+.badge.dry { background: var(--cobalt-soft); color: var(--ink); }
+.badge.live { background: var(--warn-soft); color: var(--warn); }
+.wire { margin-top: .9rem; display: grid; gap: .5rem; }
+.wire-item { border: 1px solid var(--rule); border-radius: var(--radius-m); overflow: hidden; }
+.wire-meta { display: flex; justify-content: space-between; gap: .5rem; flex-wrap: wrap; padding-block: .4rem; padding-inline: .75rem; background: var(--well); font-size: .75rem; font-weight: 700; color: var(--quiet); }
+.wire pre { margin: 0; padding-block: .6rem; padding-inline: .75rem; overflow-x: auto; font-family: var(--mono); font-size: .8rem; line-height: 1.5; color: var(--ink); }
+.wire-empty { color: var(--muted); font-size: var(--step--1); padding-block: 1rem; text-align: center; border: 1px dashed var(--rule); border-radius: var(--radius-m); }
+.cli-equiv { margin-top: .75rem; font-size: var(--step--1); color: var(--quiet); overflow-x: auto; white-space: nowrap; }
+.cli-equiv code { color: var(--ink); background: var(--well); padding: .15rem .45rem; border-radius: var(--radius-s); }
+.send-actions { display: flex; gap: .5rem; margin-top: 1rem; flex-wrap: wrap; }
+.feed { list-style: none; margin: .9rem 0 0; padding: 0; display: grid; }
+.feed li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: .2rem .7rem; align-items: center; padding-block: .6rem; border-bottom: 1px solid var(--rule-soft); }
+.feed li:last-child { border-bottom: 0; }
+.src { display: inline-flex; align-items: center; gap: .35rem; font-size: .75rem; font-weight: 750; color: var(--quiet); min-width: 4.5rem; }
+.src::before { content: ""; width: 8px; height: 8px; border-radius: 2px; background: var(--s); }
+.feed b { font-weight: 700; font-size: .9rem; }
+.feed .who { color: var(--muted); font-size: var(--step--1); display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.feed time { color: var(--muted); font-size: .75rem; font-variant-numeric: tabular-nums; text-align: right; }
+.feed .dry-tag { color: var(--muted); font-weight: 600; font-size: .75rem; }
+
+/* ---------- stats: tiles + charts (embodiment library.css) ---------- */
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(12.5rem, 1fr)); gap: 1rem; }
+.tile { display: flex; flex-direction: column; gap: .1rem; background: var(--sheet); border-radius: var(--radius-l); box-shadow: var(--shadow); padding-block: 1.1rem; padding-inline: 1.25rem; }
+.tile b { font-size: 2.25rem; font-weight: 850; line-height: 1.1; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.tile span { font-weight: 650; }
+.tile small { color: var(--muted); font-size: var(--step--1); }
+.charts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+.chart { margin: 0; display: flex; flex-direction: column; gap: .9rem; background: var(--sheet); border-radius: var(--radius-l); box-shadow: var(--shadow); padding-block: 1.1rem; padding-inline: 1.25rem; min-width: 0; }
+.chart.wide { grid-column: 1 / -1; }
+.chart-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
+.chart-head h3 { font-size: 1.125rem; font-weight: 800; }
+.chart-head p { margin-top: .15rem; color: var(--muted); font-size: var(--step--1); }
+.chart-src { margin-top: auto; color: var(--muted); font-size: .75rem; }
+.chart-src code { font-size: .72rem; }
+.legend { display: flex; flex-wrap: wrap; gap: .4rem 1rem; font-size: var(--step--1); color: var(--quiet); font-weight: 600; }
+.legend span { display: inline-flex; align-items: center; gap: .4rem; }
+.legend span::before { content: ""; width: 10px; height: 10px; border-radius: 3px; background: var(--s); }
+.plot { position: relative; width: 100%; }
+.plot svg { display: block; width: 100%; height: auto; overflow: visible; }
+.plot .axis text { fill: var(--muted); font-size: 11px; font-family: var(--ui); }
+.plot .grid line { stroke: var(--rule); stroke-width: 1; }
+.plot .base { stroke: var(--quiet); stroke-width: 1; opacity: .5; }
+.chart-table { width: 100%; border-collapse: collapse; font-size: .875rem; font-variant-numeric: tabular-nums; }
+.chart-table th, .chart-table td { text-align: left; padding-block: .35rem; border-bottom: 1px solid var(--rule-soft); }
+.chart-table th { color: var(--muted); font-weight: 650; font-size: .75rem; }
+.chart-table td:not(:first-child), .chart-table th:not(:first-child) { text-align: right; }
+.table-wrap { max-height: 18rem; overflow: auto; }
+.tip {
+  position: fixed; z-index: 60; pointer-events: none; min-width: 9rem;
+  background: var(--sheet); color: var(--ink); border: 1px solid var(--rule); border-radius: var(--radius-m);
+  box-shadow: var(--shadow-lift); padding-block: .5rem; padding-inline: .7rem; font-size: var(--step--1); font-variant-numeric: tabular-nums;
+}
+.tip strong { display: block; font-weight: 750; margin-bottom: .15rem; }
+.tip .row { display: flex; justify-content: space-between; gap: 1rem; color: var(--quiet); }
+.tip .row span:first-child { display: inline-flex; align-items: center; gap: .35rem; }
+.tip .sw { width: 8px; height: 8px; border-radius: 2px; display: inline-block; }
+.heat-scale { display: flex; align-items: center; gap: .5rem; font-size: .75rem; color: var(--muted); }
+.heat-scale i { display: inline-block; width: 120px; height: 10px; border-radius: 3px; background: linear-gradient(90deg, var(--rule-soft), var(--cobalt)); }
+
+/* ---------- agents ---------- */
+.agents { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 1.25rem; }
+.tool-list { list-style: none; margin: .9rem 0 0; padding: 0; display: grid; gap: .1rem; }
+.tool-list li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .15rem 1rem; padding-block: .65rem; border-bottom: 1px solid var(--rule-soft); }
+.tool-list li:last-child { border-bottom: 0; }
+.tool-list code { font-weight: 700; font-size: .875rem; color: var(--ink); }
+.tool-list p { grid-column: 1 / -1; color: var(--quiet); font-size: var(--step--1); }
+.snippet { position: relative; margin-top: .9rem; background: var(--well); border-radius: var(--radius-m); }
+.snippet pre { margin: 0; padding: .9rem 1rem; overflow-x: auto; font-family: var(--mono); font-size: .8rem; line-height: 1.55; }
+.snippet .btn { position: absolute; top: .5rem; right: .5rem; min-block-size: 30px; padding-block: .2rem; font-size: .75rem; }
+.rules { list-style: none; margin: .9rem 0 0; padding: 0; display: grid; gap: .75rem; }
+.rules li { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: .1rem .75rem; align-items: start; }
+.rules svg { margin-top: 2px; }
+.rules b { font-weight: 750; }
+.rules p { grid-column: 2; color: var(--quiet); font-size: var(--step--1); }
+.proposed { font-size: .7rem; font-weight: 750; color: var(--warn); background: var(--warn-soft); border-radius: 999px; padding-block: .05rem; padding-inline: .5rem; margin-left: .35rem; vertical-align: 2px; }
+.pair { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; margin-top: .9rem; padding: .8rem 1rem; background: var(--well); border-radius: var(--radius-m); }
+.pair b { display: block; }
+.pair small { color: var(--quiet); font-size: var(--step--1); }
+
+.toast {
+  position: fixed; left: 50%; bottom: calc(1.25rem + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%) translateY(150%);
+  background: var(--ink); color: var(--paper); border-radius: 999px; padding-block: .55rem; padding-inline: 1.1rem; font-weight: 650; font-size: .9rem;
+  box-shadow: var(--shadow-lift); z-index: 70; transition: transform .35s var(--glide); max-width: calc(100% - 32px);
+}
+.toast.show { transform: translateX(-50%) translateY(0); }
+
+@media (max-width: 860px) {
+  .hero, .duo, .agents, .charts { grid-template-columns: minmax(0, 1fr); }
+  .lamp-stage { min-height: 19rem; }
+}
+@media (max-width: 520px) {
+  .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .6rem; }
+  .tile { padding-block: .8rem; padding-inline: .9rem; }
+  .tile b { font-size: 1.65rem; }
+  .actions { margin-left: 0; width: 100%; justify-content: space-between; }
+  .view-title { font-size: 1.85rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition: none !important; animation: none !important; }
+}
+</style>
+
+<header class="top">
+  <span class="brand"><span class="brand-dot" aria-hidden="true"></span>govee</span>
+  <nav class="tabs" aria-label="Views">
+    <a href="#lamp" data-view="lamp">Lamp</a>
+    <a href="#stats" data-view="stats">Stats</a>
+    <a href="#agents" data-view="agents">Agents</a>
+  </nav>
+  <div class="actions">
+    <span class="status-pill" title="Sample status"><i aria-hidden="true"></i>Desk lamp &#xB7; LAN reachable</span>
+    <div class="seg" role="group" aria-label="Write mode">
+      <button type="button" data-mode="dry" aria-pressed="true">Dry run</button>
+      <button type="button" data-mode="live" aria-pressed="false">Live</button>
+    </div>
+  </div>
+</header>
+
+<main>
+  <!-- ================= LAMP ================= -->
+  <section class="page" id="view-lamp" data-view-panel="lamp">
+    <div class="sample-note" role="note">Prototype. The lamp, its state and the activity below are sample data. Nothing here reaches a real device.</div>
+    <div class="hero">
+      <div class="lamp-stage" id="stage">
+        <div class="lamp" id="lamp" data-on="true">
+          <div class="bulb" aria-hidden="true"></div>
+          <div>
+            <div class="lamp-name">Desk lamp</div>
+            <div class="lamp-readout" id="readout"></div>
+          </div>
+          <span class="lamp-diff" id="lampDiff" style="visibility:hidden">Preview</span>
+        </div>
+      </div>
+
+      <div class="panel controls">
+        <div class="power">
+          <div>
+            <h2>Power</h2>
+            <p class="panel-sub">H6008 bulb (example) &#xB7; LAN on UDP 4003, cloud as fallback</p>
+          </div>
+          <button type="button" class="switch" role="switch" id="power" aria-checked="true" aria-label="Lamp power"></button>
+        </div>
+
+        <div class="ctl-row">
+          <div class="ctl-head"><label for="bright">Brightness</label><output id="brightOut" for="bright">70%</output></div>
+          <input type="range" id="bright" min="1" max="100" value="70">
+        </div>
+
+        <div class="ctl-row">
+          <div class="mode-tabs" role="tablist" aria-label="Light mode">
+            <button type="button" role="tab" id="tab-color" aria-selected="true" aria-controls="pane-color">Color</button>
+            <button type="button" role="tab" id="tab-white" aria-selected="false" aria-controls="pane-white">White</button>
+          </div>
+          <div id="pane-color" role="tabpanel" aria-labelledby="tab-color">
+            <div class="swatches" id="swatches"></div>
+          </div>
+          <div id="pane-white" role="tabpanel" aria-labelledby="tab-white" hidden>
+            <div class="ctl-head"><label for="temp">Color temperature</label><output id="tempOut" for="temp">2700 K</output></div>
+            <input type="range" class="temp-range" id="temp" min="2000" max="9000" step="100" value="2700">
+            <p class="hint">2000 K is candlelight warm, 9000 K is overcast-sky cool.</p>
+          </div>
+        </div>
+
+        <div class="ctl-row">
+          <div class="ctl-head"><h3>Scenes</h3><span class="hint">Sent through the Govee cloud</span></div>
+          <div class="chips" id="scenes"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="duo">
+      <section class="panel" aria-labelledby="sendTitle">
+        <div class="send-head">
+          <div>
+            <h2 id="sendTitle">What will be sent</h2>
+            <p class="panel-sub" id="sendSub">Dry run: your changes stay here until you send them.</p>
+          </div>
+          <span class="badge dry" id="modeBadge">Dry run</span>
+        </div>
+        <div class="wire" id="wire"></div>
+        <p class="cli-equiv" id="cliEquiv"></p>
+        <div class="send-actions">
+          <button type="button" class="btn primary" id="sendBtn" disabled>Send to lamp</button>
+          <button type="button" class="btn" id="discardBtn" disabled>Discard changes</button>
+        </div>
+      </section>
+
+      <section class="panel" aria-labelledby="actTitle">
+        <h2 id="actTitle">Recent activity</h2>
+        <p class="panel-sub">Every command is logged, including dry runs that never reached the lamp.</p>
+        <ul class="feed" id="feed"></ul>
+      </section>
+    </div>
+  </section>
+
+  <!-- ================= STATS ================= -->
+  <section class="page" id="view-stats" data-view-panel="stats" hidden>
+    <div>
+      <h1 class="view-title">Lamp stats</h1>
+      <p class="view-lede">How long the lamp is on, how bright it runs and who changes it. The console takes a state sample every 60 seconds and logs every command.</p>
+    </div>
+    <div class="sample-note" role="note">Sample data. The real page reads from your local stats database once the lamp is connected.</div>
+    <div class="tiles" id="tiles"></div>
+    <div class="charts">
+      <figure class="chart wide" id="c-day"></figure>
+      <figure class="chart" id="c-hours"></figure>
+      <figure class="chart" id="c-src"></figure>
+      <figure class="chart wide" id="c-heat"></figure>
+    </div>
+  </section>
+
+  <!-- ================= AGENTS ================= -->
+  <section class="page" id="view-agents" data-view-panel="agents" hidden>
+    <div>
+      <h1 class="view-title">Agents</h1>
+      <p class="view-lede">Any Claude-backed agent in the mesh can use the lamp through the govee MCP server. The same rules apply to agents, the command line and this page.</p>
+    </div>
+    <div class="agents">
+      <section class="panel" aria-labelledby="toolsTitle">
+        <h2 id="toolsTitle">MCP tools</h2>
+        <p class="panel-sub">Served over stdio by <code>govee mcp serve</code></p>
+        <ul class="tool-list">
+          <li><code>list_devices</code><span class="badge">read</span><p>Lamps found on the LAN and in the Govee account, with model and transport.</p></li>
+          <li><code>get_state</code><span class="badge">read</span><p>Power, brightness, color or color temperature of one lamp.</p></li>
+          <li><code>set_light</code><span class="badge dry">dry run unless apply</span><p>Power, brightness, color, color temperature. Returns the exact command it sent or would send.</p></li>
+          <li><code>set_scene</code><span class="badge dry">dry run unless apply</span><p>Applies one of the lamp's scenes through the cloud API.</p></li>
+          <li><code>get_stats</code><span class="badge">read</span><p>On-time, brightness and command counts over a time range.</p></li>
+        </ul>
+        <div class="snippet">
+          <button type="button" class="btn" id="copyMcp">Copy</button>
+<pre id="mcpJson">{
+  "mcpServers": {
+    "govee": {
+      "command": "govee",
+      "args": ["mcp", "serve"],
+      "env": { "GOVEE_API_KEY": "${GOVEE_API_KEY}" }
+    }
+  }
+}</pre>
+        </div>
+      </section>
+
+      <section class="panel" aria-labelledby="rulesTitle">
+        <h2 id="rulesTitle">Mesh rules</h2>
+        <p class="panel-sub">Enforced by the server, so a prompt cannot talk an agent past them</p>
+        <ul class="rules">
+          <li><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="var(--good)"/><path d="M7 12.5l3 3 7-7" stroke="var(--sheet)" stroke-width="2.4" fill="none" stroke-linecap="round"/></svg><b>Dry run by default</b><p>A write without <code>apply: true</code> returns the command it would send and changes nothing.</p></li>
+          <li><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="var(--good)"/><path d="M7 12.5l3 3 7-7" stroke="var(--sheet)" stroke-width="2.4" fill="none" stroke-linecap="round"/></svg><b>Every call is logged</b><p>Each write records the source and the agent's nick, for example <code>spark-daria</code>, and shows up in Stats.</p></li>
+          <li><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="var(--good)"/><path d="M7 12.5l3 3 7-7" stroke="var(--sheet)" stroke-width="2.4" fill="none" stroke-linecap="round"/></svg><b>The key stays in the environment</b><p>Agents never see <code>GOVEE_API_KEY</code>. The server reads it and never echoes it.</p></li>
+          <li><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="var(--good)"/><path d="M7 12.5l3 3 7-7" stroke="var(--sheet)" stroke-width="2.4" fill="none" stroke-linecap="round"/></svg><b>Schedules live in culture-rules</b><p>govee has no timers of its own. A culture-rules rule calls the govee runner actor, for example <code>lamp_color</code> when CI fails.</p></li>
+        </ul>
+        <div class="pair">
+          <div><b>This phone can control the lamp</b><small>Changes from this page need a pairing token. Reading state and stats does not.</small></div>
+          <button type="button" class="btn" id="pairBtn">Pair another device</button>
+        </div>
+      </section>
+    </div>
+  </section>
+</main>
+
+<div class="tip" id="tip" hidden></div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(() => {
+  // ---------- helpers ----------
+  const $ = (s, r = document) => r.querySelector(s);
+  const el = (tag, attrs = {}, html = "") => { const e = document.createElement(tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (html) e.innerHTML = html; return e; };
+  const NS = "http://www.w3.org/2000/svg";
+  const sv = (tag, attrs = {}) => { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); return e; };
+  const hex = (r, g, b) => "#" + [r, g, b].map(v => Math.round(v).toString(16).padStart(2, "0")).join("").toUpperCase();
+  const toRgb = h => { const n = parseInt(h.slice(1), 16); return { r: n >> 16 & 255, g: n >> 8 & 255, b: n & 255 }; };
+  // Kelvin to RGB (Tanner Helland approximation)
+  function kelvin(k) {
+    const t = k / 100; let r, g, b;
+    r = t <= 66 ? 255 : 329.698727446 * Math.pow(t - 60, -0.1332047592);
+    g = t <= 66 ? 99.4708025861 * Math.log(t) - 161.1195681661 : 288.1221695283 * Math.pow(t - 60, -0.0755148492);
+    b = t >= 66 ? 255 : t <= 19 ? 0 : 138.5177312231 * Math.log(t - 10) - 305.0447927307;
+    const c = v => Math.max(0, Math.min(255, v));
+    return hex(c(r), c(g), c(b));
+  }
+  let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  const toastEl = $("#toast"); let toastT;
+  const toast = msg => { toastEl.textContent = msg; toastEl.classList.add("show"); clearTimeout(toastT); toastT = setTimeout(() => toastEl.classList.remove("show"), 2400); };
+  const css = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+
+  // ---------- routing ----------
+  const views = ["lamp", "stats", "agents"];
+  function route() {
+    const v = views.includes(location.hash.slice(1)) ? location.hash.slice(1) : "lamp";
+    document.querySelectorAll("[data-view-panel]").forEach(p => p.hidden = p.dataset.viewPanel !== v);
+    document.querySelectorAll(".tabs a").forEach(a => a.dataset.view === v ? a.setAttribute("aria-current", "page") : a.removeAttribute("aria-current"));
+    if (v === "stats") drawStats();
+  }
+  window.addEventListener("hashchange", route);
+
+  // ---------- lamp state ----------
+  const COLORS = [["Ember", "#FF6A2B"], ["Amber", "#FFB23F"], ["Rose", "#FF5C8A"], ["Violet", "#9B6BFF"], ["Ocean", "#2F8CFF"], ["Aurora", "#2FD6A3"], ["Lime", "#B6F23A"], ["Daylight", "#FFF3DE"]];
+  const SCENES = [["Sunrise", "sunrise"], ["Sunset", "sunset"], ["Reading", "reading"], ["Movie", "movie"], ["Candlelight", "candlelight"], ["Aurora", "aurora"]];
+  const SCENE_COLOR = { sunrise: "#FFA35C", sunset: "#FF6A4D", reading: kelvin(4000), movie: "#5B4BFF", candlelight: "#FF8A2A", aurora: "#2FD6A3" };
+  const actual = { on: true, bright: 70, mode: "color", color: "#FF6A2B", temp: 2700, scene: null };
+  let target = { ...actual };
+  let mode = "dry";
+
+  const lampColor = s => s.scene ? SCENE_COLOR[s.scene] : s.mode === "white" ? kelvin(s.temp) : s.color;
+  const describe = s => !s.on ? "off" : `${s.bright}% \u00B7 ${s.scene ? SCENES.find(x => x[1] === s.scene)[0] : s.mode === "white" ? s.temp + " K" : s.color}`;
+
+  function commands() {
+    const out = [];
+    if (target.on !== actual.on) out.push({ t: "LAN", v: "turn", body: { msg: { cmd: "turn", data: { value: target.on ? 1 : 0 } } }, cli: `govee light ${target.on ? "on" : "off"}` });
+    if (!target.on) return out;
+    if (target.bright !== actual.bright) out.push({ t: "LAN", v: "brightness", body: { msg: { cmd: "brightness", data: { value: target.bright } } }, cli: `govee light brightness ${target.bright}` });
+    if (target.scene && target.scene !== actual.scene) {
+      out.push({ t: "Cloud", v: "scene", body: { requestId: "\u2026", payload: { sku: "H6008", device: "AA:BB:\u2026:FF", capability: { type: "devices.capabilities.dynamic_scene", instance: "lightScene", value: target.scene } } }, cli: `govee light scene ${target.scene}` });
+    } else if (!target.scene) {
+      if (target.mode === "color" && (target.color !== actual.color || actual.mode !== "color" || actual.scene)) {
+        const { r, g, b } = toRgb(target.color);
+        out.push({ t: "LAN", v: "colorwc", body: { msg: { cmd: "colorwc", data: { color: { r, g, b }, colorTemInKelvin: 0 } } }, cli: `govee light color ${target.color.slice(1)}` });
+      }
+      if (target.mode === "white" && (target.temp !== actual.temp || actual.mode !== "white" || actual.scene)) {
+        out.push({ t: "LAN", v: "colorwc", body: { msg: { cmd: "colorwc", data: { color: { r: 0, g: 0, b: 0 }, colorTemInKelvin: target.temp } } }, cli: `govee light temp ${target.temp}` });
+      }
+    }
+    return out;
+  }
+
+  function render() {
+    const c = lampColor(target);
+    const root = document.documentElement;
+    root.style.setProperty("--lamp-css", target.on ? c : "");
+    const stage = $("#stage");
+    stage.style.setProperty("--lamp-css", c);
+    stage.style.setProperty("--glow", target.on ? (0.25 + target.bright / 100 * 0.75).toFixed(2) : 0);
+    $("#lamp").dataset.on = target.on;
+    $("#readout").innerHTML = target.on
+      ? `<span>On</span><span>${target.bright}%</span><span>${target.scene ? SCENES.find(x => x[1] === target.scene)[0] + " scene" : target.mode === "white" ? target.temp + " K" : target.color}</span>`
+      : "<span>Off</span>";
+    const cmds = commands();
+    const diff = $("#lampDiff");
+    diff.style.visibility = mode === "dry" && cmds.length ? "visible" : "hidden";
+    diff.textContent = `Preview. The lamp is still ${describe(actual)}.`;
+    $("#power").setAttribute("aria-checked", target.on);
+    $("#bright").value = target.bright; $("#brightOut").textContent = target.bright + "%";
+    $("#temp").value = target.temp; $("#tempOut").textContent = target.temp + " K";
+    const isWhite = target.mode === "white";
+    $("#tab-color").setAttribute("aria-selected", !isWhite); $("#tab-white").setAttribute("aria-selected", isWhite);
+    $("#pane-color").hidden = isWhite; $("#pane-white").hidden = !isWhite;
+    document.querySelectorAll(".swatch").forEach(s => s.setAttribute("aria-pressed", !target.scene && !isWhite && s.dataset.c === target.color));
+    document.querySelectorAll("#scenes .chip").forEach(s => s.setAttribute("aria-pressed", s.dataset.s === target.scene));
+
+    const wire = $("#wire"); wire.innerHTML = "";
+    if (!cmds.length) wire.append(el("div", { class: "wire-empty" }, mode === "dry" ? "No changes yet. Adjust the lamp above to see the exact commands." : "Live: changes are sent as you make them."));
+    cmds.forEach(cm => {
+      const it = el("div", { class: "wire-item" });
+      it.append(el("div", { class: "wire-meta" }, `<span>${cm.v}</span><span>${cm.t === "LAN" ? "LAN \u00B7 UDP 4003" : "Cloud \u00B7 POST /router/api/v1/device/control"}</span>`));
+      const pre = el("pre"); pre.textContent = JSON.stringify(cm.body); it.append(pre); wire.append(it);
+    });
+    $("#cliEquiv").innerHTML = cmds.length ? "Same as: " + cmds.map(c => `<code>${c.cli} --apply</code>`).join(" ") : "";
+    $("#sendBtn").disabled = !cmds.length; $("#discardBtn").disabled = !cmds.length;
+    $("#sendBtn").textContent = cmds.length > 1 ? `Send ${cmds.length} commands` : "Send to lamp";
+    $("#modeBadge").className = "badge " + (mode === "dry" ? "dry" : "live");
+    $("#modeBadge").textContent = mode === "dry" ? "Dry run" : "Live";
+    $("#sendSub").textContent = mode === "dry" ? "Dry run: your changes stay here until you send them." : "Live: every change goes straight to the lamp.";
+  }
+
+  // feed
+  const feed = [
+    { s: "mcp", what: "Set color to Ember", who: "spark-govee-cli \u00B7 applied", t: "2 min" },
+    { s: "web", what: "Brightness 70%", who: "ori \u00B7 phone \u00B7 applied", t: "14 min" },
+    { s: "mcp", what: "Turn off", who: "spark-daria \u00B7 dry run, not sent", t: "41 min", dry: true },
+    { s: "cli", what: "Scene: Reading", who: "ori \u00B7 spark \u00B7 applied", t: "1 h" },
+    { s: "cli", what: "Turn on", who: "ori \u00B7 spark \u00B7 applied", t: "3 h" },
+  ];
+  function renderFeed() {
+    const ul = $("#feed"); ul.innerHTML = "";
+    feed.slice(0, 6).forEach(f => {
+      const li = el("li");
+      li.append(el("span", { class: "src", style: `--s: var(--s-${f.s})` }, { cli: "CLI", web: "Web", mcp: "MCP" }[f.s]));
+      li.append(el("div", {}, `<b>${f.what}</b><span class="who">${f.who}</span>`));
+      li.append(el("time", {}, f.t));
+      ul.append(li);
+    });
+  }
+  function logCommands(cmds, applied) {
+    const names = cmds.map(c => c.cli.replace("govee light ", "")).join(", ");
+    feed.unshift({ s: "web", what: names.charAt(0).toUpperCase() + names.slice(1), who: `ori \u00B7 this device \u00B7 ${applied ? "applied" : "dry run, not sent"}`, t: "now" });
+    renderFeed();
+  }
+
+  function change(patch) {
+    Object.assign(target, patch);
+    if (mode === "live") {
+      const cmds = commands();
+      if (cmds.length) { logCommands(cmds, true); Object.assign(actual, target); toast(cmds.length > 1 ? `Sent ${cmds.length} commands` : "Sent to lamp"); }
+    }
+    render();
+  }
+
+  // build controls
+  const sw = $("#swatches");
+  COLORS.forEach(([n, c]) => {
+    const b = el("button", { type: "button", class: "swatch", style: `--c:${c}`, "data-c": c, "aria-label": n, title: n });
+    b.addEventListener("click", () => change({ mode: "color", color: c, scene: null }));
+    sw.append(b);
+  });
+  const cc = el("label", { class: "custom-color" }, `<input type="color" id="customColor" value="#FF6A2B" aria-label="Custom color">Custom`);
+  sw.append(cc);
+  // live preview while the picker is open; commit (and send, in Live mode) on pick
+  $("#customColor").addEventListener("input", e => { Object.assign(target, { mode: "color", color: e.target.value.toUpperCase(), scene: null }); render(); });
+  $("#customColor").addEventListener("change", e => change({ mode: "color", color: e.target.value.toUpperCase(), scene: null }));
+  const sc = $("#scenes");
+  SCENES.forEach(([n, id]) => {
+    const b = el("button", { type: "button", class: "chip", "data-s": id }, n);
+    b.addEventListener("click", () => change({ scene: target.scene === id ? null : id }));
+    sc.append(b);
+  });
+  $("#power").addEventListener("click", () => change({ on: !target.on }));
+  $("#bright").addEventListener("input", e => { target.bright = +e.target.value; render(); });
+  $("#bright").addEventListener("change", e => change({ bright: +e.target.value }));
+  $("#temp").addEventListener("input", e => { target.temp = +e.target.value; target.mode = "white"; target.scene = null; render(); });
+  $("#temp").addEventListener("change", e => change({ temp: +e.target.value, mode: "white", scene: null }));
+  $("#tab-color").addEventListener("click", () => change({ mode: "color", scene: null }));
+  $("#tab-white").addEventListener("click", () => change({ mode: "white", scene: null }));
+  $("#sendBtn").addEventListener("click", () => {
+    const cmds = commands(); if (!cmds.length) return;
+    logCommands(cmds, true); Object.assign(actual, target); render();
+    toast(cmds.length > 1 ? `Sent ${cmds.length} commands` : "Sent to lamp");
+  });
+  $("#discardBtn").addEventListener("click", () => { target = { ...actual }; render(); toast("Changes discarded"); });
+  document.querySelectorAll(".seg button").forEach(b => b.addEventListener("click", () => {
+    mode = b.dataset.mode;
+    document.querySelectorAll(".seg button").forEach(x => x.setAttribute("aria-pressed", x === b));
+    if (mode === "live") { target = { ...actual }; toast("Live: changes now go straight to the lamp"); }
+    render();
+  }));
+  $("#copyMcp").addEventListener("click", async e => {
+    try { await navigator.clipboard.writeText($("#mcpJson").textContent); toast("Copied .mcp.json"); }
+    catch { const r = document.createRange(); r.selectNodeContents($("#mcpJson")); const s = getSelection(); s.removeAllRanges(); s.addRange(r); toast("Selected. Copy it with your keyboard"); }
+  });
+  $("#pairBtn").addEventListener("click", () => toast("Prototype: the real console shows a one-time pairing link"));
+
+  // ---------- sample stats data ----------
+  const DAYS = 14, now = new Date(2026, 9, 29, 18, 0);
+  const dayLabel = d => d.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+  const wk = d => d.toLocaleDateString("en-GB", { weekday: "short" });
+  const daily = [];
+  for (let i = DAYS - 1; i >= 0; i--) {
+    const d = new Date(now); d.setDate(d.getDate() - i);
+    const weekend = d.getDay() === 0 || d.getDay() === 6;
+    const hrs = +(weekend ? 6 + rnd() * 4 : 3.5 + rnd() * 3).toFixed(1);
+    const cli = Math.round(2 + rnd() * 5), web = Math.round(1 + rnd() * 5), mcp = Math.round(rnd() * 6 + (i < 7 ? 2 : 0));
+    daily.push({ d, hrs: i === 0 ? 5.2 : hrs, cli, web, mcp });
+  }
+  // 24h samples every 15 min
+  const day24 = [];
+  for (let m = 0; m < 24 * 60; m += 15) {
+    const h = m / 60; let on = false, b = 0, c = null;
+    if (h >= 6.5 && h < 8.25) { on = true; b = Math.round(40 + (h - 6.5) * 25); c = kelvin(5000); }
+    else if (h >= 12 && h < 13) { on = true; b = 55; c = kelvin(4000); }
+    else if (h >= 17 && h < 23.5) {
+      on = true;
+      if (h < 19) { b = 80; c = kelvin(4000); } else if (h < 21) { b = 70; c = "#FF6A2B"; } else if (h < 22.5) { b = 45; c = "#5B4BFF"; } else { b = 20; c = kelvin(2200); }
+    }
+    day24.push({ h, on, b, c });
+  }
+  // heat: weekday x hour, average minutes on
+  const heat = [];
+  for (let d = 0; d < 7; d++) for (let h = 0; h < 24; h++) {
+    const weekend = d >= 5; let v = 0;
+    if (h >= 6 && h <= 8 && !weekend) v = 25 + rnd() * 30;
+    if (h >= 8 && h <= 11 && weekend) v = 20 + rnd() * 35;
+    if (h >= 17 && h <= 23) v = 30 + rnd() * 30 - (h === 23 ? 25 : 0);
+    if (h >= 12 && h <= 16) v = weekend ? 10 + rnd() * 30 : rnd() * 10;
+    heat.push({ d, h, v: Math.max(0, Math.round(v)) });
+  }
+
+  // ---------- tooltip ----------
+  const tip = $("#tip");
+  function showTip(e, html) {
+    tip.innerHTML = html; tip.hidden = false;
+    const r = tip.getBoundingClientRect();
+    let x = e.clientX + 14, y = e.clientY + 14;
+    if (x + r.width > innerWidth - 8) x = e.clientX - r.width - 14;
+    if (y + r.height > innerHeight - 8) y = e.clientY - r.height - 14;
+    tip.style.left = Math.max(8, x) + "px"; tip.style.top = Math.max(8, y) + "px";
+  }
+  const hideTip = () => tip.hidden = true;
+
+  // ---------- chart frame (Table toggle + Source line, embodiment pattern) ----------
+  function frame(fig, { title, sub, source, legend, draw, table }) {
+    fig.innerHTML = "";
+    const head = el("div", { class: "chart-head" }, `<div><h3>${title}</h3><p>${sub}</p></div>`);
+    const btn = el("button", { type: "button", class: "pill-btn", "aria-pressed": "false" }, "Table");
+    head.append(btn); fig.append(head);
+    if (legend) fig.append(el("div", { class: "legend" }, legend.map(([n, v]) => `<span style="--s:var(${v})">${n}</span>`).join("")));
+    const body = el("div", { class: "plot" }); fig.append(body);
+    fig.append(el("figcaption", { class: "chart-src" }, "Source: " + source));
+    let showTable = false;
+    const paint = () => {
+      body.innerHTML = "";
+      if (showTable) { const w = el("div", { class: "table-wrap" }); w.append(table()); body.append(w); }
+      else draw(body);
+      btn.textContent = showTable ? "Chart" : "Table"; btn.setAttribute("aria-pressed", showTable);
+    };
+    btn.addEventListener("click", () => { showTable = !showTable; paint(); });
+    paint();
+  }
+  function mkTable(cols, rows) {
+    const t = el("table", { class: "chart-table" });
+    t.innerHTML = `<thead><tr>${cols.map(c => `<th scope="col">${c}</th>`).join("")}</tr></thead><tbody>${rows.map(r => `<tr>${r.map(c => `<td>${c}</td>`).join("")}</tr>`).join("")}</tbody>`;
+    return t;
+  }
+  const fmtH = h => { const hh = Math.floor(h), mm = Math.round((h - hh) * 60); return `${hh}h ${String(mm).padStart(2, "0")}m`; };
+  const clock = h => `${String(Math.floor(h)).padStart(2, "0")}:${String(Math.round((h % 1) * 60)).padStart(2, "0")}`;
+  function niceMax(v, steps = 4) { const raw = v / steps, p = Math.pow(10, Math.floor(Math.log10(raw))), n = raw / p; const s = (n <= 1 ? 1 : n <= 2 ? 2 : n <= 2.5 ? 2.5 : n <= 5 ? 5 : 10) * p; return { max: s * steps, step: s }; }
+
+  let drawn = false;
+  function drawStats() {
+    // tiles
+    const today = daily[daily.length - 1], week = daily.slice(-7);
+    const cmds7 = week.reduce((a, d) => a + d.cli + d.web + d.mcp, 0), mcp7 = week.reduce((a, d) => a + d.mcp, 0);
+    const onSamples = day24.filter(s => s.on), avgB = Math.round(onSamples.reduce((a, s) => a + s.b, 0) / onSamples.length);
+    $("#tiles").innerHTML = [
+      [fmtH(today.hrs), "On today", "since midnight"],
+      [week.reduce((a, d) => a + d.hrs, 0).toFixed(1) + " h", "On this week", "last 7 days"],
+      [cmds7, "Commands", `last 7 days, ${mcp7} from agents`],
+      [avgB + "%", "Typical brightness", "average while on, today"],
+    ].map(([b, s, m]) => `<div class="tile"><b>${b}</b><span>${s}</span><small>${m}</small></div>`).join("");
+
+    const W = 720;
+    // ---- 24h: color strip + brightness line
+    frame($("#c-day"), {
+      title: "Today, hour by hour", sub: "The strip shows the lamp's actual color; the line is brightness while on.",
+      source: "state samples every 60 s, <code>~/.local/state/govee-cli/stats.db</code> (sample)",
+      table: () => mkTable(["Time", "State", "Brightness", "Color"], day24.filter((_, i) => i % 4 === 0).map(s => [clock(s.h), s.on ? "On" : "Off", s.on ? s.b + "%" : "\u2013", s.on ? s.c : "\u2013"])),
+      draw: body => {
+        const H = 230, L = 36, R = 12, T = 8, stripH = 26, gap = 14, chartT = T + stripH + gap, B = 26, ph = H - chartT - B;
+        const x = h => L + h / 24 * (W - L - R), y = v => chartT + ph - v / 100 * ph;
+        const svg = sv("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": "Lamp state and brightness over the last 24 hours" });
+        const step = (W - L - R) / day24.length;
+        day24.forEach((s, i) => {
+          svg.append(sv("rect", s.on ? { x: L + i * step, y: T, width: step + .5, height: stripH, fill: s.c } : { x: L + i * step, y: T + stripH / 2 - 1, width: step + .5, height: 2, fill: css("--rule") }));
+        });
+        svg.append(Object.assign(sv("text", { x: L - 6, y: T + stripH / 2 + 4, "text-anchor": "end", class: "axis" }), { textContent: "" }));
+        const g = sv("g", { class: "grid" }), ax = sv("g", { class: "axis" });
+        [0, 50, 100].forEach(v => { g.append(sv("line", { x1: L, x2: W - R, y1: y(v), y2: y(v) })); const t = sv("text", { x: L - 6, y: y(v) + 4, "text-anchor": "end" }); t.textContent = v + "%"; ax.append(t); });
+        [0, 6, 12, 18, 24].forEach(h => { const t = sv("text", { x: x(h), y: H - 6, "text-anchor": h === 0 ? "start" : h === 24 ? "end" : "middle" }); t.textContent = clock(h % 24 === 0 && h ? 24 : h).replace("24:00", "24:00"); ax.append(t); });
+        svg.append(g, ax);
+        // line segments only while on
+        let d = "", prevOn = false;
+        day24.forEach((s, i) => { const px = L + i * step + step / 2; if (s.on) { d += (prevOn ? "L" : "M") + px.toFixed(1) + "," + y(s.b).toFixed(1); } prevOn = s.on; });
+        // area
+        let a = ""; let seg = [];
+        const flush = () => { if (seg.length) { a += `M${seg[0][0]},${y(0)}` + seg.map(p => `L${p[0]},${p[1]}`).join("") + `L${seg[seg.length - 1][0]},${y(0)}Z`; seg = []; } };
+        day24.forEach((s, i) => { const px = L + i * step + step / 2; if (s.on) seg.push([px.toFixed(1), y(s.b).toFixed(1)]); else flush(); }); flush();
+        svg.append(sv("path", { d: a, fill: css("--cobalt"), opacity: .12 }));
+        svg.append(sv("path", { d, fill: "none", stroke: css("--cobalt"), "stroke-width": 2, "stroke-linejoin": "round" }));
+        svg.append(sv("line", { class: "base", x1: L, x2: W - R, y1: y(0), y2: y(0) }));
+        const cross = sv("line", { y1: T, y2: y(0), stroke: css("--quiet"), "stroke-width": 1, "stroke-dasharray": "3 3", visibility: "hidden" });
+        const dot = sv("circle", { r: 5, fill: css("--cobalt"), stroke: css("--sheet"), "stroke-width": 2, visibility: "hidden" });
+        svg.append(cross, dot);
+        const hit = sv("rect", { x: L, y: T, width: W - L - R, height: H - T - B, fill: "transparent" });
+        hit.addEventListener("pointermove", e => {
+          const r = svg.getBoundingClientRect(); const px = (e.clientX - r.left) / r.width * W;
+          const i = Math.max(0, Math.min(day24.length - 1, Math.floor((px - L) / step))); const s = day24[i]; const cx = L + i * step + step / 2;
+          cross.setAttribute("x1", cx); cross.setAttribute("x2", cx); cross.setAttribute("visibility", "visible");
+          if (s.on) { dot.setAttribute("cx", cx); dot.setAttribute("cy", y(s.b)); dot.setAttribute("visibility", "visible"); } else dot.setAttribute("visibility", "hidden");
+          showTip(e, `<strong>${clock(s.h)}\u2013${clock(s.h + .25)}</strong>` + (s.on ? `<div class="row"><span><i class="sw" style="background:${s.c}"></i>Color</span><span>${s.c}</span></div><div class="row"><span>Brightness</span><span>${s.b}%</span></div>` : `<div class="row"><span>Off</span><span></span></div>`));
+        });
+        hit.addEventListener("pointerleave", () => { cross.setAttribute("visibility", "hidden"); dot.setAttribute("visibility", "hidden"); hideTip(); });
+        svg.append(hit); body.append(svg);
+      }
+    });
+
+    // ---- hours on per day (columns)
+    frame($("#c-hours"), {
+      title: "Hours on per day", sub: "Last 14 days", source: "state samples, summed per day (sample)",
+      table: () => mkTable(["Day", "Hours on"], daily.map(d => [`${wk(d.d)} ${dayLabel(d.d)}`, d.hrs.toFixed(1)])),
+      draw: body => {
+        const Wc = 360, H = 210, L = 28, R = 6, T = 14, B = 24, ph = H - T - B;
+        const { max, step } = niceMax(Math.max(...daily.map(d => d.hrs)));
+        const y = v => T + ph - v / max * ph, bw = (Wc - L - R) / daily.length;
+        const svg = sv("svg", { viewBox: `0 0 ${Wc} ${H}`, role: "img", "aria-label": "Hours on per day for the last 14 days" });
+        const g = sv("g", { class: "grid" }), ax = sv("g", { class: "axis" });
+        for (let v = 0; v <= max; v += step) { if (v) g.append(sv("line", { x1: L, x2: Wc - R, y1: y(v), y2: y(v) })); const t = sv("text", { x: L - 5, y: y(v) + 4, "text-anchor": "end" }); t.textContent = v; ax.append(t); }
+        daily.forEach((d, i) => { if (i % 2 === 1 || i === daily.length - 1) { const t = sv("text", { x: L + i * bw + bw / 2, y: H - 6, "text-anchor": "middle" }); t.textContent = d.d.getDate(); ax.append(t); } });
+        svg.append(g, ax);
+        daily.forEach((d, i) => {
+          const x0 = L + i * bw + 1, w = bw - 2, h = y(0) - y(d.hrs), r = Math.min(4, w / 2);
+          const p = sv("path", { d: `M${x0},${y(0)}V${y(d.hrs) + r}Q${x0},${y(d.hrs)} ${x0 + r},${y(d.hrs)}H${x0 + w - r}Q${x0 + w},${y(d.hrs)} ${x0 + w},${y(d.hrs) + r}V${y(0)}Z`, fill: css("--cobalt"), opacity: i === daily.length - 1 ? 1 : .78 });
+          const hit = sv("rect", { x: L + i * bw, y: T, width: bw, height: ph, fill: "transparent" });
+          hit.addEventListener("pointermove", e => { p.setAttribute("opacity", 1); showTip(e, `<strong>${wk(d.d)} ${dayLabel(d.d)}</strong><div class="row"><span>On for</span><span>${fmtH(d.hrs)}</span></div>`); });
+          hit.addEventListener("pointerleave", () => { p.setAttribute("opacity", i === daily.length - 1 ? 1 : .78); hideTip(); });
+          svg.append(p, hit);
+        });
+        svg.append(sv("line", { class: "base", x1: L, x2: Wc - R, y1: y(0), y2: y(0) }));
+        const lt = sv("text", { x: L + (daily.length - 1) * bw + bw / 2, y: y(today.hrs) - 5, "text-anchor": "middle", fill: css("--ink"), "font-size": 11, "font-weight": 700, "font-family": "inherit" }); lt.textContent = today.hrs.toFixed(1);
+        svg.append(lt);
+        body.append(svg);
+      }
+    });
+
+    // ---- commands by source (stacked columns, last 7 days)
+    const SRC = [["CLI", "--s-cli", "cli"], ["Web", "--s-web", "web"], ["MCP agents", "--s-mcp", "mcp"]];
+    frame($("#c-src"), {
+      title: "Who changes the lamp", sub: "Applied commands per day, last 7 days",
+      source: "command log, <code>events</code> table (sample)", legend: SRC.map(s => [s[0], s[1]]),
+      table: () => mkTable(["Day", "CLI", "Web", "MCP", "Total"], week.map(d => [`${wk(d.d)} ${dayLabel(d.d)}`, d.cli, d.web, d.mcp, d.cli + d.web + d.mcp])),
+      draw: body => {
+        const Wc = 360, H = 210, L = 28, R = 6, T = 10, B = 24, ph = H - T - B;
+        const { max, step } = niceMax(Math.max(...week.map(d => d.cli + d.web + d.mcp)));
+        const y = v => T + ph - v / max * ph, bw = (Wc - L - R) / week.length;
+        const svg = sv("svg", { viewBox: `0 0 ${Wc} ${H}`, role: "img", "aria-label": "Applied commands per day by source" });
+        const g = sv("g", { class: "grid" }), ax = sv("g", { class: "axis" });
+        for (let v = 0; v <= max; v += step) { if (v) g.append(sv("line", { x1: L, x2: Wc - R, y1: y(v), y2: y(v) })); const t = sv("text", { x: L - 5, y: y(v) + 4, "text-anchor": "end" }); t.textContent = v; ax.append(t); }
+        week.forEach((d, i) => { const t = sv("text", { x: L + i * bw + bw / 2, y: H - 6, "text-anchor": "middle" }); t.textContent = wk(d.d); ax.append(t); });
+        svg.append(g, ax);
+        week.forEach((d, i) => {
+          const w = Math.min(30, bw - 10), x0 = L + i * bw + (bw - w) / 2; let acc = 0; const grp = sv("g");
+          SRC.forEach(([, v, k], si) => {
+            const val = d[k]; if (!val) return;
+            const y1 = y(acc + val), y0 = y(acc); acc += val;
+            const top = si === SRC.length - 1 || SRC.slice(si + 1).every(s => !d[s[2]]);
+            const hgt = Math.max(0, y0 - y1 - 2), r = top ? Math.min(4, hgt) : 0;
+            grp.append(sv("path", { d: `M${x0},${y1 + hgt}V${y1 + r}${r ? `Q${x0},${y1} ${x0 + r},${y1}` : ""}H${x0 + w - r}${r ? `Q${x0 + w},${y1} ${x0 + w},${y1 + r}` : ""}V${y1 + hgt}Z`, fill: css(v) }));
+          });
+          const hit = sv("rect", { x: L + i * bw, y: T, width: bw, height: ph, fill: "transparent" });
+          hit.addEventListener("pointermove", e => { grp.setAttribute("opacity", .85); showTip(e, `<strong>${wk(d.d)} ${dayLabel(d.d)}</strong>` + SRC.map(([n, v, k]) => `<div class="row"><span><i class="sw" style="background:var(${v})"></i>${n}</span><span>${d[k]}</span></div>`).join("") + `<div class="row"><span>Total</span><span>${d.cli + d.web + d.mcp}</span></div>`); });
+          hit.addEventListener("pointerleave", () => { grp.setAttribute("opacity", 1); hideTip(); });
+          svg.append(grp, hit);
+        });
+        svg.append(sv("line", { class: "base", x1: L, x2: Wc - R, y1: y(0), y2: y(0) }));
+        body.append(svg);
+      }
+    });
+
+    // ---- heatmap: when the lamp is on
+    const WD = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+    frame($("#c-heat"), {
+      title: "When the lamp is on", sub: "Average minutes on, per hour of the week, last 4 weeks",
+      source: "state samples, averaged per weekday and hour (sample)",
+      table: () => mkTable(["Day", "Busiest hour", "Minutes on that hour", "Hours on per day"], WD.map((n, d) => { const row = heat.filter(c => c.d === d); const top = row.reduce((a, c) => c.v > a.v ? c : a); return [n, clock(top.h), top.v, (row.reduce((a, c) => a + c.v, 0) / 60).toFixed(1)]; })),
+      draw: body => {
+        const H = 7 * 22 + 30, L = 36, R = 4, T = 2, cw = (W - L - R) / 24, ch = 20;
+        const svg = sv("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": "Heatmap of minutes on by weekday and hour" });
+        const ax = sv("g", { class: "axis" });
+        WD.forEach((n, d) => { const t = sv("text", { x: L - 6, y: T + d * 22 + ch / 2 + 4, "text-anchor": "end" }); t.textContent = n; ax.append(t); });
+        [0, 3, 6, 9, 12, 15, 18, 21].forEach(h => { const t = sv("text", { x: L + h * cw + cw / 2, y: H - 6, "text-anchor": "middle" }); t.textContent = String(h).padStart(2, "0"); ax.append(t); });
+        svg.append(ax);
+        const lo = css("--rule-soft"), hi = css("--cobalt");
+        heat.forEach(c => {
+          const pct = Math.round(c.v / 60 * 100);
+          const r = sv("rect", { x: L + c.h * cw + 1, y: T + c.d * 22, width: cw - 2, height: ch, rx: 3, fill: `color-mix(in srgb, ${hi} ${pct}%, ${lo})` });
+          r.style.fill = `color-mix(in srgb, ${hi} ${pct}%, ${lo})`;
+          r.addEventListener("pointermove", e => { r.setAttribute("stroke", css("--ink")); r.setAttribute("stroke-width", 1.5); showTip(e, `<strong>${WD[c.d]} ${clock(c.h)}\u2013${clock(c.h + 1)}</strong><div class="row"><span>Average on</span><span>${c.v} min</span></div>`); });
+          r.addEventListener("pointerleave", () => { r.removeAttribute("stroke"); hideTip(); });
+          svg.append(r);
+        });
+        body.append(svg);
+        body.append(el("div", { class: "heat-scale" }, `0 min <i aria-hidden="true"></i> 60 min`));
+      }
+    });
+    drawn = true;
+  }
+
+  // redraw charts on theme change so SVG colors follow tokens
+  const mq = matchMedia("(prefers-color-scheme: dark)");
+  const redraw = () => { if (!$("#view-stats").hidden) drawStats(); };
+  mq.addEventListener?.("change", redraw);
+  new MutationObserver(redraw).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+
+  render(); renderFeed(); route();
+})();
+</script>

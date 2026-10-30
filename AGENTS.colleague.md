@@ -34,12 +34,15 @@ via Govee's official Developer API (cloud) and the local LAN API. Writes are
 safe by default (dry-run unless `--apply`), and every command supports
 `--json`.
 
-**Current state:** scaffolded from `culture-agent-template`. Only the
-identity/introspection verbs (`whoami`, `learn`, `explain`, `overview`,
-`doctor`, `cli overview`) exist. **The Govee device verbs are planned and not
-built yet.** `CLAUDE.md` is the fullest write-up of the CLI architecture and
-repo conventions. It is not your runtime prompt, but read it when you need
-more context than this file gives.
+**Current state:** the Govee domain is built and was tested against the real
+lamp (a Govee H6076 floor lamp). Verbs: `devices`, `light` (on, off,
+brightness, color, temp, scene, state, scenes, fade-status, fade-stop),
+`stats`, `token`, `serve` (web console and API) and `mcp serve` (MCP over
+stdio), plus the identity verbs (`whoami`, `learn`, `explain`, `overview`,
+`doctor`, `cli overview`). Every lamp operation goes through one module,
+`govee_cli/govee/service.py`. `CLAUDE.md` is the fullest write-up of the
+architecture and conventions. It is not your runtime prompt, but read it when
+you need more context than this file gives.
 
 ## How you work
 
@@ -54,6 +57,11 @@ more context than this file gives.
 - The vendored skills under `.claude/skills/` are cited **verbatim** from
   guildmaster. Don't reformat or edit their scripts; the fix belongs upstream
   (see `docs/skill-sources.md`).
-- Never commit a Govee API key; `scripts/scan-secrets.py` gates CI on it.
+- Never commit a Govee API key or the lamp's real IP or device id;
+  `scripts/scan-secrets.py` gates CI on credentials.
+- Tests must never reach the real network or lamp: `tests/conftest.py` blocks
+  it. Use fake `lan=`/`cloud=` transports.
 - Every PR bumps the version (`version-bump` skill); CI's `version-check` job
-  blocks merge otherwise.
+  blocks merge otherwise. SonarCloud must also show no unresolved issue on the PR
+  (`scripts/sonar-pr-issues.py`): fix each one, or accept it in SonarCloud with a
+  reason; accepted and false-positive issues pass.

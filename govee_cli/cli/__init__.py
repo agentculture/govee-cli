@@ -2,8 +2,8 @@
 
 The agent-first global verbs (``whoami``, ``learn``, ``explain``, ``overview``,
 ``doctor``) are registered here under :mod:`govee_cli.cli._commands`,
-alongside the ``cli`` noun group. Future noun groups register via their own
-``register()`` functions following the same pattern.
+alongside the ``cli`` noun group and the Govee verbs (``devices``, ``light``, ``stats``,
+``token``, ``serve``, ``mcp``, ``rules``). Each registers via its own ``register()``.
 
 Error propagation contract
 --------------------------
@@ -63,15 +63,25 @@ def _argv_has_json(argv: list[str] | None) -> bool:
 
 def _build_parser() -> argparse.ArgumentParser:
     from govee_cli.cli._commands import cli as _cli_group
+    from govee_cli.cli._commands import devices as _devices_cmd
     from govee_cli.cli._commands import doctor as _doctor_cmd
     from govee_cli.cli._commands import explain as _explain_cmd
     from govee_cli.cli._commands import learn as _learn_cmd
+    from govee_cli.cli._commands import light as _light_group
+    from govee_cli.cli._commands import mcp as _mcp_group
     from govee_cli.cli._commands import overview as _overview_cmd
+    from govee_cli.cli._commands import rules as _rules_group
+    from govee_cli.cli._commands import serve as _serve_cmd
+    from govee_cli.cli._commands import stats as _stats_cmd
+    from govee_cli.cli._commands import token as _token_group
     from govee_cli.cli._commands import whoami as _whoami_cmd
 
     parser = _CliArgumentParser(
         prog="govee-cli",
-        description="govee-cli — a clonable template for AgentCulture mesh agents.",
+        description=(
+            "govee-cli — agent-first control of a Govee floor lamp over the LAN and cloud APIs "
+            "(writes dry-run unless --apply)."
+        ),
     )
     parser.add_argument(
         "--version",
@@ -88,9 +98,13 @@ def _build_parser() -> argparse.ArgumentParser:
     _overview_cmd.register(sub)
     _doctor_cmd.register(sub)
     _cli_group.register(sub)
-    # Register your own noun groups here:
-    #   from govee_cli.cli._commands import my_noun as _my_noun_group
-    #   _my_noun_group.register(sub)
+    _devices_cmd.register(sub)
+    _light_group.register(sub)
+    _stats_cmd.register(sub)
+    _token_group.register(sub)
+    _serve_cmd.register(sub)
+    _mcp_group.register(sub)
+    _rules_group.register(sub)
 
     return parser
 

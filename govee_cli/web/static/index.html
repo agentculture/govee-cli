@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="referrer" content="no-referrer">
+<title>Govee Lamp Console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Albert+Sans:wght@400;500;600;700;800;900&amp;display=swap">
+<link rel="stylesheet" href="app.css">
+<script src="app.js" defer></script>
+</head>
+<body>
+
+<!-- ================= BOOT (while the first /api/state call is in flight) ================= -->
+<output class="boot" id="boot">Connecting to the lamp console&#x2026;</output>
+
+<!-- ================= PAIRING (no token, or any 401) ================= -->
+<section class="gate" id="gate" hidden aria-labelledby="gateTitle">
+  <div class="gate-card">
+    <span class="brand"><span class="brand-dot" aria-hidden="true"></span>govee</span>
+    <h1 id="gateTitle">Pair this device</h1>
+    <p>This console controls a real lamp, so it only talks to paired devices. Reading the lamp and changing it both need pairing.</p>
+    <p>On the computer running <code>govee serve</code>, run:</p>
+    <code class="gate-cmd">govee token new --name &lt;label&gt;</code>
+    <p>Then open the printed link on this device. It pairs the browser and drops the token from the address bar.</p>
+    <form class="gate-form" id="gateForm" autocomplete="off">
+      <label for="gateToken">Or paste the token</label>
+      <div class="gate-row">
+        <input id="gateToken" name="token" type="password" spellcheck="false" autocapitalize="off" placeholder="token from govee token new" required>
+        <button type="submit" class="btn primary">Pair</button>
+      </div>
+      <p class="gate-error" id="gateError" role="alert" hidden></p>
+    </form>
+  </div>
+</section>
+
+<!-- ================= CONSOLE (paired) ================= -->
+<div id="app" hidden>
+<header class="top">
+  <span class="brand"><span class="brand-dot" aria-hidden="true"></span>govee</span>
+  <nav class="tabs" aria-label="Views">
+    <a href="#lamp" data-view="lamp">Lamp</a>
+    <a href="#stats" data-view="stats">Stats</a>
+    <a href="#agents" data-view="agents">Agents</a>
+  </nav>
+  <div class="actions">
+    <span class="status-pill" id="statusPill" data-state="unknown"><i aria-hidden="true"></i><span id="statusText">Checking the lamp</span></span>
+    <fieldset class="seg" aria-label="Write mode">
+      <button type="button" data-mode="dry" aria-pressed="true">Dry run</button>
+      <button type="button" data-mode="live" aria-pressed="false">Live</button>
+    </fieldset>
+  </div>
+</header>
+
+<main>
+  <!-- ================= LAMP ================= -->
+  <section class="page" id="view-lamp" data-view-panel="lamp">
+    <div class="notice" id="lampNotice" role="note" hidden></div>
+    <div class="hero">
+      <div class="lamp-stage" id="stage">
+        <div class="lamp" id="lamp" data-on="false">
+          <div class="bulb" id="bulb" aria-hidden="true"></div>
+          <div>
+            <div class="lamp-name" id="lampName">Lamp</div>
+            <div class="lamp-readout" id="readout"></div>
+          </div>
+          <span class="lamp-diff" id="lampDiff" data-shown="false">Preview</span>
+        </div>
+      </div>
+
+      <div class="panel controls">
+        <div class="power">
+          <div>
+            <h2>Power</h2>
+            <p class="panel-sub" id="deviceSub">&#x2013;</p>
+          </div>
+          <button type="button" class="switch" role="switch" id="power" aria-checked="false" aria-label="Lamp power"></button>
+        </div>
+
+        <div class="ctl-row">
+          <div class="ctl-head"><label for="fade">Fade</label><span class="hint">Ramped over LAN by govee serve</span></div>
+          <select id="fade" class="fade-select">
+            <option value="" selected title="On and off fade 5 s; brightness and color change instantly">Auto (on/off 5 s)</option>
+            <option value="0">Instant</option>
+            <option value="1.5">1.5 s</option>
+            <option value="5">5 s</option>
+            <option value="30">30 s</option>
+            <option value="300">5 min</option>
+            <option value="1200">20 min</option>
+          </select>
+          <div class="fade-bar" id="fadeBar" hidden>
+            <div class="fade-bar-head">
+              <output class="fade-text" id="fadeText">Fading</output>
+              <button type="button" class="btn" id="fadeStop">Stop fade</button>
+            </div>
+            <progress id="fadeProgress" max="1" value="0" aria-label="Fade progress"></progress>
+          </div>
+        </div>
+
+        <div class="ctl-row">
+          <div class="ctl-head"><label for="bright">Brightness</label><output id="brightOut" for="bright">&#x2013;</output></div>
+          <input type="range" id="bright" min="1" max="100" value="50">
+        </div>
+
+        <div class="ctl-row">
+          <div class="mode-tabs" role="tablist" aria-label="Light mode">
+            <button type="button" role="tab" id="tab-color" aria-selected="true" aria-controls="pane-color">Color</button>
+            <button type="button" role="tab" id="tab-white" aria-selected="false" aria-controls="pane-white">White</button>
+          </div>
+          <div id="pane-color" role="tabpanel" aria-labelledby="tab-color">
+            <div class="swatches" id="swatches"></div>
+          </div>
+          <div id="pane-white" role="tabpanel" aria-labelledby="tab-white" hidden>
+            <div class="ctl-head"><label for="temp">Color temperature</label><output id="tempOut" for="temp">2700 K</output></div>
+            <input type="range" class="temp-range" id="temp" min="2000" max="9000" step="100" value="2700">
+            <p class="hint">2000 K is candlelight warm, 9000 K is overcast-sky cool.</p>
+          </div>
+        </div>
+
+        <div class="ctl-row">
+          <div class="ctl-head"><h3>Scenes</h3><span class="hint">Sent through the Govee cloud</span></div>
+          <div class="chips" id="scenes"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="duo">
+      <section class="panel" aria-labelledby="sendTitle">
+        <div class="send-head">
+          <div>
+            <h2 id="sendTitle">What will be sent</h2>
+            <p class="panel-sub" id="sendSub">Dry run: your changes stay here until you send them.</p>
+          </div>
+          <span class="badge dry" id="modeBadge">Dry run</span>
+        </div>
+        <div class="wire" id="wire"></div>
+        <p class="cli-equiv" id="cliEquiv"></p>
+        <div class="send-actions">
+          <button type="button" class="btn primary" id="sendBtn" disabled>Send to lamp</button>
+          <button type="button" class="btn" id="discardBtn" disabled>Discard changes</button>
+        </div>
+      </section>
+
+      <section class="panel" aria-labelledby="actTitle">
+        <h2 id="actTitle">Recent activity</h2>
+        <p class="panel-sub">Every command is logged, including dry runs that never reached the lamp.</p>
+        <ul class="feed" id="feed"></ul>
+      </section>
+    </div>
+  </section>
+
+  <!-- ================= STATS ================= -->
+  <section class="page" id="view-stats" data-view-panel="stats" hidden>
+    <div>
+      <h1 class="view-title">Lamp stats</h1>
+      <p class="view-lede">How long the lamp is on, how bright it runs and who changes it. <code>govee serve</code> samples the lamp's state while it runs and logs every command.</p>
+    </div>
+    <div class="notice" id="statsNotice" role="note" hidden></div>
+    <div class="tiles" id="tiles"></div>
+    <div class="charts">
+      <figure class="chart wide" id="c-day"></figure>
+      <figure class="chart" id="c-hours"></figure>
+      <figure class="chart" id="c-src"></figure>
+      <figure class="chart wide" id="c-heat"></figure>
+    </div>
+  </section>
+
+  <!-- ================= AGENTS ================= -->
+  <section class="page" id="view-agents" data-view-panel="agents" hidden>
+    <div>
+      <h1 class="view-title">Agents</h1>
+      <p class="view-lede">Any Claude-backed agent in the mesh can use the lamp through the govee MCP server. The same rules apply to agents, the command line and this page.</p>
+    </div>
+    <div class="agents">
+      <section class="panel" aria-labelledby="toolsTitle">
+        <h2 id="toolsTitle">MCP tools</h2>
+        <p class="panel-sub">Served over stdio by <code>govee mcp serve</code></p>
+        <ul class="tool-list">
+          <li><code>list_devices</code><span class="badge">read</span><p>Lamps found on the LAN and in the Govee account, with model and transport.</p></li>
+          <li><code>get_state</code><span class="badge">read</span><p>Power, brightness, color or color temperature of one lamp.</p></li>
+          <li><code>set_light</code><span class="badge dry">dry run unless apply</span><p>Power, brightness, color, color temperature. Returns the exact command it sent or would send.</p></li>
+          <li><code>set_scene</code><span class="badge dry">dry run unless apply</span><p>Applies one of the lamp's scenes through the cloud API.</p></li>
+          <li><code>get_stats</code><span class="badge">read</span><p>On-time, brightness and command counts over a time range.</p></li>
+        </ul>
+        <div class="snippet">
+          <button type="button" class="btn" id="copyMcp">Copy</button>
+<pre id="mcpJson">{
+  "mcpServers": {
+    "govee": {
+      "command": "govee",
+      "args": ["mcp", "serve"],
+      "env": { "GOVEE_API_KEY": "${GOVEE_API_KEY}" }
+    }
+  }
+}</pre>
+        </div>
+      </section>
+
+      <section class="panel" aria-labelledby="rulesTitle">
+        <h2 id="rulesTitle">Mesh rules</h2>
+        <p class="panel-sub">Enforced by the server, so a prompt cannot talk an agent past them</p>
+        <ul class="rules">
+          <li><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="var(--good)"/><path d="M7 12.5l3 3 7-7" stroke="var(--sheet)" stroke-width="2.4" fill="none" stroke-linecap="round"/></svg><b>Dry run by default</b><p>A write without <code>apply: true</code> returns the command it would send and changes nothing.</p></li>
+          <li><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="var(--good)"/><path d="M7 12.5l3 3 7-7" stroke="var(--sheet)" stroke-width="2.4" fill="none" stroke-linecap="round"/></svg><b>Every call is logged</b><p>Each write records its source (CLI, web, MCP or rules) and who made it, and shows up in Stats.</p></li>
+          <li><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="var(--good)"/><path d="M7 12.5l3 3 7-7" stroke="var(--sheet)" stroke-width="2.4" fill="none" stroke-linecap="round"/></svg><b>The key stays in the environment</b><p>Agents never see <code>GOVEE_API_KEY</code>. The server reads it and never echoes it.</p></li>
+          <li><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="var(--good)"/><path d="M7 12.5l3 3 7-7" stroke="var(--sheet)" stroke-width="2.4" fill="none" stroke-linecap="round"/></svg><b>Schedules live in culture-rules</b><p>govee has no timers of its own. A culture-rules rule calls the govee runner actor, for example <code>lamp_color</code> when CI fails.</p></li>
+        </ul>
+        <div class="pair-panel">
+          <b>Pair another device</b>
+          <p>Run <code>govee token new --name &lt;label&gt;</code> on the computer running <code>govee serve</code>, then open the printed link on the other device. Reading the lamp and changing it both need pairing.</p>
+          <button type="button" class="btn" id="unpairBtn">Unpair this device</button>
+        </div>
+      </section>
+    </div>
+  </section>
+</main>
+</div>
+
+<div class="tip" id="tip" hidden></div>
+<output class="toast" id="toast" aria-live="polite"></output>
+</body>
+</html>
