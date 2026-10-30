@@ -272,7 +272,8 @@ def _plan_off(ramp: _Ramp, lit: Optional[LampState]) -> Optional[int]:
         return None
     ramp.brightness = (lit.brightness, 1)
     ramp.last = [lan_mod.build_turn(False)]
-    return lit.brightness
+    # A lamp already at 1 % has nothing worth coming back to: keep the earlier memory.
+    return lit.brightness if lit.brightness > 1 else None
 
 
 def _plan_on(
@@ -284,6 +285,8 @@ def _plan_on(
     target = change.brightness
     if not target and start is not None and start.brightness > 1:
         target = start.brightness
+    if remembered is not None and remembered <= 1:
+        remembered = None  # a remembered 1 % would make the fade-in stay dark
     target = int(target or remembered or 100)
     ramp.first = [lan_mod.build_brightness(1), lan_mod.build_turn(True)]
     if change.color is not None:

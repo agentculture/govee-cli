@@ -24,9 +24,10 @@ The runner registry lives in `params.commands`. Each entry has an `argv` list
 | `lamp_fade_on_to` | `govee light on --brightness {pct} --fade {seconds}` | `pct` (int, 1-100), `seconds` (int, 0-3600) |
 
 `lamp_on` and `lamp_off` already fade over the default 5 s. `lamp_fade_on`
-comes back to the level the last fade-out remembered, which is 1 % if the lamp
-was last switched off at its lowest; `lamp_fade_on_to` names the level to end
-on, which is what a wake-up wants. The three fade commands have a 3660 s timeout so a long fade (a 20-minute wake-up, say) is
+comes back to the level the last fade-out remembered (100 if none was);
+`lamp_fade_on_to` names the level to end on, which is what a wake-up wants.
+Start a wake-up from an off lamp: on a lit lamp `lamp_fade_on_to` ramps from
+the current level, so it dims if the lamp is brighter than the target. The three fade commands have a 3660 s timeout so a long fade (a 20-minute wake-up, say) is
 never killed mid-way; with `govee serve` running they return at once anyway.
 
 Every `argv` starts with the absolute path of the `govee` binary and ends with

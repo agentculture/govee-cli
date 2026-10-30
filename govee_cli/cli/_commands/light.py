@@ -45,7 +45,8 @@ def _write(args: argparse.Namespace, change_fn, label: str) -> int:
 
 
 def cmd_on(args: argparse.Namespace) -> int:
-    return _write(args, lambda a: Change(on=True, brightness=a.brightness), "light on")
+    label = "light on" if args.brightness is None else f"light on to {args.brightness} %"
+    return _write(args, lambda a: Change(on=True, brightness=a.brightness), label)
 
 
 def cmd_off(args: argparse.Namespace) -> int:

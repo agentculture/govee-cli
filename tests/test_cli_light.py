@@ -316,3 +316,19 @@ def test_off_has_no_brightness(capsys):
         main(["light", "off", "--brightness", "80"])
     assert exc.value.code == 1
     assert "--brightness" in capsys.readouterr().err
+
+
+def test_cli_fade_in_from_off_ends_at_the_brightness(capsys, lan):
+    lan.state = LampState(on=False, brightness=1, color=(0, 0, 255))
+    rc, out, _ = run(capsys, "light", "on", "--brightness", "80", "--fade", "60", "--json")
+    assert rc == 0
+    payload = json.loads(out)
+    last = payload["fade_preview"]["last"]["commands"][-1]
+    assert last["payload"]["msg"]["data"]["value"] == 80
+
+
+def test_cli_hint_for_on_with_brightness_is_one_command(capsys, lan):
+    lan.state = LampState(on=False, brightness=1, color=(0, 0, 255))
+    rc, out, _ = run(capsys, "light", "on", "--brightness", "80", "--fade", "60", "--json")
+    assert rc == 0
+    assert json.loads(out)["cli"] == ["govee light on --brightness 80 --fade 60 --apply"]

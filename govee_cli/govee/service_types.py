@@ -197,9 +197,11 @@ def cli_for_change(
     level = fade if fade else None  # brightness/color/temp default to instant
     power = fade if fade is not None and fade != default_fade else None
     out = []
-    if change.on is True:
+    if change.on is True and change.brightness is not None:
+        out.append(_hint(["light", "on", "--brightness", str(change.brightness)], device, power))
+    elif change.on is True:
         out.append(_hint(["light", "on"], device, power))
-    if change.brightness is not None:
+    if change.brightness is not None and change.on is not True:
         out.append(_hint(["light", "brightness", str(change.brightness)], device, level))
     if change.color is not None:
         hexc = (hex_color(change.color) or "")[1:]
