@@ -22,6 +22,7 @@ from govee_cli.cli._output import emit_result
 
 FADE_TIMEOUT = 3660  # a fade may run up to 3600 s; never let culture-rules kill one mid-ramp
 STEP_TIMEOUT = 30
+SECONDS = "{seconds}"  # the fade length placeholder shared by the fade commands
 
 # name -> (verb argv after "light", typed params, timeout). Every command logs as source
 # "rules" and applies the change: a rule acts on purpose, so the dry-run default is off.
@@ -32,8 +33,13 @@ COMMANDS: dict[str, tuple[list[str], dict[str, str], int]] = {
     "lamp_color": (["color", "{hex}"], {"hex": "string"}, STEP_TIMEOUT),
     "lamp_temp": (["temp", "{kelvin}"], {"kelvin": "int"}, STEP_TIMEOUT),
     "lamp_scene": (["scene", "{name}"], {"name": "string"}, STEP_TIMEOUT),
-    "lamp_fade_on": (["on", "--fade", "{seconds}"], {"seconds": "int"}, FADE_TIMEOUT),
-    "lamp_fade_off": (["off", "--fade", "{seconds}"], {"seconds": "int"}, FADE_TIMEOUT),
+    "lamp_fade_on": (["on", "--fade", SECONDS], {"seconds": "int"}, FADE_TIMEOUT),
+    "lamp_fade_off": (["off", "--fade", SECONDS], {"seconds": "int"}, FADE_TIMEOUT),
+    "lamp_fade_on_to": (
+        ["on", "--brightness", "{pct}", "--fade", SECONDS],
+        {"pct": "int", "seconds": "int"},
+        FADE_TIMEOUT,
+    ),
 }
 
 

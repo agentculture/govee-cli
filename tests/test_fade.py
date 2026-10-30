@@ -180,6 +180,17 @@ def test_fade_in_target_is_the_lamps_own_level_then_remembered_then_100():
     assert brightness_values(plan_fade(after_fade_out, Change(on=True), 2))[-1] == 100
 
 
+def test_fade_in_ignores_a_remembered_1_percent():
+    after_fade_out = LampState(on=False, brightness=1)
+    plan = plan_fade(after_fade_out, Change(on=True), 2, remembered=1)
+    assert brightness_values(plan)[-1] == 100
+
+
+def test_fade_out_from_1_percent_remembers_nothing():
+    plan = plan_fade(LampState(on=True, brightness=1), Change(on=False), 2)
+    assert plan.remember_brightness is None
+
+
 def test_fade_in_with_unknown_start_turns_on_without_dipping_to_1():
     # A lost devStatus reply must not drop an already-lit lamp to brightness 1.
     plan = plan_fade(None, Change(on=True), 2, remembered=42)

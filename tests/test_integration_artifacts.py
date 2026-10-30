@@ -22,6 +22,7 @@ EXPECTED = {
     "lamp_on": {},
     "lamp_fade_on": {"seconds": "int"},
     "lamp_fade_off": {"seconds": "int"},
+    "lamp_fade_on_to": {"pct": "int", "seconds": "int"},
     "lamp_off": {},
     "lamp_brightness": {"pct": "int"},
     "lamp_color": {"hex": "string"},
@@ -44,7 +45,7 @@ def test_actor_is_runner_on_spark():
     assert actor["name"]
 
 
-def test_actor_has_the_eight_commands_with_params():
+def test_actor_has_every_command_with_params():
     commands = _actor()["params"]["commands"]
     assert set(commands) == set(EXPECTED)
     for name, params in EXPECTED.items():

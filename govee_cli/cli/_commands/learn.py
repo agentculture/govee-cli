@@ -26,7 +26,8 @@ client token file written by `govee token new --save`). Installed command: govee
 Commands
 --------
   govee devices                      List devices.
-  govee light on|off                 Power, fading by default (--fade S, 0 snaps).
+  govee light on|off                 Power, fading by default (--fade S, 0 snaps);
+                                     on --brightness N ends the fade at N.
   govee light brightness N           1-100.
   govee light color RRGGBB           Hex colour.
   govee light temp N                 Colour temperature in kelvin (2000-9000).
@@ -71,7 +72,10 @@ _COMMANDS = [
     (["doctor"], "Identity, LAN, API-key and stats-db checks."),
     (["cli", "overview"], "Describe the CLI surface."),
     (["devices"], "List Govee devices."),
-    (["light", "on"], "Turn on (fades by default). Dry run unless --apply."),
+    (
+        ["light", "on"],
+        "Turn on (fades by default); --brightness N ends the fade at N. Dry run unless --apply.",
+    ),
     (["light", "off"], "Turn off (fades by default). Dry run unless --apply."),
     (["light", "brightness"], "Set brightness 1-100."),
     (["light", "color"], "Set colour as RRGGBB."),

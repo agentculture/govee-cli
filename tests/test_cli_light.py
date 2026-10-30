@@ -8,6 +8,7 @@ import shlex
 import pytest
 
 from govee_cli.cli import _build_parser, main
+from govee_cli.cli._commands._lamp import fade_preview
 from govee_cli.govee import service_types as svc
 from govee_cli.govee.cloud import Scene
 from govee_cli.govee.fake import FakeTransport
@@ -275,3 +276,59 @@ def test_fade_status_text_with_an_active_fade(capsys, monkeypatch):
     assert rc == 0, err
     assert "fade running" in out
     assert "progress=0.5" in out
+
+
+def test_on_with_brightness_fades_to_that_level():
+    off = LampState(on=False, brightness=1, color=(0, 0, 255))
+    lamp = FakeTransport(devices=[DEV], state=off)
+    service = LampService.direct(
+        lan=lamp, cloud=Cloud(), sleep=lambda _s: None, verify_timeout=0.0, poll_interval=0.0
+    )
+    result = service.apply(Change(on=True, brightness=80), apply=False, fade_seconds=60)
+    last = fade_preview(result)["last"]["commands"][-1]
+    assert last["verb"] == "brightness"
+    assert last["payload"]["msg"]["data"]["value"] == 80
+
+
+def test_on_brightness_reaches_the_change(capsys, monkeypatch):
+    seen = []
+    real = LampService.apply
+
+    def spy(self, change, **kw):
+        seen.append(change)
+        return real(self, change, **kw)
+
+    monkeypatch.setattr(LampService, "apply", spy)
+    rc, _, _ = run(capsys, "light", "on", "--brightness", "80", "--fade", "60", "--json")
+    assert rc == 0
+    assert seen[0].brightness == 80
+
+
+def test_on_bad_brightness_is_user_error(capsys):
+    rc, out, err = run(capsys, "light", "on", "--brightness", "500")
+    assert rc == 1
+    assert "hint:" in err
+    assert out == ""
+
+
+def test_off_has_no_brightness(capsys):
+    with pytest.raises(SystemExit) as exc:
+        main(["light", "off", "--brightness", "80"])
+    assert exc.value.code == 1
+    assert "--brightness" in capsys.readouterr().err
+
+
+def test_cli_fade_in_from_off_ends_at_the_brightness(capsys, lan):
+    lan.state = LampState(on=False, brightness=1, color=(0, 0, 255))
+    rc, out, _ = run(capsys, "light", "on", "--brightness", "80", "--fade", "60", "--json")
+    assert rc == 0
+    payload = json.loads(out)
+    last = payload["fade_preview"]["last"]["commands"][-1]
+    assert last["payload"]["msg"]["data"]["value"] == 80
+
+
+def test_cli_hint_for_on_with_brightness_is_one_command(capsys, lan):
+    lan.state = LampState(on=False, brightness=1, color=(0, 0, 255))
+    rc, out, _ = run(capsys, "light", "on", "--brightness", "80", "--fade", "60", "--json")
+    assert rc == 0
+    assert json.loads(out)["cli"] == ["govee light on --brightness 80 --fade 60 --apply"]

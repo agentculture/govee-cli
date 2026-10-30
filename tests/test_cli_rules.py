@@ -57,3 +57,23 @@ def test_rules_noun_is_described(capsys, argv):
     rc, out, _ = run(capsys, *argv)
     assert rc == 0
     assert "rules actor" in out
+
+
+def test_fade_on_to_takes_a_target_brightness(capsys):
+    rc, out, _ = run(capsys, "rules", "actor", "--bin", "/opt/govee/bin/govee", "--machine", "thor")
+    assert rc == 0
+    command = json.loads(out)["params"]["commands"]["lamp_fade_on_to"]
+    assert command["argv"][1:] == [
+        "light",
+        "on",
+        "--brightness",
+        "{pct}",
+        "--fade",
+        "{seconds}",
+        "--source",
+        "rules",
+        "--apply",
+        "--json",
+    ]
+    assert command["params"] == {"pct": "int", "seconds": "int"}
+    assert command["timeout"] == 3660

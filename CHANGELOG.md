@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.12.0] - 2026-10-30
+
+### Added
+
+- `govee light on --brightness N` (1-100): the level a fade-in ends on. Without it, `light on` still comes back to the level the last fade-out remembered.
+- culture-rules runner command `lamp_fade_on_to` (`pct`, `seconds`): `govee light on --brightness {pct} --fade {seconds}`, so a wake-up rule chooses where the fade ends. Found live from culture-rules: `lamp_fade_on` after a 1 % fade-out ramps only to 1 %.
+
+### Fixed
+
+- A fade-in no longer ends at a remembered 1 %: a remembered level of 1 counts as none (100), the same rule the instant turn-on already used, and a fade-out from 1 % keeps the earlier memory instead of storing 1.
+- The equivalent command for an on-with-brightness change is one `govee light on --brightness N`, not a separate `light on` and `light brightness N` (which ran as two fades).
+
 ## [0.11.0] - 2026-10-29
 
 ### Added
