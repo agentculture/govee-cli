@@ -22,6 +22,7 @@ EXPECTED = {
     "lamp_on": {},
     "lamp_fade_on": {"seconds": "int"},
     "lamp_fade_off": {"seconds": "int"},
+    "lamp_fade_on_to": {"pct": "int", "seconds": "int"},
     "lamp_off": {},
     "lamp_brightness": {"pct": "int"},
     "lamp_color": {"hex": "string"},

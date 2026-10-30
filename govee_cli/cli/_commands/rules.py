@@ -34,6 +34,11 @@ COMMANDS: dict[str, tuple[list[str], dict[str, str], int]] = {
     "lamp_scene": (["scene", "{name}"], {"name": "string"}, STEP_TIMEOUT),
     "lamp_fade_on": (["on", "--fade", "{seconds}"], {"seconds": "int"}, FADE_TIMEOUT),
     "lamp_fade_off": (["off", "--fade", "{seconds}"], {"seconds": "int"}, FADE_TIMEOUT),
+    "lamp_fade_on_to": (
+        ["on", "--brightness", "{pct}", "--fade", "{seconds}"],
+        {"pct": "int", "seconds": "int"},
+        FADE_TIMEOUT,
+    ),
 }
 
 

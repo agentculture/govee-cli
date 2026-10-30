@@ -184,11 +184,12 @@ _LIGHT_ON = """\
 # govee light on
 
 Turn the lamp on. Fades by default (`GOVEE_FADE_DEFAULT`, 5 s); `--fade 0`
-snaps. Dry run unless `--apply`.
+snaps. `--brightness N` (1-100) is the level to end on; without it the lamp
+comes back to the level the last fade-out remembered. Dry run unless `--apply`.
 
 ## Usage
 
-    govee light on [--device X] [--fade S] [--apply] [--json]
+    govee light on [--device X] [--brightness N] [--fade S] [--apply] [--json]
 """
 
 _LIGHT_OFF = """\
@@ -446,7 +447,7 @@ _RULES_ACTOR = """\
 
 Print the culture-rules `runner` actor definition for this machine: commands
 lamp_on, lamp_off, lamp_brightness, lamp_color, lamp_temp, lamp_scene,
-lamp_fade_on and lamp_fade_off, each running this `govee` binary (absolute
+lamp_fade_on, lamp_fade_off and lamp_fade_on_to, each running this `govee` binary (absolute
 path, since runner commands get only PATH=/usr/local/bin:/usr/bin:/bin) with
 `--source rules --apply --json`. Read-only: it changes nothing. Import it with
 `culture-rules actors create --body @actor.json` (dry run first).

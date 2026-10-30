@@ -55,7 +55,7 @@ live in culture-rules, not here: govee-cli has no timers of its own.
 | Verb | What it does |
 |------|--------------|
 | `devices [--refresh]` | List lamps found on the LAN and in the Govee account. |
-| `light on`, `light off` | Power. Fades by default (`GOVEE_FADE_DEFAULT`, 5 s); `--fade 0` snaps. |
+| `light on`, `light off` | Power. Fades by default (`GOVEE_FADE_DEFAULT`, 5 s); `--fade 0` snaps. `light on --brightness N` ends at that level. |
 | `light brightness N` | Brightness 1-100. |
 | `light color HEX` | RGB color, e.g. `FF6A2B`. |
 | `light temp K` | White color temperature, 2000-9000 K. |

@@ -18,7 +18,7 @@ from govee_cli.govee.service import Change, parse_hex_color
 EXIT_INTERRUPTED = 130
 
 _VERB_LINES = [
-    "light on|off [--fade S] — power (fades by default, 5 s)",
+    "light on|off [--fade S] — power (fades by default, 5 s); on takes --brightness N",
     "light brightness N — 1-100",
     "light color RRGGBB — hex colour",
     "light temp N — colour temperature in kelvin",
@@ -45,7 +45,7 @@ def _write(args: argparse.Namespace, change_fn, label: str) -> int:
 
 
 def cmd_on(args: argparse.Namespace) -> int:
-    return _write(args, lambda a: Change(on=True), "light on")
+    return _write(args, lambda a: Change(on=True, brightness=a.brightness), "light on")
 
 
 def cmd_off(args: argparse.Namespace) -> int:
@@ -186,7 +186,13 @@ def register(sub: argparse._SubParsersAction) -> None:
         sp.set_defaults(func=func)
         return sp
 
-    verb("on", cmd_on, "Turn on (fades by default).")
+    sp = verb("on", cmd_on, "Turn on (fades by default).")
+    sp.add_argument(
+        "--brightness",
+        type=int,
+        metavar="N",
+        help="Brightness 1-100 to end on (default: the level the last fade-out remembered).",
+    )
     verb("off", cmd_off, "Turn off (fades by default).")
     sp = verb("brightness", cmd_brightness, "Set brightness 1-100.")
     sp.add_argument("level", type=int, help="Brightness 1-100.")
