@@ -61,8 +61,9 @@ def test_hosts_from_env(monkeypatch):
 def test_invalid_hosts_raise_lan_error(bad, monkeypatch):
     monkeypatch.setenv("GOVEE_LAN_HOSTS", bad)
     with FakeLanDevice() as dev:
+        transport = _t(dev)
         with pytest.raises(LanError) as exc:
-            _t(dev).discover()
+            transport.discover()
     assert "GOVEE_LAN_HOSTS" in str(exc.value)
 
 
@@ -77,7 +78,8 @@ def test_cached_ip_finds_lamp_and_cache_is_0600(tmp_path):
     assert report["devices"][0]["method"] == "cache"
     assert stat.S_IMODE(os.stat(cache).st_mode) == 0o600
     data = json.loads(cache.read_text())
-    assert data[DEV_ID]["ip"] == LOOPBACK and data[DEV_ID]["sku"] == "H6008"
+    assert data[DEV_ID]["ip"] == LOOPBACK
+    assert data[DEV_ID]["sku"] == "H6008"
     assert data[DEV_ID]["seen"].startswith("20")
 
 
@@ -141,7 +143,10 @@ def test_cache_path_none_writes_nothing(tmp_path):
 
 def test_subnet_targets_slash24_and_cap():
     t = lan.subnet_targets("192.0.2.77")
-    assert len(t) == 253 and "192.0.2.77" not in t and "192.0.2.1" in t and "192.0.2.254" in t
+    assert len(t) == 253
+    assert "192.0.2.77" not in t
+    assert "192.0.2.1" in t
+    assert "192.0.2.254" in t
     wide = lan.subnet_targets("192.0.2.77", "255.255.0.0")
     assert wide == t
     narrow = lan.subnet_targets("192.0.2.77", "255.255.255.252")

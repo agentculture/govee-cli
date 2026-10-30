@@ -68,7 +68,9 @@ def test_lan_sample_written_and_interval_60():
     p = _lan_poller(LampState(on=True, brightness=40, color=(255, 106, 43)))
     assert p.sample_once() == 60
     (row,) = _rows()
-    assert row["ts"] == T0 and row["on"] == 1 and row["brightness"] == 40
+    assert row["ts"] == T0
+    assert row["on"] == 1
+    assert row["brightness"] == 40
     assert row["rgb"] == "[255, 106, 43]"  # the store's own encoding
 
 
@@ -77,7 +79,8 @@ def test_cloud_only_interval_300():
     p = Poller(LampService.direct(lan=FakeTransport([]), cloud=cloud), clock=Clock())
     assert p.sample_once() == 300
     (row,) = _rows()
-    assert row["kelvin"] == 3000 and row["rgb"] is None
+    assert row["kelvin"] == 3000
+    assert row["rgb"] is None
 
 
 def test_cloud_interval_never_below_300():
@@ -167,7 +170,8 @@ def test_run_loop_uses_interval_and_survives_errors():
     p = Poller(svc, clock=clock, wait=wait)
     p.run()
     assert svc.calls == 4
-    assert len(waits) == 4 and all(w > 0 for w in waits)
+    assert len(waits) == 4
+    assert all(w > 0 for w in waits)
     assert len(_rows()) == 2  # calls 3 and 4 (outcome repeats)
 
 
@@ -186,7 +190,8 @@ def test_start_stop_idempotent_and_prompt():
         time.sleep(0.01)
     assert len(_rows()) == 1
     threads = [t for t in threading.enumerate() if t.name == "govee-poller"]
-    assert len(threads) == 1 and threads[0].daemon
+    assert len(threads) == 1
+    assert threads[0].daemon
     t0 = time.time()
     p.stop()
     assert time.time() - t0 < 1

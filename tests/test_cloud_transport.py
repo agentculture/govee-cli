@@ -80,12 +80,13 @@ def test_is_transport(fake):
 
 def test_missing_key(fake, monkeypatch):
     monkeypatch.delenv("GOVEE_API_KEY", raising=False)
+    transport = _t(fake)
     with pytest.raises(MissingKey):
-        _t(fake).discover()
+        transport.discover()
     assert fake.requests == []
     monkeypatch.setenv("GOVEE_API_KEY", "")
     with pytest.raises(MissingKey):
-        _t(fake).discover()
+        transport.discover()
 
 
 def test_discover(fake, key):
@@ -128,7 +129,9 @@ def test_get_state(fake, key):
         },
     )
     st = _t(fake).get_state(DEV)
-    assert st.on is True and st.brightness == 42 and st.color == (1, 2, 3)
+    assert st.on is True
+    assert st.brightness == 42
+    assert st.color == (1, 2, 3)
     assert st.kelvin is None
     body = fake.requests[0][3]
     assert body["payload"] == {"sku": "H6008", "device": "AA:BB"}
@@ -176,14 +179,17 @@ def test_send_builders(fake, key):
         cap = fake.requests[-1][3]["payload"]["capability"]
         assert cap == {"type": typ, "instance": inst, "value": val}
     p = fake.requests[-1][3]["payload"]
-    assert p["sku"] == "H6008" and p["device"] == "AA:BB"
+    assert p["sku"] == "H6008"
+    assert p["device"] == "AA:BB"
 
 
 def test_send_rejects_non_cloud_command(fake, key):
     from govee_cli.govee.types import Command
 
+    transport = _t(fake)
+    command = Command("power", "lan", {})
     with pytest.raises(CloudError):
-        _t(fake).send(DEV, Command("power", "lan", {}))
+        transport.send(DEV, command)
 
 
 def test_send_api_error_code(fake, key):
@@ -235,20 +241,22 @@ def test_rate_limited_epoch_header(fake, key):
         {"API-RateLimit-Reset": "1800000000"},
         {"code": 429},
     )
+    transport = _t(fake)
     with pytest.raises(RateLimited) as ei:
-        _t(fake).discover()
+        transport.discover()
     assert ei.value.reset_at == datetime.fromtimestamp(1800000000, tz=timezone.utc)
 
 
 def test_rate_limited_retry_after_and_none(fake, key):
     fake.routes[("GET", "/router/api/v1/user/devices")] = (429, {"Retry-After": "30"}, {})
+    transport = _t(fake)
     with pytest.raises(RateLimited) as ei:
-        _t(fake).discover()
+        transport.discover()
     delta = (ei.value.reset_at - datetime.now(timezone.utc)).total_seconds()
     assert 20 < delta <= 31
     fake.routes[("GET", "/router/api/v1/user/devices")] = (429, {}, {})
     with pytest.raises(RateLimited) as ei:
-        _t(fake).discover()
+        transport.discover()
     assert ei.value.reset_at is None
 
 
@@ -261,14 +269,16 @@ def test_parse_reset_http_date_and_relative():
 @pytest.mark.parametrize("status", [401, 403])
 def test_unauthorized(fake, key, status):
     fake.routes[("GET", "/router/api/v1/user/devices")] = (status, {}, {})
+    transport = _t(fake)
     with pytest.raises(Unauthorized):
-        _t(fake).discover()
+        transport.discover()
 
 
 def test_5xx_and_network(fake, key):
     fake.routes[("GET", "/router/api/v1/user/devices")] = (503, {}, {})
+    transport = _t(fake)
     with pytest.raises(CloudUnavailable):
-        _t(fake).discover()
+        transport.discover()
     dead = CloudTransport(base_url="http://127.0.0.1:1/router/api/v1/", timeout=2)
     with pytest.raises(CloudUnavailable):
         dead.discover()
@@ -301,7 +311,8 @@ def test_key_never_leaks(fake, key, caplog):
         errors.append(e)
     assert len(errors) == 4
     for e in errors:
-        assert FAKE_KEY not in str(e) and FAKE_KEY not in repr(e)
+        assert FAKE_KEY not in str(e)
+        assert FAKE_KEY not in repr(e)
     assert FAKE_KEY not in caplog.text
     assert FAKE_KEY not in repr(t)
     try:
@@ -334,6 +345,7 @@ def test_get_state_tolerates_odd_brightness_values(fake, key, raw):
         },
     )
     st = _t(fake).get_state(DEV)
-    assert st is not None and 0 <= st.brightness <= 100
+    assert st is not None
+    assert 0 <= st.brightness <= 100
     if raw == "50":
         assert st.brightness == 50

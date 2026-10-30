@@ -9,7 +9,7 @@ from pathlib import Path
 
 from govee_cli.cli._commands.overview import emit_overview
 from govee_cli.cli._errors import EXIT_ENV_ERROR, EXIT_USER_ERROR, CliError
-from govee_cli.cli._output import emit_result
+from govee_cli.cli._output import JSON_HELP, emit_result
 
 DEFAULT_PORT = 8742
 
@@ -158,7 +158,7 @@ def cmd_overview(args: argparse.Namespace) -> int:
 
 def register(sub: argparse._SubParsersAction) -> None:
     p = sub.add_parser("token", help="Manage client tokens for 'govee serve'.")
-    p.add_argument("--json", action="store_true", help="Emit structured JSON.")
+    p.add_argument("--json", action="store_true", help=JSON_HELP)
     p.set_defaults(func=cmd_overview)
     tsub = p.add_subparsers(dest="token_command", parser_class=type(p))
 
@@ -168,19 +168,19 @@ def register(sub: argparse._SubParsersAction) -> None:
     n.add_argument(
         "--port", type=int, default=DEFAULT_PORT, help="Serve port for the pairing link."
     )
-    n.add_argument("--json", action="store_true", help="Emit structured JSON.")
+    n.add_argument("--json", action="store_true", help=JSON_HELP)
     n.set_defaults(func=cmd_new)
 
     ls = tsub.add_parser("list", help="List tokens (names and timestamps only).")
-    ls.add_argument("--json", action="store_true", help="Emit structured JSON.")
+    ls.add_argument("--json", action="store_true", help=JSON_HELP)
     ls.set_defaults(func=cmd_list)
 
     rv = tsub.add_parser("revoke", help="Revoke a token by name, or all of them.")
     rv.add_argument("name", nargs="?", help="Token name.")
     rv.add_argument("--all", action="store_true", help="Revoke every token.")
-    rv.add_argument("--json", action="store_true", help="Emit structured JSON.")
+    rv.add_argument("--json", action="store_true", help=JSON_HELP)
     rv.set_defaults(func=cmd_revoke)
 
     ov = tsub.add_parser("overview", help="Describe the token verbs.")
-    ov.add_argument("--json", action="store_true", help="Emit structured JSON.")
+    ov.add_argument("--json", action="store_true", help=JSON_HELP)
     ov.set_defaults(func=cmd_overview)

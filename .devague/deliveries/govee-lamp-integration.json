@@ -2,7 +2,7 @@
   "plan_slug": "govee-lamp-integration",
   "schema_version": 2,
   "created": "2026-10-29T06:46:31Z",
-  "updated": "2026-10-30T00:17:13Z",
+  "updated": "2026-10-30T00:30:50Z",
   "deviations": [
     {
       "id": "d1",
@@ -442,6 +442,19 @@
       "status": "approved",
       "classification": "acceptable",
       "seq": 59
+    },
+    {
+      "id": "d34",
+      "what": "A fade retries its start-state devStatus read once before planning; without a start state it must snap (d28), and one lost reply on serve's first command after a restart turned 'light on' into a snap",
+      "task_ref": "t14",
+      "reason": "found live while re-testing the Sonar refactor on the H6076: the first fade-on after restarting serve had 1 step; with the retry the same sequence ramps in 34 steps. Regression test tests/test_fade.py::test_fade_retries_a_lost_start_state_read_once fails without it",
+      "affects": [
+        "t7"
+      ],
+      "origin": "llm",
+      "status": "proposed",
+      "classification": "acceptable",
+      "seq": 60
     }
   ],
   "evidence": [

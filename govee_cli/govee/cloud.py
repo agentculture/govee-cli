@@ -185,7 +185,7 @@ class CloudTransport:
             if status >= 500:
                 raise CloudUnavailable(f"Govee API error (HTTP {status})") from None
             raise CloudError(f"Govee API request failed (HTTP {status})") from None
-        except (urllib.error.URLError, OSError) as e:
+        except OSError as e:
             raise CloudUnavailable(f"Govee API unreachable ({type(e).__name__})") from None
         try:
             parsed = json.loads(raw or b"{}")

@@ -1,4 +1,4 @@
-/* Layout: embodiment's sticky top bar + pill tabs over a single 72rem page rail;
+/* The layout is embodiment's sticky top bar + pill tabs over a single 72rem page rail;
    the lamp view is a two-column hero (the lamp itself | its controls), stats is
    embodiment's "Site state" pattern (tiles, then a chart grid with Table toggles).
    Tokens are embodiment/web/src/styles/app.css values, cited not imported. */
@@ -104,7 +104,7 @@ code, .mono { font-family: var(--mono); font-size: .85em; }
 .status-pill i { width: 8px; height: 8px; border-radius: 50%; background: var(--st, var(--muted)); box-shadow: 0 0 0 3px color-mix(in srgb, var(--st, var(--muted)) 22%, transparent); }
 .status-pill[data-state="ok"] { --st: var(--good); }
 .status-pill[data-state="bad"] { --st: var(--critical); }
-.seg { display: inline-flex; background: var(--well); padding: 3px; border-radius: 999px; }
+.seg { display: inline-flex; margin: 0; border: 0; background: var(--well); padding: 3px; border-radius: 999px; }
 .seg button { border: 0; background: transparent; border-radius: 999px; padding-block: .28rem; padding-inline: .8rem; font-size: .8125rem; font-weight: 700; color: var(--quiet); }
 .seg button[aria-pressed="true"] { background: var(--sheet); color: var(--ink); box-shadow: var(--shadow); }
 .seg button[data-mode="live"][aria-pressed="true"] { background: var(--warn-soft); color: var(--warn); }

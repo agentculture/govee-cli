@@ -204,41 +204,121 @@ class _Ramp:
 
     def build(self, ticks: int, interval: float) -> list[Step]:
         steps: list[Step] = [(0.0, list(self.first))] if self.first else []
-        last_b = self.brightness[0] if self.brightness else None
-        last_rgb = self.rgb[0] if self.rgb else None
-        last_k = self.kelvin[0] if self.kelvin else None
-        last_color_cmd: Optional[Command] = None
+        cursor = _RampCursor(self)
         for i in range(1, ticks + 1):
-            # Chosen with the user at the real lamp (deviation d32): brightness steps linearly,
-            # colour and temperature ease in and out on a sine.
-            f = i / ticks
-            eased = _ease(f)
-            cmds: list[Command] = []
-            if self.brightness:
-                b = int(round(_lerp(*self.brightness, f)))
-                if b != last_b:
-                    cmds.append(lan_mod.build_brightness(b))
-                    last_b = b
-            if self.rgb:
-                start, end = self.rgb
-                rgb = tuple(int(round(_lerp(s, e, eased))) for s, e in zip(start, end))
-                if rgb != last_rgb:
-                    last_color_cmd = lan_mod.build_color(rgb)  # type: ignore[arg-type]
-                    cmds.append(last_color_cmd)
-                    last_rgb = rgb  # type: ignore[assignment]
-            if self.kelvin:
-                k = _round_kelvin(_lerp(*self.kelvin, eased))
-                if k != last_k:
-                    last_color_cmd = lan_mod.build_kelvin(k)
-                    cmds.append(last_color_cmd)
-                    last_k = k
-            if i == ticks:
-                if self.exact is not None and self.exact != last_color_cmd:
-                    cmds.append(self.exact)
-                cmds.extend(self.last)
+            cmds = cursor.tick(i / ticks, final=i == ticks)
             if cmds:
                 steps.append((round(i * interval, 6), cmds))
         return steps
+
+
+class _RampCursor:
+    """The last values a :class:`_Ramp` emitted: each tick sends only what changed."""
+
+    def __init__(self, ramp: _Ramp) -> None:
+        self.ramp = ramp
+        self.brightness = ramp.brightness[0] if ramp.brightness else None
+        self.rgb = ramp.rgb[0] if ramp.rgb else None
+        self.kelvin = ramp.kelvin[0] if ramp.kelvin else None
+        self.color_cmd: Optional[Command] = None
+
+    def tick(self, f: float, *, final: bool) -> list[Command]:
+        # Chosen with the user at the real lamp (deviation d32): brightness steps linearly,
+        # colour and temperature ease in and out on a sine.
+        eased = _ease(f)
+        cmds: list[Command] = []
+        self._brightness_step(f, cmds)
+        self._rgb_step(eased, cmds)
+        self._kelvin_step(eased, cmds)
+        if final:
+            exact = self.ramp.exact
+            if exact is not None and exact != self.color_cmd:
+                cmds.append(exact)
+            cmds.extend(self.ramp.last)
+        return cmds
+
+    def _brightness_step(self, f: float, cmds: list[Command]) -> None:
+        if not self.ramp.brightness:
+            return
+        b = int(round(_lerp(*self.ramp.brightness, f)))
+        if b != self.brightness:
+            cmds.append(lan_mod.build_brightness(b))
+            self.brightness = b
+
+    def _rgb_step(self, eased: float, cmds: list[Command]) -> None:
+        if not self.ramp.rgb:
+            return
+        start, end = self.ramp.rgb
+        rgb = tuple(int(round(_lerp(s, e, eased))) for s, e in zip(start, end))
+        if rgb != self.rgb:
+            self.color_cmd = lan_mod.build_color(rgb)  # type: ignore[arg-type]
+            cmds.append(self.color_cmd)
+            self.rgb = rgb  # type: ignore[assignment]
+
+    def _kelvin_step(self, eased: float, cmds: list[Command]) -> None:
+        if not self.ramp.kelvin:
+            return
+        k = _round_kelvin(_lerp(*self.ramp.kelvin, eased))
+        if k != self.kelvin:
+            self.color_cmd = lan_mod.build_kelvin(k)
+            cmds.append(self.color_cmd)
+            self.kelvin = k
+
+
+def _plan_off(ramp: _Ramp, lit: Optional[LampState]) -> Optional[int]:
+    """Fade-out of a ``lit`` lamp (else an instant off); the brightness to remember."""
+    if lit is None:
+        ramp.first = [lan_mod.build_turn(False)]
+        return None
+    ramp.brightness = (lit.brightness, 1)
+    ramp.last = [lan_mod.build_turn(False)]
+    return lit.brightness
+
+
+def _plan_on(
+    ramp: _Ramp, start: Optional[LampState], change: Change, remembered: Optional[int]
+) -> Change:
+    """Fade-in of an off lamp; the state to verify at the end."""
+    # The lamp's own level wins; the level remembered from a fade-out only replaces the
+    # brightness 1 that the fade-out left behind.
+    target = change.brightness
+    if not target and start is not None and start.brightness > 1:
+        target = start.brightness
+    target = int(target or remembered or 100)
+    ramp.first = [lan_mod.build_brightness(1), lan_mod.build_turn(True)]
+    if change.color is not None:
+        ramp.first.append(lan_mod.build_color(change.color))
+    if change.kelvin is not None:
+        ramp.first.append(lan_mod.build_kelvin(change.kelvin))
+    ramp.brightness = (1, target)
+    return Change(on=True, brightness=target, color=change.color, kelvin=change.kelvin)
+
+
+def _plan_adjust(ramp: _Ramp, start: LampState, change: Change) -> None:
+    """Fade of a lit lamp: brightness, then temperature or colour."""
+    if change.brightness is not None:
+        ramp.brightness = (start.brightness, change.brightness)
+    if change.kelvin is not None and start.kelvin:
+        ramp.kelvin = (start.kelvin, change.kelvin)
+        ramp.exact = lan_mod.build_kelvin(change.kelvin)
+    elif change.kelvin is not None or change.color is not None:
+        _plan_rgb(ramp, start, change)
+
+
+def _plan_rgb(ramp: _Ramp, start: LampState, change: Change) -> None:
+    """Colour (or colour<->kelvin cross-fade) in RGB, ending with the exact target command."""
+    target_rgb = change.color or kelvin_to_rgb(int(change.kelvin or 0))
+    exact = (
+        lan_mod.build_color(change.color)
+        if change.color is not None
+        else lan_mod.build_kelvin(int(change.kelvin or 0))
+    )
+    begin = _start_rgb(start)
+    if begin is None:
+        ramp.first.append(exact)
+    else:
+        ramp.rgb = (begin, target_rgb)
+        ramp.exact = exact
 
 
 def plan_fade(
@@ -263,50 +343,16 @@ def plan_fade(
     lamp_on = start is not None and start.on
 
     if change.on is False:
-        if lamp_on and start is not None:
-            ramp.brightness = (start.brightness, 1)
-            ramp.last = [lan_mod.build_turn(False)]
-            remember = start.brightness
-        else:
-            ramp.first = [lan_mod.build_turn(False)]
+        remember = _plan_off(ramp, start if lamp_on else None)
         verify = Change(on=False)
     elif change.on is True and start is None:
         # The lamp could not be read: it may already be lit, so a dip to 1 % could be a visible
         # flash. Turn it on as asked, without a ramp.
         ramp.first = _instant(change)
     elif change.on is True and not lamp_on:
-        # The lamp's own level wins; the level remembered from a fade-out only replaces the
-        # brightness 1 that the fade-out left behind.
-        target = change.brightness
-        if not target and start is not None and start.brightness > 1:
-            target = start.brightness
-        target = int(target or remembered or 100)
-        ramp.first = [lan_mod.build_brightness(1), lan_mod.build_turn(True)]
-        if change.color is not None:
-            ramp.first.append(lan_mod.build_color(change.color))
-        if change.kelvin is not None:
-            ramp.first.append(lan_mod.build_kelvin(change.kelvin))
-        ramp.brightness = (1, target)
-        verify = Change(on=True, brightness=target, color=change.color, kelvin=change.kelvin)
+        verify = _plan_on(ramp, start, change, remembered)
     elif lamp_on and start is not None:
-        if change.brightness is not None:
-            ramp.brightness = (start.brightness, change.brightness)
-        if change.kelvin is not None and start.kelvin:
-            ramp.kelvin = (start.kelvin, change.kelvin)
-            ramp.exact = lan_mod.build_kelvin(change.kelvin)
-        elif change.kelvin is not None or change.color is not None:
-            target_rgb = change.color or kelvin_to_rgb(int(change.kelvin or 0))
-            exact = (
-                lan_mod.build_color(change.color)
-                if change.color is not None
-                else lan_mod.build_kelvin(int(change.kelvin or 0))
-            )
-            begin = _start_rgb(start)
-            if begin is None:
-                ramp.first.append(exact)
-            else:
-                ramp.rgb = (begin, target_rgb)
-                ramp.exact = exact
+        _plan_adjust(ramp, start, change)
     else:
         # Lamp off (or unknown) and not turning on: nothing visible to ramp; send it instantly.
         ramp.first = _instant(change)

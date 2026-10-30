@@ -152,6 +152,12 @@ class _InvalidParams(Exception):
     pass
 
 
+# Type labels for _check's "<name> must be <label>" errors.
+_A_BOOLEAN = "a boolean"
+_A_STRING = "a string"
+_AN_INTEGER = "an integer"
+
+
 def _check(args: dict, name: str, kind: Any, label: str) -> Any:
     if name not in args or args[name] is None:
         return None
@@ -164,12 +170,12 @@ def _check(args: dict, name: str, kind: Any, label: str) -> Any:
 
 
 def _tool_set_light(svc, a: dict) -> dict:
-    on = _check(a, "on", bool, "a boolean")
-    bri = _check(a, "brightness", int, "an integer")
-    color = _check(a, "color", str, "a string")
-    kelvin = _check(a, "kelvin", int, "an integer")
+    on = _check(a, "on", bool, _A_BOOLEAN)
+    bri = _check(a, "brightness", int, _AN_INTEGER)
+    color = _check(a, "color", str, _A_STRING)
+    kelvin = _check(a, "kelvin", int, _AN_INTEGER)
     fade = _check(a, "fade_seconds", (int, float), "a number")
-    apply = _check(a, "apply", bool, "a boolean") or False
+    apply = _check(a, "apply", bool, _A_BOOLEAN) or False
     change = Change(
         on=on,
         brightness=bri,
@@ -179,20 +185,20 @@ def _tool_set_light(svc, a: dict) -> dict:
     res = svc.apply(
         change,
         apply=apply,
-        device=_check(a, "device", str, "a string"),
+        device=_check(a, "device", str, _A_STRING),
         fade_seconds=fade,
     )
     return res.to_dict()
 
 
 def _tool_set_scene(svc, a: dict) -> dict:
-    name = _check(a, "name", str, "a string")
+    name = _check(a, "name", str, _A_STRING)
     if not name:
         raise _bad("name is required")
     res = svc.set_scene(
         name,
-        apply=_check(a, "apply", bool, "a boolean") or False,
-        device=_check(a, "device", str, "a string"),
+        apply=_check(a, "apply", bool, _A_BOOLEAN) or False,
+        device=_check(a, "device", str, _A_STRING),
     )
     return res.to_dict()
 
@@ -214,7 +220,7 @@ def _tool_get_stats(svc, a: dict) -> dict:
 
 
 def _device(a: dict) -> Optional[str]:
-    return _check(a, "device", str, "a string")
+    return _check(a, "device", str, _A_STRING)
 
 
 HANDLERS: dict[str, Callable[[Any, dict], dict]] = {

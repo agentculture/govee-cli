@@ -53,6 +53,7 @@ REQUEST_TIMEOUT = 30.0  # seconds a client may take to send its request
 BODY_TIMEOUT = 5.0  # seconds to receive a (<= 16 KiB) body; it is read before auth
 MAX_EVENTS = 200
 _MAX_FIELD = 128
+_USE_GET = "use GET"  # remediation for a 405
 
 log = logging.getLogger("govee_cli.web")
 
@@ -139,7 +140,7 @@ def map_exception(exc: BaseException) -> ApiError:
 
 Network = Union[ipaddress.IPv4Network, ipaddress.IPv6Network]
 ENV_TRUST = "GOVEE_TRUSTED_NETWORKS"  # comma-separated --trust values (for the systemd unit)
-TRUST_TAILSCALE = ("100.64.0.0/10", "fd7a:115c:a1e0::/48")  # Tailscale's address ranges
+TRUST_TAILSCALE = ("100.64.0.0/10", "fd7a:115c:a1e0::/48")  # NOSONAR - Tailscale's ranges
 
 
 def parse_trusted(specs: Iterable[str]) -> list[Network]:
@@ -150,29 +151,32 @@ def parse_trusted(specs: Iterable[str]) -> list[Network]:
     nets: list[Network] = []
     for raw in specs:
         for spec in (p.strip().lower() for p in str(raw).split(",")):
-            if not spec:
-                continue
-            if spec == "tailscale":
-                nets.extend(ipaddress.ip_network(n) for n in TRUST_TAILSCALE)
-                continue
-            if spec == "lan":
-                try:
-                    spec = f"{lan.default_route_ip()}/24"
-                except (OSError, lan.LanError) as exc:
-                    raise CliError(
-                        EXIT_ENV_ERROR,
-                        f"cannot find the LAN to trust ({exc})",
-                        "pass the network as a CIDR instead, e.g. --trust 192.168.1.0/24",
-                    ) from None
-            try:
-                nets.append(ipaddress.ip_network(spec, strict=False))
-            except ValueError:
-                raise CliError(
-                    EXIT_USER_ERROR,
-                    f"--trust {spec!r} is not a network",
-                    "use a CIDR such as 192.168.1.0/24, or the words lan or tailscale",
-                ) from None
+            if spec:
+                nets.extend(_parse_trust_spec(spec))
     return nets
+
+
+def _parse_trust_spec(spec: str) -> list[Network]:
+    """One non-empty, lower-cased ``--trust`` value as its network(s)."""
+    if spec == "tailscale":
+        return [ipaddress.ip_network(n) for n in TRUST_TAILSCALE]
+    if spec == "lan":
+        try:
+            spec = f"{lan.default_route_ip()}/24"
+        except (OSError, lan.LanError) as exc:
+            raise CliError(
+                EXIT_ENV_ERROR,
+                f"cannot find the LAN to trust ({exc})",
+                "pass the network as a CIDR instead, e.g. --trust 192.168.1.0/24",
+            ) from None
+    try:
+        return [ipaddress.ip_network(spec, strict=False)]
+    except ValueError:
+        raise CliError(
+            EXIT_USER_ERROR,
+            f"--trust {spec!r} is not a network",
+            "use a CIDR such as 192.168.1.0/24, or the words lan or tailscale",
+        ) from None
 
 
 def in_networks(address: str, nets: Iterable[Network]) -> bool:
@@ -443,7 +447,7 @@ class GoveeHandler(BaseHTTPRequestHandler):
             elif method == "GET":
                 self._static(path)
             else:
-                raise ApiError(405, "method_not_allowed", "only GET is allowed here", "use GET")
+                raise ApiError(405, "method_not_allowed", "only GET is allowed here", _USE_GET)
         except (BrokenPipeError, ConnectionResetError):
             self.close_connection = True
         except Exception as exc:  # noqa: BLE001 - nothing may leak a traceback
@@ -492,7 +496,7 @@ class GoveeHandler(BaseHTTPRequestHandler):
         self.connection.settimeout(BODY_TIMEOUT)
         try:
             data = self.rfile.read(length) if length else b""
-        except (TimeoutError, OSError):
+        except OSError:  # TimeoutError included
             data = b""
         finally:
             self.connection.settimeout(self.timeout)
@@ -510,7 +514,7 @@ class GoveeHandler(BaseHTTPRequestHandler):
             return {}
         try:
             body = json.loads(raw.decode("utf-8"))
-        except (ValueError, UnicodeDecodeError, RecursionError):
+        except (ValueError, RecursionError):  # UnicodeDecodeError is a ValueError
             raise _bad("request body is not valid JSON") from None
         if not isinstance(body, dict):
             raise _bad("request body must be a JSON object")
@@ -582,7 +586,7 @@ class GoveeHandler(BaseHTTPRequestHandler):
         if path == HEALTH_PATH:
             self._log_path = HEALTH_PATH
             if method != "GET":
-                raise ApiError(405, "method_not_allowed", "use GET", "use GET")
+                raise ApiError(405, "method_not_allowed", _USE_GET, _USE_GET)
             self._send_json(200, {"ok": True, "service": SERVICE_NAME})
             return
         token_name = self._authenticate()

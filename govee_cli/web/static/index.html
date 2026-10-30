@@ -14,7 +14,7 @@
 <body>
 
 <!-- ================= BOOT (while the first /api/state call is in flight) ================= -->
-<div class="boot" id="boot" role="status">Connecting to the lamp console&#x2026;</div>
+<output class="boot" id="boot">Connecting to the lamp console&#x2026;</output>
 
 <!-- ================= PAIRING (no token, or any 401) ================= -->
 <section class="gate" id="gate" hidden aria-labelledby="gateTitle">
@@ -47,10 +47,10 @@
   </nav>
   <div class="actions">
     <span class="status-pill" id="statusPill" data-state="unknown"><i aria-hidden="true"></i><span id="statusText">Checking the lamp</span></span>
-    <div class="seg" role="group" aria-label="Write mode">
+    <fieldset class="seg" aria-label="Write mode">
       <button type="button" data-mode="dry" aria-pressed="true">Dry run</button>
       <button type="button" data-mode="live" aria-pressed="false">Live</button>
-    </div>
+    </fieldset>
   </div>
 </header>
 
@@ -90,9 +90,9 @@
             <option value="300">5 min</option>
             <option value="1200">20 min</option>
           </select>
-          <div class="fade-bar" id="fadeBar" role="status" hidden>
+          <div class="fade-bar" id="fadeBar" hidden>
             <div class="fade-bar-head">
-              <span class="fade-text" id="fadeText">Fading</span>
+              <output class="fade-text" id="fadeText">Fading</output>
               <button type="button" class="btn" id="fadeStop">Stop fade</button>
             </div>
             <progress id="fadeProgress" max="1" value="0" aria-label="Fade progress"></progress>
@@ -219,6 +219,6 @@
 </div>
 
 <div class="tip" id="tip" hidden></div>
-<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<output class="toast" id="toast" aria-live="polite"></output>
 </body>
 </html>

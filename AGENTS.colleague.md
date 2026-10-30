@@ -62,4 +62,6 @@ you need more context than this file gives.
 - Tests must never reach the real network or lamp: `tests/conftest.py` blocks
   it. Use fake `lan=`/`cloud=` transports.
 - Every PR bumps the version (`version-bump` skill); CI's `version-check` job
-  blocks merge otherwise.
+  blocks merge otherwise. SonarCloud must also show no unresolved issue on the PR
+  (`scripts/sonar-pr-issues.py`): fix each one, or accept it in SonarCloud with a
+  reason; accepted and false-positive issues pass.

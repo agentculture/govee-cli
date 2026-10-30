@@ -24,7 +24,7 @@ class FakeTransport:
     def discover(self) -> list[Device]:
         return list(self.devices)
 
-    def get_state(self, device: Device) -> Optional[LampState]:
+    def get_state(self, _device: Device) -> Optional[LampState]:
         return self.state
 
     def send(self, device: Device, command: Command) -> bool:

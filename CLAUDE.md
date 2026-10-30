@@ -229,6 +229,10 @@ optional and only needed when `ask-colleague` runs.
 - **PRs** go through the `cicd` skill (`devex pr` + SonarCloud gating; the
   project key is `agentculture_govee-cli`). The `cicd`/`communicate` scripts
   sign posts as `- govee-cli (Claude)`, resolving the nick from `culture.yaml`.
+  The quality gate passes code smells, so the CI `test` job also runs
+  `scripts/sonar-pr-issues.py` (cited from culture-rules): it fails while the
+  PR has any OPEN or CONFIRMED SonarCloud issue. Fix each one, or accept it
+  in SonarCloud with a reason; accepted and false-positive issues pass.
 - **Deploy:** a push to `main` that touches `pyproject.toml` or `govee_cli/**`
   publishes to PyPI via Trusted Publishing (`.github/workflows/publish.yml`).
   Same-repo PRs publish a `.devN` build to TestPyPI. The `pypi`/`testpypi`

@@ -291,7 +291,7 @@ def commands_by_source(
     now = _local(now, tz)
     starts = _day_starts(days, now)
     out = [
-        {"date": d.strftime("%Y-%m-%d"), **{s: 0 for s in ("cli", "web", "mcp", "rules")}}
+        {"date": d.strftime("%Y-%m-%d"), **dict.fromkeys(("cli", "web", "mcp", "rules"), 0)}
         for d in starts
     ]
     conn = connect()

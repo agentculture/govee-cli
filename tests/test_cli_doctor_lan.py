@@ -40,7 +40,9 @@ def test_all_checks_present(capsys, scan):
     ids = {c["id"] for c in rep["checks"]}
     assert {"lan-interface", "lan-discovery", "api-key-present", "stats-db-writable"} <= ids
     disc = check(rep, "lan-discovery")
-    assert disc["passed"] and "cache" in disc["message"] and "multicast" in disc["message"]
+    assert disc["passed"]
+    assert "cache" in disc["message"]
+    assert "multicast" in disc["message"]
 
 
 def test_lan_discovery_failure_remediation(capsys, scan):
@@ -60,7 +62,8 @@ def test_lan_interface_error(capsys, monkeypatch, scan):
     monkeypatch.setattr(doctor_mod, "_interface_info", boom)
     _, rep = report(capsys)
     c = check(rep, "lan-interface")
-    assert not c["passed"] and "GOVEE_LAN_INTERFACE" in c["remediation"]
+    assert not c["passed"]
+    assert "GOVEE_LAN_INTERFACE" in c["remediation"]
 
 
 def test_api_key_never_printed(capsys, monkeypatch, scan):
@@ -115,9 +118,9 @@ def test_discovery_asks_govee_serve_when_it_runs(capsys, monkeypatch, scan):
     monkeypatch.setattr(doctor_mod, "_lan_scan", lambda: (_ for _ in ()).throw(AssertionError))
     rc, rep = report(capsys)
     disc = check(rep, "lan-discovery")
-    assert (
-        disc["passed"] and "through govee serve" in disc["message"] and "Floor" in disc["message"]
-    )
+    assert disc["passed"]
+    assert "through govee serve" in disc["message"]
+    assert "Floor" in disc["message"]
 
 
 def test_discovery_through_serve_reports_a_missing_token(capsys, monkeypatch, scan):
@@ -132,5 +135,6 @@ def test_discovery_through_serve_reports_a_missing_token(capsys, monkeypatch, sc
     monkeypatch.setattr(service_mod.LampService, "connect", classmethod(no_token))
     rc, rep = report(capsys)
     disc = check(rep, "lan-discovery")
-    assert not disc["passed"] and "no token" in disc["message"]
+    assert not disc["passed"]
+    assert "no token" in disc["message"]
     assert disc["remediation"] == "govee token new"

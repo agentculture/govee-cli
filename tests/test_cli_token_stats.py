@@ -26,9 +26,11 @@ def _no_route(monkeypatch):
 
 def test_token_new_prints_secret_and_link(capsys):
     rc, out, err = run(capsys, "token", "new", "--name", "laptop", "--json")
-    assert rc == 0 and err == ""
+    assert rc == 0
+    assert err == ""
     payload = json.loads(out)
-    assert payload["name"] == "laptop" and payload["secret"]
+    assert payload["name"] == "laptop"
+    assert payload["secret"]
     assert payload["pairing_link"] == tokens.pairing_link(payload["secret"], "192.0.2.5", 8742)
     assert payload["saved_to"] is None
     assert tokens.verify(payload["secret"]) == "laptop"
@@ -36,7 +38,8 @@ def test_token_new_prints_secret_and_link(capsys):
 
 def test_token_new_text_prints_once(capsys):
     rc, out, _ = run(capsys, "token", "new", "--name", "a", "--port", "9000")
-    assert rc == 0 and ":9000/#" in out
+    assert rc == 0
+    assert ":9000/#" in out
 
 
 def test_token_new_save_mode_0600(capsys):
@@ -52,25 +55,31 @@ def test_token_new_save_mode_0600(capsys):
 def test_token_duplicate_name_is_user_error(capsys):
     run(capsys, "token", "new", "--name", "x")
     rc, out, err = run(capsys, "token", "new", "--name", "x")
-    assert rc == 1 and "hint:" in err and out == ""
+    assert rc == 1
+    assert "hint:" in err
+    assert out == ""
 
 
 def test_token_list_never_shows_secrets(capsys):
     _, out, _ = run(capsys, "token", "new", "--name", "x", "--json")
     secret = json.loads(out)["secret"]
     rc, out, _ = run(capsys, "token", "list", "--json")
-    assert rc == 0 and secret not in out
+    assert rc == 0
+    assert secret not in out
     assert json.loads(out)["tokens"][0]["name"] == "x"
     rc, out, _ = run(capsys, "token", "list")
-    assert "x" in out and secret not in out
+    assert "x" in out
+    assert secret not in out
 
 
 def test_token_revoke(capsys):
     run(capsys, "token", "new", "--name", "x")
     rc, out, _ = run(capsys, "token", "revoke", "x", "--json")
-    assert rc == 0 and json.loads(out) == {"revoked": ["x"]}
+    assert rc == 0
+    assert json.loads(out) == {"revoked": ["x"]}
     rc, _, err = run(capsys, "token", "revoke", "x")
-    assert rc == 1 and "hint:" in err
+    assert rc == 1
+    assert "hint:" in err
 
 
 def test_token_revoke_all(capsys):
@@ -84,7 +93,8 @@ def test_token_revoke_all(capsys):
 
 def test_token_overview(capsys):
     rc, out, _ = run(capsys, "token", "overview")
-    assert rc == 0 and "token" in out
+    assert rc == 0
+    assert "token" in out
 
 
 def test_stats_json_and_text(capsys):
@@ -95,7 +105,8 @@ def test_stats_json_and_text(capsys):
     assert {"on_today_h", "on_week_h", "commands_7d", "agent_commands_7d"} <= set(payload["tiles"])
     assert payload["recent_events"]
     rc, out, _ = run(capsys, "stats")
-    assert rc == 0 and "commands" in out
+    assert rc == 0
+    assert "commands" in out
 
 
 def test_stats_cli_and_mcp_count_local_days_like_the_console(monkeypatch, capsys):
@@ -110,4 +121,5 @@ def test_stats_cli_and_mcp_count_local_days_like_the_console(monkeypatch, capsys
     assert main(["stats", "--json"]) == 0
     capsys.readouterr()
     mcp_server._tool_get_stats(None, {})
-    assert zones and all(isinstance(z, store.LocalTimezone) for z in zones)
+    assert zones
+    assert all(isinstance(z, store.LocalTimezone) for z in zones)

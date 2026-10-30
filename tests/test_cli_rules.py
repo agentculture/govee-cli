@@ -19,7 +19,8 @@ def test_actor_uses_the_given_binary_and_machine(capsys):
     rc, out, _ = run(capsys, "rules", "actor", "--bin", "/opt/govee/bin/govee", "--machine", "thor")
     assert rc == 0
     actor = json.loads(out)
-    assert actor["machine"] == "thor" and actor["id"] == "thor-govee"
+    assert actor["machine"] == "thor"
+    assert actor["id"] == "thor-govee"
     argv = actor["params"]["commands"]["lamp_color"]["argv"]
     assert argv[0] == "/opt/govee/bin/govee"
     assert argv[1:] == ["light", "color", "{hex}", "--source", "rules", "--apply", "--json"]
@@ -39,7 +40,8 @@ def test_actor_defaults_to_the_govee_on_path(capsys, monkeypatch, tmp_path):
 def test_actor_refuses_a_relative_binary(capsys):
     rc, _, err = run(capsys, "rules", "actor", "--bin", "govee")
     assert rc == 1
-    assert "absolute" in err and "hint:" in err
+    assert "absolute" in err
+    assert "hint:" in err
 
 
 def test_actor_without_any_govee_binary_is_a_user_error(capsys, monkeypatch, tmp_path):
@@ -53,4 +55,5 @@ def test_actor_without_any_govee_binary_is_a_user_error(capsys, monkeypatch, tmp
 @pytest.mark.parametrize("argv", [["rules"], ["rules", "overview"], ["explain", "rules", "actor"]])
 def test_rules_noun_is_described(capsys, argv):
     rc, out, _ = run(capsys, *argv)
-    assert rc == 0 and "rules actor" in out
+    assert rc == 0
+    assert "rules actor" in out

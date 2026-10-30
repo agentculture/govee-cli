@@ -56,6 +56,23 @@ def fade_preview(result: ApplyResult) -> dict[str, Any] | None:
     return {"first": steps[0], "last": steps[-1]}
 
 
+def _render_fade(fade: dict[str, Any], preview: dict[str, Any] | None) -> list[str]:
+    lines = [
+        f"fade: {fade['seconds']:g} s, {fade['steps']} steps, interval {fade['interval_ms']} ms"
+    ]
+    if preview is not None:
+        for key in ("first", "last"):
+            step = preview[key]
+            cmds = "; ".join(_fmt_command(c) for c in step["commands"]) or "(none)"
+            lines.append(f"  {key} step (+{step['at']:g} s): {cmds}")
+    return lines
+
+
+def _render_commands(commands: list[dict[str, Any]], *, applied: bool) -> list[str]:
+    verb = "sent" if applied else "would send"
+    return [f"{verb}:"] + [f"  {_fmt_command(c)}" for c in commands]
+
+
 def render_apply(result: ApplyResult, *, label: str) -> str:
     data = result.to_dict()
     lines = []
@@ -63,22 +80,10 @@ def render_apply(result: ApplyResult, *, label: str) -> str:
         lines.append(f"applied: {label} (status: {result.status})")
     else:
         lines.append(f"dry run: {label} (nothing sent)")
-    fade = data["fade"]
-    preview = fade_preview(result)
-    if fade is not None:
-        lines.append(
-            f"fade: {fade['seconds']:g} s, {fade['steps']} steps, interval {fade['interval_ms']} ms"
-        )
-        if preview is not None:
-            for key in ("first", "last"):
-                step = preview[key]
-                cmds = "; ".join(_fmt_command(c) for c in step["commands"]) or "(none)"
-                lines.append(f"  {key} step (+{step['at']:g} s): {cmds}")
+    if data["fade"] is not None:
+        lines.extend(_render_fade(data["fade"], fade_preview(result)))
     else:
-        verb = "sent" if result.applied else "would send"
-        lines.append(f"{verb}:")
-        for c in data["commands"]:
-            lines.append(f"  {_fmt_command(c)}")
+        lines.extend(_render_commands(data["commands"], applied=result.applied))
     if not result.applied and data["cli"]:
         lines.append("to send, re-run with --apply:")
         for line in data["cli"]:

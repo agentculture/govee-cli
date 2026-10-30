@@ -7,9 +7,18 @@
 
   // ---------- helpers ----------
   const $ = (s, r = document) => r.querySelector(s);
-  const el = (tag, attrs = {}, html = "") => { const e = document.createElement(tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (html) e.innerHTML = html; return e; };
+  const el = (tag, attrs = {}, html = "") => {
+    const e = document.createElement(tag);
+    for (const k in attrs) e.setAttribute(k, attrs[k]);
+    if (html) e.innerHTML = html;
+    return e;
+  };
   const NS = "http://www.w3.org/2000/svg";
-  const sv = (tag, attrs = {}) => { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); return e; };
+  const sv = (tag, attrs = {}) => {
+    const e = document.createElementNS(NS, tag);
+    for (const k in attrs) e.setAttribute(k, attrs[k]);
+    return e;
+  };
   const esc = v => String(v == null ? "" : v).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const hex = (r, g, b) => "#" + [r, g, b].map(v => Math.round(v).toString(16).padStart(2, "0")).join("").toUpperCase();
   const HEX_RE = /^#[0-9A-Fa-f]{6}$/;
@@ -20,7 +29,9 @@
     const t = k / 100; let r, g, b;
     r = t <= 66 ? 255 : 329.698727446 * Math.pow(t - 60, -0.1332047592);
     g = t <= 66 ? 99.4708025861 * Math.log(t) - 161.1195681661 : 288.1221695283 * Math.pow(t - 60, -0.0755148492);
-    b = t >= 66 ? 255 : t <= 19 ? 0 : 138.5177312231 * Math.log(t - 10) - 305.0447927307;
+    if (t >= 66) b = 255;
+    else if (t <= 19) b = 0;
+    else b = 138.5177312231 * Math.log(t - 10) - 305.0447927307;
     const c = v => Math.max(0, Math.min(255, v));
     return hex(c(r), c(g), c(b));
   }
@@ -34,7 +45,7 @@
   const TOKEN_RE = /^[A-Za-z0-9_-]{16,128}$/;
   const validToken = v => typeof v === "string" && TOKEN_RE.test(v);
   const store = {
-    get() { try { const v = localStorage.getItem(TOKEN_KEY) || ""; return validToken(v) ? v : ""; } catch (e) { return ""; } },
+    get() { try { const v = localStorage.getItem(TOKEN_KEY) || ""; return validToken(v) ? v : ""; } catch (e) { return ""; /* storage blocked (private mode): treat as unpaired */ } },
     set(v) {
       if (!validToken(v)) {
         return false;
@@ -61,7 +72,7 @@
   class Unauthorized extends Error {}
   class ApiError extends Error {
     constructor(status, body) {
-      const e = (body && body.error) || {};
+      const e = body?.error || {};
       super(e.message || `Request failed (HTTP ${status})`);
       this.status = status; this.code = e.code || "http_" + status; this.remediation = e.remediation || "";
     }
@@ -88,7 +99,10 @@
     if (!res.ok) throw new ApiError(res.status, data);
     return data || {};
   }
-  const errText = e => (e instanceof ApiError ? e.message + (e.remediation ? " " + e.remediation : "") : "Cannot reach govee serve.");
+  function errText(e) {
+    if (!(e instanceof ApiError)) return "Cannot reach govee serve.";
+    return e.remediation ? e.message + " " + e.remediation : e.message;
+  }
 
   // ---------- screens ----------
   let started = false;
@@ -109,10 +123,10 @@
   });
 
   // ---------- routing ----------
-  const views = ["lamp", "stats", "agents"];
+  const views = new Set(["lamp", "stats", "agents"]);
   let view = "lamp";
   function route() {
-    view = views.includes(location.hash.slice(1)) ? location.hash.slice(1) : "lamp";
+    view = views.has(location.hash.slice(1)) ? location.hash.slice(1) : "lamp";
     document.querySelectorAll("[data-view-panel]").forEach(p => { p.hidden = p.dataset.viewPanel !== view; });
     document.querySelectorAll(".tabs a").forEach(a => (a.dataset.view === view ? a.setAttribute("aria-current", "page") : a.removeAttribute("aria-current")));
     if (view === "stats") void loadStats();
@@ -135,7 +149,12 @@
 
   const sceneName = id => { const s = scenes.find(x => x.id === id || x.name === id); return s ? s.name : String(id); };
   const lampColor = s => (s.mode === "white" ? kelvin(s.temp) : s.color);
-  const describe = s => (!s.on ? "off" : `${s.bright}% ${DOT} ${s.scene ? sceneName(s.scene) + " scene" : s.mode === "white" ? s.temp + " K" : s.color}`);
+  // The colour part of a state in words: its scene, its white temperature, or its hex color.
+  const shade = s => {
+    if (s.scene) return sceneName(s.scene) + " scene";
+    return s.mode === "white" ? s.temp + " K" : s.color;
+  };
+  const describe = s => (s.on ? `${s.bright}% ${DOT} ${shade(s)}` : "off");
 
   function fromState(st) {
     device = st.device || device; reachable = !!st.reachable;
@@ -154,15 +173,7 @@
 
   // The writes needed to move the lamp from `actual` to `target`, as API requests.
   function requests(apply) {
-    const out = [], light = {};
-    if (target.on !== actual.on) light.on = target.on;
-    if (target.on) {
-      if (target.bright !== actual.bright) light.brightness = target.bright;
-      if (!target.scene) {
-        if (target.mode === "color" && (target.color !== actual.color || actual.mode !== "color" || actual.scene)) light.color = target.color;
-        if (target.mode === "white" && (target.temp !== actual.temp || actual.mode !== "white" || actual.scene)) light.kelvin = target.temp;
-      }
-    }
+    const out = [], light = lightChanges();
     // Fade (approved deviation d11): "" leaves it to the server (on/off fade by its default).
     const fade = $("#fade").value;
     if (Object.keys(light).length && fade !== "") light.fade_seconds = Number(fade);
@@ -170,7 +181,17 @@
     if (target.on && target.scene && target.scene !== actual.scene) out.push({ path: "/api/scene", body: { scene: target.scene, apply } });
     return out;
   }
-  const reqKey = () => JSON.stringify(requests(false));
+  // The /api/light fields that differ between `actual` and `target` (fade not included).
+  function lightChanges() {
+    const light = {};
+    if (target.on !== actual.on) light.on = target.on;
+    if (!target.on) return light;
+    if (target.bright !== actual.bright) light.brightness = target.bright;
+    if (target.scene) return light;
+    if (target.mode === "color" && (target.color !== actual.color || actual.mode !== "color" || actual.scene)) light.color = target.color;
+    if (target.mode === "white" && (target.temp !== actual.temp || actual.mode !== "white" || actual.scene)) light.kelvin = target.temp;
+    return light;
+  }
 
   async function post(reqs) {
     const commands = [], cli = []; const statuses = []; const warnings = []; let fade = null;
@@ -184,7 +205,13 @@
     }
     return { commands, cli, statuses, warnings, fade };
   }
-  const fmtSec = s => { s = Math.max(0, num(s)); return s < 60 ? `${+s.toFixed(1)} s` : s < 3600 ? `${Math.floor(s / 60)} min${s % 60 >= 1 ? " " + Math.round(s % 60) + " s" : ""}` : `${+(s / 3600).toFixed(1)} h`; };
+  function fmtSec(v) {
+    const s = Math.max(0, num(v));
+    if (s < 60) return `${+s.toFixed(1)} s`;
+    if (s >= 3600) return `${+(s / 3600).toFixed(1)} h`;
+    const rest = s % 60 >= 1 ? " " + Math.round(s % 60) + " s" : "";
+    return `${Math.floor(s / 60)} min${rest}`;
+  }
   const STATUS_TEXT = { dry_run: "dry run, not sent", sent: "sent", confirmed: "confirmed by the lamp", unconfirmed: "sent, not confirmed" };
   function statusToast(statuses) {
     const rank = ["unconfirmed", "sent", "confirmed", "dry_run"];
@@ -248,9 +275,9 @@
     stage.style.setProperty("--lamp-css", c);
     stage.style.setProperty("--glow", target.on ? (0.25 + target.bright / 100 * 0.75).toFixed(2) : 0);
     $("#lamp").dataset.on = target.on;
-    $("#lampName").textContent = (device && device.name) || "Lamp";
+    $("#lampName").textContent = device?.name || "Lamp";
     $("#readout").innerHTML = target.on
-      ? `<span>On</span><span>${target.bright}%</span><span>${esc(target.scene ? sceneName(target.scene) + " scene" : target.mode === "white" ? target.temp + " K" : target.color)}</span>`
+      ? `<span>On</span><span>${target.bright}%</span><span>${esc(shade(target))}</span>`
       : "<span>Off</span>";
     const reqs = requests(false); const dirty = reqs.length > 0;
     const diff = $("#lampDiff");
@@ -266,45 +293,74 @@
     document.querySelectorAll("#scenes .chip").forEach(s => s.setAttribute("aria-pressed", s.dataset.s === target.scene));
     const cc = $("#customColor"); if (cc && document.activeElement !== cc && HEX_RE.test(target.color)) cc.value = target.color.toLowerCase();
 
-    // status pill + device line
-    const pill = $("#statusPill");
-    pill.dataset.state = reachable ? "ok" : "bad";
-    const tname = device ? (device.transport === "lan" ? "LAN" : "cloud") : "";
-    $("#statusText").textContent = device ? `${device.name || device.id} ${DOT} ${tname} ${reachable ? "reachable" : "unreachable"}` : "No lamp";
-    $("#deviceSub").textContent = device ? `${device.model || "Govee lamp"} ${DOT} ${device.transport === "lan" ? "LAN on UDP 4003, cloud as fallback" : "Govee cloud API"}` : DASH;
-    const note = $("#lampNotice");
-    note.hidden = reachable || !device;
-    note.textContent = device && !reachable ? `${device.name || "The lamp"} is not answering right now. The state shown is the last one govee serve saw.` : "";
+    renderStatus();
 
     // what will be sent
+    const current = plan?.key === JSON.stringify(reqs) ? plan : null;
+    renderWire(dirty, current);
+    renderSend(mode === "dry" && current?.commands, current, dirty);
+  }
+
+  // status pill + device line
+  function renderStatus() {
+    $("#statusPill").dataset.state = reachable ? "ok" : "bad";
+    const note = $("#lampNotice");
+    note.hidden = reachable || !device;
+    if (!device) {
+      $("#statusText").textContent = "No lamp";
+      $("#deviceSub").textContent = DASH;
+      note.textContent = "";
+      return;
+    }
+    const lan = device.transport === "lan";
+    $("#statusText").textContent = `${device.name || device.id} ${DOT} ${lan ? "LAN" : "cloud"} ${reachable ? "reachable" : "unreachable"}`;
+    $("#deviceSub").textContent = `${device.model || "Govee lamp"} ${DOT} ${lan ? "LAN on UDP 4003, cloud as fallback" : "Govee cloud API"}`;
+    note.textContent = reachable ? "" : `${device.name || "The lamp"} is not answering right now. The state shown is the last one govee serve saw.`;
+  }
+
+  // The placeholder line of the "what will be sent" panel, or null when there is a plan to show.
+  function wireHint(dirty, current) {
+    if (!dirty) return mode === "dry" ? "No changes yet. Adjust the lamp above to see the exact commands." : "Live: changes are sent as you make them.";
+    if (mode === "live") return busy ? "Sending" + ELL : "Release to send.";
+    if (!current) return "Release to see the exact commands.";
+    if (current.pending) return "Asking govee serve what it would send" + ELL;
+    return null;
+  }
+  function renderWire(dirty, current) {
     const wire = $("#wire"); wire.innerHTML = "";
-    const current = plan && plan.key === JSON.stringify(reqs) ? plan : null;
-    const ready = mode === "dry" && current && current.commands;
-    if (!dirty) wire.append(el("div", { class: "wire-empty" }, mode === "dry" ? "No changes yet. Adjust the lamp above to see the exact commands." : "Live: changes are sent as you make them."));
-    else if (mode === "live") wire.append(el("div", { class: "wire-empty" }, busy ? "Sending" + ELL : "Release to send."));
-    else if (!current || current.pending) wire.append(el("div", { class: "wire-empty" }, current ? "Asking govee serve what it would send" + ELL : "Release to see the exact commands."));
+    const hint = wireHint(dirty, current);
+    if (hint) wire.append(el("div", { class: "wire-empty" }, hint));
     else if (current.error) wire.append(el("div", { class: "wire-error", role: "alert" }, esc(current.error)));
     else if (!current.commands.length) wire.append(el("div", { class: "wire-empty" }, "govee serve would send nothing for this change."));
-    else {
-      const wireItem = cm => {
-        const it = el("div", { class: "wire-item" });
-        const where = cm.transport === "lan" ? `LAN ${DOT} UDP 4003` : `Cloud ${DOT} Govee Developer API`;
-        it.append(el("div", { class: "wire-meta" }, `<span>${esc(cm.verb)}</span><span>${where}</span>`));
-        const pre = el("pre"); pre.textContent = JSON.stringify(cm.payload); it.append(pre); wire.append(it);
-      };
-      (current.warnings || []).forEach(w => wire.append(el("div", { class: "wire-warn", role: "note" }, esc(w))));
-      const f = current.fade; const cmds = current.commands;
-      if (f) wire.append(el("div", { class: "wire-fade" }, `<b>Fade over ${esc(fmtSec(f.seconds))}</b><span>${esc(num(f.steps))} steps, at most one every ${esc(num(f.interval_ms))} ms</span>`));
-      if (f && cmds.length > 6) {
-        cmds.slice(0, 3).forEach(wireItem);
-        wire.append(el("div", { class: "wire-more" }, `${ELL} ${cmds.length - 5} more commands ${ELL}`));
-        cmds.slice(-2).forEach(wireItem);
-      } else cmds.forEach(wireItem);
-    }
+    else renderCommands(wire, current);
+  }
+  function wireItem(wire, cm) {
+    const it = el("div", { class: "wire-item" });
+    const where = cm.transport === "lan" ? `LAN ${DOT} UDP 4003` : `Cloud ${DOT} Govee Developer API`;
+    it.append(el("div", { class: "wire-meta" }, `<span>${esc(cm.verb)}</span><span>${where}</span>`));
+    const pre = el("pre"); pre.textContent = JSON.stringify(cm.payload); it.append(pre); wire.append(it);
+  }
+  function renderCommands(wire, current) {
+    const item = cm => wireItem(wire, cm);
+    (current.warnings || []).forEach(w => wire.append(el("div", { class: "wire-warn", role: "note" }, esc(w))));
+    const f = current.fade; const cmds = current.commands;
+    if (f) wire.append(el("div", { class: "wire-fade" }, `<b>Fade over ${esc(fmtSec(f.seconds))}</b><span>${esc(num(f.steps))} steps, at most one every ${esc(num(f.interval_ms))} ms</span>`));
+    if (f && cmds.length > 6) {
+      cmds.slice(0, 3).forEach(item);
+      wire.append(el("div", { class: "wire-more" }, `${ELL} ${cmds.length - 5} more commands ${ELL}`));
+      cmds.slice(-2).forEach(item);
+    } else cmds.forEach(item);
+  }
+
+  // CLI equivalent, Send / Discard buttons and the mode badge.
+  function renderSend(ready, current, dirty) {
     $("#cliEquiv").innerHTML = ready && current.cli.length ? "Same as: " + current.cli.map(x => `<code>${esc(x)}</code>`).join(" ") : "";
     const n = ready ? current.commands.length : 0;
     $("#sendBtn").disabled = !ready || busy; $("#discardBtn").disabled = !dirty || busy;
-    $("#sendBtn").textContent = busy ? "Sending" + ELL : n > 1 ? `Send ${n} commands` : "Send to lamp";
+    let label = "Send to lamp";
+    if (busy) label = "Sending" + ELL;
+    else if (n > 1) label = `Send ${n} commands`;
+    $("#sendBtn").textContent = label;
     $("#modeBadge").className = "badge " + (mode === "dry" ? "dry" : "live");
     $("#modeBadge").textContent = mode === "dry" ? "Dry run" : "Live";
     $("#sendSub").textContent = mode === "dry" ? "Dry run: your changes stay here until you send them." : "Live: every change goes straight to the lamp.";
@@ -323,20 +379,32 @@
   }
   async function loadFade() {
     let active = null;
-    try { const r = await api("/api/fade"); active = r.active && typeof r.active === "object" ? r.active : null; } catch (e) { if (e instanceof Unauthorized) return; active = null; }
+    try {
+      const r = await api("/api/fade");
+      active = r.active && typeof r.active === "object" ? r.active : null;
+    } catch (e) {
+      if (e instanceof Unauthorized) return;
+      active = null;
+    }
     renderFade(active);
     if (active && !fadeT) fadeT = setInterval(() => { if (!document.hidden) void loadFade(); }, 750);
     else if (!active && fadeT) { clearInterval(fadeT); fadeT = null; void loadState(); void loadEvents(); }
   }
-  function stopFadeWatch() { if (fadeT) clearInterval(fadeT); fadeT = null; }
+  function stopFadeWatch() {
+    if (fadeT) clearInterval(fadeT);
+    fadeT = null;
+  }
 
   // ---------- activity feed (/api/events) ----------
   const SRC_LABEL = { cli: "CLI", web: "Web", mcp: "MCP", rules: "Rules" };
   function ago(iso) {
-    const t = Date.parse(iso); if (!Number.isFinite(t)) return "";
+    const t = Date.parse(iso);
+    if (!Number.isFinite(t)) return "";
     const s = Math.max(0, (Date.now() - t) / 1000);
-    if (s < 45) return "now"; if (s < 3600) return Math.round(s / 60) + " min";
-    if (s < 86400) return Math.round(s / 3600) + " h"; return Math.round(s / 86400) + " d";
+    if (s < 45) return "now";
+    if (s < 3600) return Math.round(s / 60) + " min";
+    if (s < 86400) return Math.round(s / 3600) + " h";
+    return Math.round(s / 86400) + " d";
   }
   function renderFeed(events) {
     const ul = $("#feed"); ul.innerHTML = "";
@@ -355,12 +423,19 @@
     try { const r = await api("/api/events?limit=20"); renderFeed(Array.isArray(r.events) ? r.events : []); } catch (e) { if (!(e instanceof Unauthorized)) renderFeed([]); }
   }
   async function loadState() {
-    try { fromState(await api("/api/state")); render(); return true; } catch (e) { if (e instanceof Unauthorized) return false; reachable = false; render(); return true; }
+    try {
+      fromState(await api("/api/state"));
+    } catch (e) {
+      if (e instanceof Unauthorized) return false;
+      reachable = false;
+    }
+    render();
+    return true;
   }
   async function loadScenes() {
     let list = [];
-    try { const r = await api("/api/scenes"); list = Array.isArray(r.scenes) ? r.scenes : []; } catch (e) { list = []; }
-    scenes = list.filter(s => s && s.id != null).map(s => ({ id: String(s.id), name: String(s.name || s.id) }));
+    try { const r = await api("/api/scenes"); list = Array.isArray(r.scenes) ? r.scenes : []; } catch (e) { list = []; /* no scenes: the chip row says so */ }
+    scenes = list.filter(s => s?.id != null).map(s => ({ id: String(s.id), name: String(s.name || s.id) }));
     const sc = $("#scenes"); sc.innerHTML = "";
     if (!scenes.length) { sc.append(el("span", { class: "hint" }, "No scenes reported for this lamp.")); return; }
     scenes.forEach(s => {
@@ -392,7 +467,13 @@
   $("#sendBtn").addEventListener("click", () => void applyNow());
   $("#fade").addEventListener("change", () => { if (mode === "dry" && requests(false).length) void refreshPlan(); else render(); });
   $("#fadeStop").addEventListener("click", async () => {
-    try { const r = await api("/api/fade/cancel", {}); toast(r.cancelled ? "Fade stopped" : "No fade was running"); } catch (e) { if (e instanceof Unauthorized) return; toast(errText(e)); }
+    try {
+      const r = await api("/api/fade/cancel", {});
+      toast(r.cancelled ? "Fade stopped" : "No fade was running");
+    } catch (e) {
+      if (e instanceof Unauthorized) return;
+      toast(errText(e));
+    }
     stopFadeWatch(); renderFade(null); void loadState(); void loadEvents();
   });
   $("#discardBtn").addEventListener("click", () => { target = { ...actual }; plan = null; planSeq++; render(); toast("Changes discarded"); });
@@ -403,7 +484,15 @@
     render();
   }));
   $("#copyMcp").addEventListener("click", async () => {
-    try { await navigator.clipboard.writeText($("#mcpJson").textContent); toast("Copied .mcp.json"); } catch (e) { const r = document.createRange(); r.selectNodeContents($("#mcpJson")); const s = getSelection(); s.removeAllRanges(); s.addRange(r); toast("Selected. Copy it with your keyboard"); }
+    try {
+      await navigator.clipboard.writeText($("#mcpJson").textContent);
+      toast("Copied .mcp.json");
+    } catch (e) {
+      // Clipboard blocked (plain-http origin or permission denied): select the text for a manual copy.
+      const r = document.createRange(); r.selectNodeContents($("#mcpJson"));
+      const s = getSelection(); s.removeAllRanges(); s.addRange(r);
+      toast("Selected. Copy it with your keyboard");
+    }
   });
   $("#unpairBtn").addEventListener("click", () => { store.clear(); showGate(); });
 
@@ -441,21 +530,39 @@
   }
   function mkTable(cols, rows) {
     const t = el("table", { class: "chart-table" });
-    t.innerHTML = `<thead><tr>${cols.map(c => `<th scope="col">${c}</th>`).join("")}</tr></thead><tbody>${rows.map(r => `<tr>${r.map(c => `<td>${esc(c)}</td>`).join("")}</tr>`).join("")}</tbody>`;
+    const th = c => `<th scope="col">${c}</th>`;
+    const td = c => `<td>${esc(c)}</td>`;
+    const tr = r => `<tr>${r.map(td).join("")}</tr>`;
+    t.innerHTML = `<thead><tr>${cols.map(th).join("")}</tr></thead><tbody>${rows.map(tr).join("")}</tbody>`;
     return t;
   }
   const fmtH = h => { const hh = Math.floor(h), mm = Math.round((h - hh) * 60); return mm === 60 ? `${hh + 1}h 00m` : `${hh}h ${String(mm).padStart(2, "0")}m`; };
   const clock = h => { const m = Math.round(h * 60); return `${String(Math.floor(m / 60) % 24).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`; };
   const tclock = t => { const d = new Date(t); return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`; };
+  const NICE = [1, 2, 2.5, 5]; // axis steps per power of ten; 10 above the last
   function niceMax(v, steps = 4) {
-    if (!(v > 0)) return { max: steps, step: 1 };
+    if (Number.isNaN(v) || v <= 0) return { max: steps, step: 1 };
     const raw = v / steps, p = Math.pow(10, Math.floor(Math.log10(raw))), n = raw / p;
-    const s = (n <= 1 ? 1 : n <= 2 ? 2 : n <= 2.5 ? 2.5 : n <= 5 ? 5 : 10) * p; return { max: s * steps, step: s };
+    const s = (NICE.find(m => n <= m) ?? 10) * p; return { max: s * steps, step: s };
   }
-  const parseDay = s => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(s)); return m ? new Date(+m[1], +m[2] - 1, +m[3]) : new Date(NaN); };
+  const parseDay = s => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(s)); return m ? new Date(+m[1], +m[2] - 1, +m[3]) : new Date(Number.NaN); };
   const dayLabel = d => d.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
   const wk = d => d.toLocaleDateString("en-GB", { weekday: "short" });
   const num = v => (Number.isFinite(+v) ? +v : 0);
+  const EDGE_ANCHOR = { 0: "start", 24: "end" }; // 24h axis: first and last labels hug the edges
+  // Commands-by-source series: [label, color token, stats field].
+  const SRC = [["CLI", "--s-cli", "cli"], ["Web", "--s-web", "web"], ["MCP agents", "--s-mcp", "mcp"], ["Rules", "--s-rules", "rules"]];
+  const total = d => d.cli + d.web + d.mcp + d.rules;
+  // Index of the last source with commands that day: its segment tops the stack.
+  const topSrc = d => {
+    let top = -1;
+    SRC.forEach(([, , k], i) => { if (d[k]) top = i; });
+    return top;
+  };
+  function srcTip(d) {
+    const row = ([n, v, k]) => `<div class="row"><span><i class="sw" style="background:var(${v})"></i>${n}</span><span>${d[k]}</span></div>`;
+    return `<strong>${wk(d.d)} ${dayLabel(d.d)}</strong>` + SRC.map(row).join("") + `<div class="row"><span>Total</span><span>${total(d)}</span></div>`;
+  }
 
   // Turn day_samples into contiguous segments. A {gap:true} entry, or a hole
   // longer than MAX_SPAN, is a break: no strip, no line, "no data" in the tooltip.
@@ -493,15 +600,15 @@
   function drawStats() {
     if (view !== "stats" || !stats) return;
     const tiles = stats.tiles || {};
-    const hoursPerDay = (Array.isArray(stats.hours_per_day) ? stats.hours_per_day : []).map(r => ({ d: parseDay(r.date), hrs: num(r.hours) })).filter(r => !isNaN(r.d));
-    const bySrc = (Array.isArray(stats.commands_by_source) ? stats.commands_by_source : []).map(r => ({ d: parseDay(r.date), cli: num(r.cli), web: num(r.web), mcp: num(r.mcp), rules: num(r.rules) })).filter(r => !isNaN(r.d));
+    const hoursPerDay = (Array.isArray(stats.hours_per_day) ? stats.hours_per_day : []).map(r => ({ d: parseDay(r.date), hrs: num(r.hours) })).filter(r => !Number.isNaN(r.d.getTime()));
+    const bySrc = (Array.isArray(stats.commands_by_source) ? stats.commands_by_source : []).map(r => ({ d: parseDay(r.date), cli: num(r.cli), web: num(r.web), mcp: num(r.mcp), rules: num(r.rules) })).filter(r => !Number.isNaN(r.d.getTime()));
     const samples = Array.isArray(stats.day_samples) ? stats.day_samples : [];
     const heatRows = Array.isArray(stats.heatmap) ? stats.heatmap : [];
     const fmtNum = (v, f) => (Number.isFinite(v) ? f(v) : DASH);
     $("#tiles").innerHTML = [
       [fmtNum(tiles.on_today_h, fmtH), "On today", "since midnight"],
       [fmtNum(tiles.on_week_h, v => v.toFixed(1) + " h"), "On this week", "last 7 days"],
-      [fmtNum(tiles.commands_7d, v => String(v)), "Commands", `last 7 days, ${Number.isFinite(tiles.agent_commands_7d) ? tiles.agent_commands_7d : 0} from agents`],
+      [fmtNum(tiles.commands_7d, String), "Commands", `last 7 days, ${Number.isFinite(tiles.agent_commands_7d) ? tiles.agent_commands_7d : 0} from agents`],
       [fmtNum(tiles.avg_brightness, v => v + "%"), "Typical brightness", "average while on"],
     ].map(([b, s, m]) => `<div class="tile"><b>${esc(b)}</b><span>${s}</span><small>${esc(m)}</small></div>`).join("");
 
@@ -512,9 +619,11 @@
     const segRows = () => {
       const rows = []; let prev = null;
       segs.forEach(s => {
-        const label = s.gap ? "No data" : s.on ? "On" : "Off";
+        let label = "Off";
+        if (s.gap) label = "No data";
+        else if (s.on) label = "On";
         const key = label + "|" + (s.on ? s.b + "|" + s.color : "");
-        if (prev && prev.key === key && prev.end === s.start) { prev.end = s.end; return; }
+        if (prev?.key === key && prev.end === s.start) { prev.end = s.end; return; }
         prev = { key, label, start: s.start, end: s.end, b: s.on ? s.b + "%" : DASH, c: s.on && s.color ? s.color : DASH }; rows.push(prev);
       });
       return rows.map(r => [`${tclock(r.start)}${DASH}${tclock(r.end)}`, r.label, r.b, r.c]);
@@ -536,14 +645,14 @@
         });
         const g = sv("g", { class: "grid" }), ax = sv("g", { class: "axis" });
         [0, 50, 100].forEach(v => { g.append(sv("line", { x1: L, x2: W - R, y1: y(v), y2: y(v) })); const t = sv("text", { x: L - 6, y: y(v) + 4, "text-anchor": "end" }); t.textContent = v + "%"; ax.append(t); });
-        [0, 6, 12, 18, 24].forEach(h => { const tt = t0 + h * 3600 * 1000; const t = sv("text", { x: x(tt), y: H - 6, "text-anchor": h === 0 ? "start" : h === 24 ? "end" : "middle" }); t.textContent = h === 24 ? "now" : tclock(tt); ax.append(t); });
+        [0, 6, 12, 18, 24].forEach(h => { const tt = t0 + h * 3600 * 1000; const t = sv("text", { x: x(tt), y: H - 6, "text-anchor": EDGE_ANCHOR[h] || "middle" }); t.textContent = h === 24 ? "now" : tclock(tt); ax.append(t); });
         svg.append(g, ax);
         // line + area only across contiguous "on" segments; off and gaps break it
         let d = "", a = "", run = [];
         const flush = () => {
           if (!run.length) return;
           d += run.map((p, i) => (i ? "L" : "M") + p[0].toFixed(1) + "," + p[1].toFixed(1)).join("");
-          a += `M${run[0][0].toFixed(1)},${y(0)}` + run.map(p => `L${p[0].toFixed(1)},${p[1].toFixed(1)}`).join("") + `L${run[run.length - 1][0].toFixed(1)},${y(0)}Z`;
+          a += `M${run[0][0].toFixed(1)},${y(0)}` + run.map(p => `L${p[0].toFixed(1)},${p[1].toFixed(1)}`).join("") + `L${run.at(-1)[0].toFixed(1)},${y(0)}Z`;
           run = [];
         };
         segs.forEach((s, i) => {
@@ -565,7 +674,7 @@
           const t = t0 + (px - L) / (W - L - R) * (t1 - t0);
           const s = segs.find(z => t >= z.start && t < z.end);
           cross.setAttribute("x1", px); cross.setAttribute("x2", px); cross.setAttribute("visibility", "visible");
-          if (s && s.on && !s.gap) { dot.setAttribute("cx", px); dot.setAttribute("cy", y(s.b)); dot.setAttribute("visibility", "visible"); } else dot.setAttribute("visibility", "hidden");
+          if (s?.on && !s.gap) { dot.setAttribute("cx", px); dot.setAttribute("cy", y(s.b)); dot.setAttribute("visibility", "visible"); } else dot.setAttribute("visibility", "hidden");
           let html = `<strong>${tclock(t)}</strong>`;
           if (!s || s.gap) html += `<div class="row"><span>No data</span><span></span></div>`;
           else if (!s.on) html += `<div class="row"><span>Off</span><span></span></div>`;
@@ -589,7 +698,10 @@
         const y = v => T + ph - v / max * ph, bw = (Wc - L - R) / hoursPerDay.length;
         const svg = sv("svg", { viewBox: `0 0 ${Wc} ${H}`, role: "img", "aria-label": "Hours on per day" });
         const g = sv("g", { class: "grid" }), ax = sv("g", { class: "axis" });
-        for (let v = 0; v <= max + 1e-9; v += step) { if (v) g.append(sv("line", { x1: L, x2: Wc - R, y1: y(v), y2: y(v) })); const t = sv("text", { x: L - 5, y: y(v) + 4, "text-anchor": "end" }); t.textContent = +v.toFixed(2); ax.append(t); }
+        for (let v = 0; v <= max + 1e-9; v += step) {
+          if (v) g.append(sv("line", { x1: L, x2: Wc - R, y1: y(v), y2: y(v) }));
+          const t = sv("text", { x: L - 5, y: y(v) + 4, "text-anchor": "end" }); t.textContent = +v.toFixed(2); ax.append(t);
+        }
         hoursPerDay.forEach((d, i) => { if (hoursPerDay.length <= 8 || i % 2 === lastIdx % 2) { const t = sv("text", { x: L + i * bw + bw / 2, y: H - 6, "text-anchor": "middle" }); t.textContent = d.d.getDate(); ax.append(t); } });
         svg.append(g, ax);
         hoursPerDay.forEach((d, i) => {
@@ -610,8 +722,6 @@
     });
 
     // ---- commands by source (stacked columns, last 7 days)
-    const SRC = [["CLI", "--s-cli", "cli"], ["Web", "--s-web", "web"], ["MCP agents", "--s-mcp", "mcp"], ["Rules", "--s-rules", "rules"]];
-    const total = d => d.cli + d.web + d.mcp + d.rules;
     frame($("#c-src"), {
       title: "Who changes the lamp", sub: "Applied commands per day, last 7 days",
       source: "command log, <code>events</code> table", legend: SRC.map(s => [s[0], s[1]]),
@@ -623,20 +733,25 @@
         const y = v => T + ph - v / max * ph, bw = (Wc - L - R) / bySrc.length;
         const svg = sv("svg", { viewBox: `0 0 ${Wc} ${H}`, role: "img", "aria-label": "Applied commands per day by source" });
         const g = sv("g", { class: "grid" }), ax = sv("g", { class: "axis" });
-        for (let v = 0; v <= max + 1e-9; v += step) { if (v) g.append(sv("line", { x1: L, x2: Wc - R, y1: y(v), y2: y(v) })); const t = sv("text", { x: L - 5, y: y(v) + 4, "text-anchor": "end" }); t.textContent = +v.toFixed(2); ax.append(t); }
+        for (let v = 0; v <= max + 1e-9; v += step) {
+          if (v) g.append(sv("line", { x1: L, x2: Wc - R, y1: y(v), y2: y(v) }));
+          const t = sv("text", { x: L - 5, y: y(v) + 4, "text-anchor": "end" }); t.textContent = +v.toFixed(2); ax.append(t);
+        }
         bySrc.forEach((d, i) => { const t = sv("text", { x: L + i * bw + bw / 2, y: H - 6, "text-anchor": "middle" }); t.textContent = bySrc.length > 7 ? d.d.getDate() : wk(d.d); ax.append(t); });
         svg.append(g, ax);
         bySrc.forEach((d, i) => {
           const w = Math.max(2, Math.min(30, bw - 10)), x0 = L + i * bw + (bw - w) / 2; let acc = 0; const grp = sv("g");
+          const topIdx = topSrc(d);
           SRC.forEach(([, v, k], si) => {
             const val = d[k]; if (!val) return;
             const y1 = y(acc + val), y0 = y(acc); acc += val;
-            const top = SRC.slice(si + 1).every(s => !d[s[2]]);
-            const hgt = Math.max(0, y0 - y1 - 2), r = top ? Math.min(4, hgt, w / 2) : 0;
-            grp.append(sv("path", { d: `M${x0},${y1 + hgt}V${y1 + r}${r ? `Q${x0},${y1} ${x0 + r},${y1}` : ""}H${x0 + w - r}${r ? `Q${x0 + w},${y1} ${x0 + w},${y1 + r}` : ""}V${y1 + hgt}Z`, fill: css(v) }));
+            const hgt = Math.max(0, y0 - y1 - 2), r = si === topIdx ? Math.min(4, hgt, w / 2) : 0;
+            // rounded top corners only on the segment that tops the stack
+            const tl = r ? `Q${x0},${y1} ${x0 + r},${y1}` : "", tr = r ? `Q${x0 + w},${y1} ${x0 + w},${y1 + r}` : "";
+            grp.append(sv("path", { d: `M${x0},${y1 + hgt}V${y1 + r}${tl}H${x0 + w - r}${tr}V${y1 + hgt}Z`, fill: css(v) }));
           });
           const hit = sv("rect", { x: L + i * bw, y: T, width: bw, height: ph, fill: "transparent" });
-          hit.addEventListener("pointermove", e => { grp.setAttribute("opacity", 0.85); showTip(e, `<strong>${wk(d.d)} ${dayLabel(d.d)}</strong>` + SRC.map(([n, v, k]) => `<div class="row"><span><i class="sw" style="background:var(${v})"></i>${n}</span><span>${d[k]}</span></div>`).join("") + `<div class="row"><span>Total</span><span>${total(d)}</span></div>`); });
+          hit.addEventListener("pointermove", e => { grp.setAttribute("opacity", 0.85); showTip(e, srcTip(d)); });
           hit.addEventListener("pointerleave", () => { grp.setAttribute("opacity", 1); hideTip(); });
           svg.append(grp, hit);
         });
@@ -694,7 +809,11 @@
       if (view === "stats") void loadStats(true);
     }, 30000);
   }
-  function stopPolling() { if (pollT) clearInterval(pollT); pollT = null; stopFadeWatch(); }
+  function stopPolling() {
+    if (pollT) clearInterval(pollT);
+    pollT = null;
+    stopFadeWatch();
+  }
 
   // ---------- boot ----------
   async function boot() {

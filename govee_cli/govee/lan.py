@@ -38,7 +38,7 @@ from typing import Any, Callable, Iterable, Optional
 
 from govee_cli.govee.types import KELVIN_MAX, KELVIN_MIN, Command, Device, LampState
 
-SCAN_GROUP = "239.255.255.250"
+SCAN_GROUP = "239.255.255.250"  # NOSONAR - Govee LAN API multicast group
 SCAN_PORT = 4001
 LISTEN_PORT = 4002
 CONTROL_PORT = 4003
@@ -59,7 +59,7 @@ _SWEEP_BURST = 32  # unicast scans sent back to back during a sweep
 _SWEEP_PAUSE = 0.005  # seconds between sweep bursts
 _SWEEP_MAX = 254
 _log = logging.getLogger(__name__)
-_ROUTE_PROBE = ("8.8.8.8", 53)  # connect() on UDP sends nothing; it only selects a route
+_ROUTE_PROBE = ("8.8.8.8", 53)  # NOSONAR - UDP connect() sends nothing, only picks a route
 _MAX_DATAGRAM = 65535
 
 
@@ -232,7 +232,7 @@ def subnet_targets(ip: str, netmask: Optional[str] = None) -> list[str]:
     if ip.startswith("127.") or not _is_ipv4(ip):
         return []
     mask = struct.unpack("!I", socket.inet_aton(netmask))[0] if netmask else 0xFFFFFF00
-    if not _is_ipv4(netmask or "255.255.255.0") or mask < 0xFFFFFF00:
+    if not _is_ipv4(netmask or "255.255.255.0") or mask < 0xFFFFFF00:  # NOSONAR - a /24 mask
         mask = 0xFFFFFF00
     me = struct.unpack("!I", socket.inet_aton(ip))[0]
     network = me & mask
@@ -397,24 +397,39 @@ class LanTransport:
         Once every ``expected`` address (hosts + cached IPs) has answered, wait only
         ``EARLY_GRACE`` more for other replies instead of the whole ``scan_timeout``.
         """
-        deadline = time.monotonic() + self.scan_timeout
+        wait_for_all = bool(expected)
         pending = set(expected)
-        while True:
-            for cmd, body, sender in self._receive(sock, deadline):
-                if cmd != "scan":
-                    continue
-                pending.discard(sender)
-                device = _device_from_scan(body, sender)
-                if device is not None and device.id not in found:
-                    found[device.id] = device
-                    methods[device.id] = classify(sender)
-                if expected and not pending:
-                    shortened = min(deadline, time.monotonic() + EARLY_GRACE)
-                    if shortened < deadline:
-                        deadline = shortened
-                        break  # re-enter _receive with the shorter deadline
-            else:
-                return
+        deadline: Optional[float] = time.monotonic() + self.scan_timeout
+        while deadline is not None:
+            # Re-enter _receive with the shorter deadline until a window runs out.
+            deadline = self._collect_window(
+                sock, deadline, found, methods, classify, pending, wait_for_all
+            )
+
+    def _collect_window(
+        self,
+        sock: socket.socket,
+        deadline: float,
+        found: dict[str, Device],
+        methods: dict[str, str],
+        classify: Callable[[str], str],
+        pending: set[str],
+        wait_for_all: bool,
+    ) -> Optional[float]:
+        """One ``_receive`` pass: the shortened deadline if every expected address answered."""
+        for cmd, body, sender in self._receive(sock, deadline):
+            if cmd != "scan":
+                continue
+            pending.discard(sender)
+            device = _device_from_scan(body, sender)
+            if device is not None and device.id not in found:
+                found[device.id] = device
+                methods[device.id] = classify(sender)
+            if wait_for_all and not pending:
+                shortened = min(deadline, time.monotonic() + EARLY_GRACE)
+                if shortened < deadline:
+                    return shortened
+        return None
 
     def _sweep_list(self, iface: str, iface_ip: str) -> list[str]:
         if self.sweep_targets is not None:

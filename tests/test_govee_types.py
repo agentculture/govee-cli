@@ -18,13 +18,16 @@ def test_dataclasses_are_frozen():
         LampState(on=True, brightness=50),
         Command("on", "lan", {"cmd": "turn"}),
     ):
+        name = dataclasses.fields(obj)[0].name
         with pytest.raises(dataclasses.FrozenInstanceError):
-            obj.__setattr__(dataclasses.fields(obj)[0].name, "x")
+            obj.__setattr__(name, "x")
 
 
 def test_lampstate_defaults():
     s = LampState(on=False, brightness=1)
-    assert s.color is None and s.kelvin is None and s.scene is None
+    assert s.color is None
+    assert s.kelvin is None
+    assert s.scene is None
 
 
 def test_command_fields():
@@ -35,14 +38,19 @@ def test_command_fields():
 @pytest.mark.parametrize("k", [2000, 6500, 9000])
 def test_kelvin_to_rgb_range(k):
     rgb = kelvin_to_rgb(k)
-    assert len(rgb) == 3 and all(0 <= c <= 255 and isinstance(c, int) for c in rgb)
+    assert len(rgb) == 3
+    assert all(0 <= c <= 255 and isinstance(c, int) for c in rgb)
 
 
 def test_kelvin_to_rgb_endpoints():
     warm, mid, cool = kelvin_to_rgb(2000), kelvin_to_rgb(6500), kelvin_to_rgb(9000)
-    assert warm[0] == 255 and warm[2] < warm[0]  # warm is red-heavy
-    assert mid[0] >= 250 and mid[1] >= 250 and mid[2] >= 250  # ~white
-    assert cool[2] == 255 and cool[0] < cool[2]  # cool is blue-heavy
+    assert warm[0] == 255  # warm is red-heavy
+    assert warm[2] < warm[0]
+    assert mid[0] >= 250  # ~white
+    assert mid[1] >= 250
+    assert mid[2] >= 250
+    assert cool[2] == 255  # cool is blue-heavy
+    assert cool[0] < cool[2]
 
 
 def test_kelvin_clamps():

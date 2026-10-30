@@ -95,7 +95,8 @@ def test_apply_sends(capsys, lan, argv):
 
 def test_json_dry_run_is_apply_result(capsys, lan):
     rc, out, err = run(capsys, "light", "brightness", "50", "--json")
-    assert rc == 0 and err == ""
+    assert rc == 0
+    assert err == ""
     payload = json.loads(out)
     assert payload["applied"] is False
     assert payload["commands"][0]["verb"]
@@ -110,23 +111,28 @@ def test_source_and_actor(capsys, fake_service):
 def test_bad_brightness_is_user_error(capsys):
     rc, out, err = run(capsys, "light", "brightness", "500")
     assert rc == 1
-    assert err.startswith("error:") and "hint:" in err and out == ""
+    assert err.startswith("error:")
+    assert "hint:" in err
+    assert out == ""
 
 
 def test_bad_color_json_error(capsys):
     rc, out, err = run(capsys, "light", "color", "nothex", "--json")
     assert rc == 1
-    assert json.loads(err)["code"] == 1 and out == ""
+    assert json.loads(err)["code"] == 1
+    assert out == ""
 
 
 def test_bad_fade_is_user_error(capsys):
     rc, _, err = run(capsys, "light", "on", "--fade", "99999")
-    assert rc == 1 and "hint:" in err
+    assert rc == 1
+    assert "hint:" in err
 
 
 def test_unknown_scene_is_user_error(capsys):
     rc, _, err = run(capsys, "light", "scene", "Nope")
-    assert rc == 1 and "hint:" in err
+    assert rc == 1
+    assert "hint:" in err
 
 
 # --- fades ------------------------------------------------------------------------------------
@@ -134,15 +140,20 @@ def test_unknown_scene_is_user_error(capsys):
 
 def test_fade_dry_run_prints_plan(capsys, lan):
     rc, out, _ = run(capsys, "light", "off", "--fade", "2")
-    assert rc == 0 and lan.sent == []
-    assert "fade" in out and "steps" in out and "first" in out and "last" in out
+    assert rc == 0
+    assert lan.sent == []
+    assert "fade" in out
+    assert "steps" in out
+    assert "first" in out
+    assert "last" in out
 
 
 def test_fade_json_has_fade_plan(capsys):
     rc, out, _ = run(capsys, "light", "off", "--fade", "2", "--json")
     payload = json.loads(out)
     assert payload["fade"]["seconds"] == 2.0
-    assert payload["fade_preview"]["first"] and payload["fade_preview"]["last"]
+    assert payload["fade_preview"]["first"]
+    assert payload["fade_preview"]["last"]
 
 
 def test_ctrl_c_exits_130_cleanly(capsys, monkeypatch):
@@ -152,18 +163,21 @@ def test_ctrl_c_exits_130_cleanly(capsys, monkeypatch):
     monkeypatch.setattr(LampService, "apply", boom)
     rc, out, err = run(capsys, "light", "off", "--fade", "5", "--apply")
     assert rc == 130
-    assert "Traceback" not in err and "stopped" in err
+    assert "Traceback" not in err
+    assert "stopped" in err
 
 
 def test_fade_status_and_stop(capsys):
     rc, out, _ = run(capsys, "light", "fade-status")
-    assert rc == 0 and "no fade" in out
+    assert rc == 0
+    assert "no fade" in out
     rc, out, _ = run(capsys, "light", "fade-status", "--json")
     assert json.loads(out) == {"active": None}
     rc, out, _ = run(capsys, "light", "fade-stop", "--json")
     assert json.loads(out) == {"cancelled": False}
     rc, out, _ = run(capsys, "light", "fade-stop")
-    assert rc == 0 and "no fade" in out
+    assert rc == 0
+    assert "no fade" in out
 
 
 # --- reads ------------------------------------------------------------------------------------
@@ -171,7 +185,8 @@ def test_fade_status_and_stop(capsys):
 
 def test_devices_text_and_json(capsys):
     rc, out, _ = run(capsys, "devices")
-    assert rc == 0 and "Floor Lamp" in out
+    assert rc == 0
+    assert "Floor Lamp" in out
     rc, out, _ = run(capsys, "devices", "--json")
     payload = json.loads(out)
     assert payload["devices"][0]["id"] == "AA:BB"
@@ -179,10 +194,13 @@ def test_devices_text_and_json(capsys):
 
 def test_light_state(capsys):
     rc, out, _ = run(capsys, "light", "state")
-    assert rc == 0 and "Floor Lamp" in out and "40" in out
+    assert rc == 0
+    assert "Floor Lamp" in out
+    assert "40" in out
     rc, out, _ = run(capsys, "light", "state", "--device", "floor lamp", "--json")
     payload = json.loads(out)
-    assert payload["brightness"] == 40 and payload["reachable"] is True
+    assert payload["brightness"] == 40
+    assert payload["reachable"] is True
 
 
 def test_light_scenes(capsys):
@@ -192,14 +210,17 @@ def test_light_scenes(capsys):
 
 def test_light_overview(capsys):
     rc, out, _ = run(capsys, "light", "overview")
-    assert rc == 0 and "light" in out
+    assert rc == 0
+    assert "light" in out
     rc, out, _ = run(capsys, "light")
-    assert rc == 0 and "light" in out
+    assert rc == 0
+    assert "light" in out
 
 
 def test_device_mismatch_error(capsys):
     rc, _, err = run(capsys, "light", "state", "--device", "ghost")
-    assert rc == 1 and "hint:" in err
+    assert rc == 1
+    assert "hint:" in err
 
 
 # --- every hint LampService emits must parse --------------------------------------------------
@@ -227,7 +248,8 @@ def test_every_service_hint_parses(hint):
     tokens = shlex.split(hint)
     assert tokens[0] == "govee"
     args = _build_parser().parse_args(tokens[1:])
-    assert args.command == "light" and args.apply is True
+    assert args.command == "light"
+    assert args.apply is True
 
 
 def test_source_rules_is_passed_to_the_service_and_logged(capsys, fake_service):
@@ -251,4 +273,5 @@ def test_fade_status_text_with_an_active_fade(capsys, monkeypatch):
     monkeypatch.setattr(LampService, "active_fade", lambda self, device=None, **kw: active)
     rc, out, err = run(capsys, "light", "fade-status")
     assert rc == 0, err
-    assert "fade running" in out and "progress=0.5" in out
+    assert "fade running" in out
+    assert "progress=0.5" in out

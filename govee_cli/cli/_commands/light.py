@@ -12,7 +12,7 @@ import argparse
 
 from govee_cli.cli._commands import _lamp
 from govee_cli.cli._commands.overview import emit_overview
-from govee_cli.cli._output import emit_diagnostic, emit_result
+from govee_cli.cli._output import JSON_HELP, emit_diagnostic, emit_result
 from govee_cli.govee.service import Change, parse_hex_color
 
 EXIT_INTERRUPTED = 130
@@ -80,16 +80,16 @@ def cmd_scene(args: argparse.Namespace) -> int:
     return 0
 
 
-def cmd_state(args: argparse.Namespace) -> int:
+def cmd_state(args: argparse.Namespace) -> None:
     status = _lamp.connect().state(args.device).to_dict()
     if args.json:
         emit_result(status, json_mode=True)
-        return 0
+        return
     dev = status["device"]
     head = f"{dev['name']} ({dev['model']}) via {dev['transport'] or 'unknown'}"
     if not status["reachable"]:
         emit_result(f"{head}: not reachable", json_mode=False)
-        return 0
+        return
     detail = (
         f"{status['kelvin']} K"
         if status["mode"] == "white"
@@ -104,7 +104,6 @@ def cmd_state(args: argparse.Namespace) -> int:
     if status["scene"]:
         lines.append(f"scene: {status['scene']}")
     emit_result("\n".join(lines), json_mode=False)
-    return 0
 
 
 def cmd_scenes(args: argparse.Namespace) -> int:
@@ -146,9 +145,9 @@ def cmd_overview(args: argparse.Namespace) -> int:
     return 0
 
 
-def _common(p: argparse.ArgumentParser, *, write: bool, fade: bool = True) -> None:
+def _common(p: argparse.ArgumentParser, *, write: bool) -> None:
     p.add_argument("--device", help="Device name or id (needed with several lamps).")
-    p.add_argument("--json", action="store_true", help="Emit structured JSON.")
+    p.add_argument("--json", action="store_true", help=JSON_HELP)
     if write:
         p.add_argument(
             "--apply", action="store_true", help="Send the change (default: dry run, print plan)."
@@ -177,7 +176,7 @@ def _seconds(value: str) -> float:
 
 def register(sub: argparse._SubParsersAction) -> None:
     p = sub.add_parser("light", help="Control the lamp (writes dry-run unless --apply).")
-    p.add_argument("--json", action="store_true", help="Emit structured JSON.")
+    p.add_argument("--json", action="store_true", help=JSON_HELP)
     p.set_defaults(func=cmd_overview, device=None)
     lsub = p.add_subparsers(dest="light_command", parser_class=type(p))
 
@@ -202,5 +201,5 @@ def register(sub: argparse._SubParsersAction) -> None:
     verb("fade-status", cmd_fade_status, "Show the running fade, if any.", write=False)
     verb("fade-stop", cmd_fade_stop, "Stop the running fade.", write=False)
     ov = lsub.add_parser("overview", help="Describe the light verbs.")
-    ov.add_argument("--json", action="store_true", help="Emit structured JSON.")
+    ov.add_argument("--json", action="store_true", help=JSON_HELP)
     ov.set_defaults(func=cmd_overview)

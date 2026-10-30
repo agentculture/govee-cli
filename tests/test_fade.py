@@ -24,7 +24,7 @@ from govee_cli.govee.fade import (
     validate_fade_seconds,
 )
 from govee_cli.govee.fake import FakeTransport
-from govee_cli.govee.lan import build_brightness, build_color, build_kelvin, build_turn
+from govee_cli.govee.lan import LanError, build_brightness, build_color, build_kelvin, build_turn
 from govee_cli.govee.service import Change, LampService
 from govee_cli.govee.types import Device, LampState, kelvin_to_rgb
 from govee_cli.stats import store
@@ -135,17 +135,21 @@ def test_default_comes_from_env(monkeypatch):
     monkeypatch.setenv("GOVEE_FADE_DEFAULT", "4")
     assert resolve_fade_seconds(Change(on=False), None) == 4.0
     monkeypatch.setenv("GOVEE_FADE_DEFAULT", "lots")
+    off = Change(on=False)
     with pytest.raises(CliError) as exc:
-        resolve_fade_seconds(Change(on=False), None)
-    assert exc.value.code == 1 and "GOVEE_FADE_DEFAULT" in exc.value.message
+        resolve_fade_seconds(off, None)
+    assert exc.value.code == 1
+    assert "GOVEE_FADE_DEFAULT" in exc.value.message
     monkeypatch.setenv("GOVEE_FADE_DEFAULT", "4000")
     with pytest.raises(CliError):
-        resolve_fade_seconds(Change(on=False), None)
+        resolve_fade_seconds(off, None)
 
 
 def test_service_rejects_fade_over_an_hour():
+    service = make(StateLan(ON_RED))
+    change = Change(brightness=10)
     with pytest.raises(ValueError):
-        make(StateLan(ON_RED)).apply(Change(brightness=10), fade_seconds=3601)
+        service.apply(change, fade_seconds=3601)
 
 
 # --- planning ---------------------------------------------------------------------------------
@@ -155,10 +159,13 @@ def test_fade_in_from_off_sets_brightness_1_turns_on_then_ramps():
     plan = plan_fade(OFF, Change(on=True, brightness=80), 1.5)
     assert plan.kind == "fade_on"
     at0, first = plan.steps[0]
-    assert at0 == 0 and first[:2] == [build_brightness(1), build_turn(True)]
+    assert at0 == 0
+    assert first[:2] == [build_brightness(1), build_turn(True)]
     values = brightness_values(plan)
-    assert values[0] == 1 and values[-1] == 80
-    assert values == sorted(values) and len(set(values)) == len(values)
+    assert values[0] == 1
+    assert values[-1] == 80
+    assert values == sorted(values)
+    assert len(set(values)) == len(values)
     assert plan.steps[-1][0] == pytest.approx(1.5)
     offsets = [at for at, _ in plan.steps]
     assert offsets == sorted(offsets)
@@ -187,7 +194,8 @@ def test_fade_out_ramps_down_then_turns_off_and_never_sends_brightness_while_off
     assert commands[-1] == build_turn(False)
     assert build_turn(False) not in commands[:-1]
     values = brightness_values(plan)
-    assert values[0] < 60 and values[-1] == 1
+    assert values[0] < 60
+    assert values[-1] == 1
     assert values == sorted(values, reverse=True)
     assert plan.remember_brightness == 60
     assert plan.verify == Change(on=False)
@@ -203,7 +211,8 @@ def test_fade_out_of_an_off_or_unknown_lamp_just_turns_off():
 def test_long_ramp_only_emits_steps_when_the_value_changes():
     plan = plan_fade(LampState(on=False, brightness=1), Change(on=True, brightness=100), 1200)
     assert 95 <= len(plan.steps) <= 101  # ~one step per brightness level, not 8000
-    assert plan.seconds == 1200 and plan.interval_ms >= 150
+    assert plan.seconds == 1200
+    assert plan.interval_ms >= 150
     assert plan.to_dict()["steps"] == len(plan.steps)
 
 
@@ -221,7 +230,8 @@ def test_rgb_cross_fade_is_linear_with_exact_endpoints():
     assert colors[-1] == build_color((0, 0, 255))
     reds = [c.payload["msg"]["data"]["color"]["r"] for c in colors]
     blues = [c.payload["msg"]["data"]["color"]["b"] for c in colors]
-    assert reds == sorted(reds, reverse=True) and blues == sorted(blues)
+    assert reds == sorted(reds, reverse=True)
+    assert blues == sorted(blues)
     assert 0 < reds[0] < 255
     mid = colors[len(colors) // 2].payload["msg"]["data"]["color"]
     assert abs(mid["r"] - mid["b"]) < 60  # half way is roughly purple
@@ -230,7 +240,9 @@ def test_rgb_cross_fade_is_linear_with_exact_endpoints():
 def test_kelvin_cross_fade_is_linear():
     plan = plan_fade(ON_WARM, Change(kelvin=6500), 3)
     ks = [c.payload["msg"]["data"]["colorTemInKelvin"] for c in plan.commands()]
-    assert ks == sorted(ks) and ks[-1] == 6500 and ks[0] > 2700
+    assert ks == sorted(ks)
+    assert ks[-1] == 6500
+    assert ks[0] > 2700
     assert plan.commands()[-1] == build_kelvin(6500)
 
 
@@ -239,9 +251,10 @@ def test_color_to_kelvin_cross_fades_in_rgb_and_finishes_with_kelvin():
     commands = plan.commands()
     assert commands[-1] == build_kelvin(6500)
     rgb_steps = [c for c in commands[:-1] if c.verb == "colorwc"]
-    assert rgb_steps and all(c.payload["msg"]["data"]["colorTemInKelvin"] == 0 for c in rgb_steps)
+    assert rgb_steps
+    assert all(c.payload["msg"]["data"]["colorTemInKelvin"] == 0 for c in rgb_steps)
     last_rgb = rgb_steps[-1].payload["msg"]["data"]["color"]
-    assert (last_rgb["r"], last_rgb["g"], last_rgb["b"]) == kelvin_to_rgb(6500)
+    assert tuple(last_rgb[k] for k in "rgb") == kelvin_to_rgb(6500)
 
 
 def test_kelvin_to_color_starts_from_the_kelvin_rgb():
@@ -257,7 +270,8 @@ def test_brightness_and_color_fade_together():
     commands = plan.commands()
     brightness = [c for c in commands if c.verb == "brightness"]
     colors = [c for c in commands if c.verb == "colorwc"]
-    assert brightness[-1] == build_brightness(10) and colors[-1] == build_color((0, 255, 0))
+    assert brightness[-1] == build_brightness(10)
+    assert colors[-1] == build_color((0, 255, 0))
     # sine easing lands each value by the end, never after it
     assert plan.steps[-1][0] <= 2 + 1e-9
 
@@ -279,7 +293,8 @@ def test_remembered_brightness_file_is_0600_and_atomic(tmp_path):
     assert remembered_brightness("AA:BB") is None
     remember_brightness("AA:BB", 73)
     remember_brightness("CC:DD", 12)
-    assert remembered_brightness("AA:BB") == 73 and remembered_brightness("cc:dd") == 12
+    assert remembered_brightness("AA:BB") == 73
+    assert remembered_brightness("cc:dd") == 12
     path = fade_mod.fade_state_path()
     assert path == tmp_path / "state" / "govee-cli" / "fade.json"
     assert stat.S_IMODE(os.stat(path).st_mode) == 0o600
@@ -304,7 +319,9 @@ def test_runner_sends_every_step_on_schedule():
     outcome = FadeRunner(
         plan, lambda c: sent.append((clock.t, c)) or True, clock=clock, sleep=clock.sleep
     ).run()
-    assert outcome.ok and not outcome.cancelled and outcome.steps_done == len(plan.steps)
+    assert outcome.ok
+    assert not outcome.cancelled
+    assert outcome.steps_done == len(plan.steps)
     assert [c for _, c in sent] == plan.commands()
     assert sent[-1][0] == pytest.approx(1.5)
 
@@ -314,7 +331,8 @@ def test_brightness_ramps_linearly_and_colour_temperature_eases_in_and_out():
     # looked jumpy); colour and temperature ease in and out on a sine.
     up = brightness_values(plan_fade(LampState(on=True, brightness=1), Change(brightness=80), 10))
     deltas = [b - a for a, b in zip(up, up[1:])]
-    assert up[-1] == 80 and max(deltas) - min(deltas) <= 1, "even percent steps"
+    assert up[-1] == 80
+    assert max(deltas) - min(deltas) <= 1, "even percent steps"
     warm = plan_fade(LampState(on=True, brightness=50, kelvin=6500), Change(kelvin=2700), 10)
     kelvins = [
         c.payload["msg"]["data"]["colorTemInKelvin"]
@@ -324,7 +342,8 @@ def test_brightness_ramps_linearly_and_colour_temperature_eases_in_and_out():
     ]
     k_deltas = [a - b for a, b in zip(kelvins, kelvins[1:])]
     assert kelvins[-1] == 2700
-    assert max(k_deltas[:3]) < max(k_deltas) and max(k_deltas[-3:]) < max(k_deltas)
+    assert max(k_deltas[:3]) < max(k_deltas)
+    assert max(k_deltas[-3:]) < max(k_deltas)
 
 
 def test_default_on_off_fade_is_5_seconds():
@@ -344,7 +363,9 @@ def test_runner_cancel_stops_sending():
         return True
 
     outcome = FadeRunner(plan, send, clock=clock, sleep=clock.sleep, cancel=cancel).run()
-    assert outcome.cancelled and len(sent) == 3 and outcome.steps_done == 3
+    assert outcome.cancelled
+    assert len(sent) == 3
+    assert outcome.steps_done == 3
 
 
 # --- LampService hook: foreground (CLI without serve) -----------------------------------------
@@ -355,13 +376,16 @@ def test_light_on_fades_by_default_and_logs_one_confirmed_event():
     clock = FakeClock()
     result = make(lan, clock=clock).apply(Change(on=True), apply=True)
     assert result.status == "confirmed"
-    assert result.fade is not None and result.fade.seconds == 5.0
+    assert result.fade is not None
+    assert result.fade.seconds == 5.0
     assert result.commands == result.fade.commands()
     assert [c for _, c in lan.sent] == result.commands
-    assert lan.sent[0][1] == build_brightness(1) and lan.sent[1][1] == build_turn(True)
+    assert lan.sent[0][1] == build_brightness(1)
+    assert lan.sent[1][1] == build_turn(True)
     assert clock.t >= 5.0
     (event,) = store.recent_events()
-    assert event["verb"] == "fade_on" and event["status"] == "confirmed"
+    assert event["verb"] == "fade_on"
+    assert event["status"] == "confirmed"
     assert event["payload"]["fade"]["seconds"] == 5.0
     assert event["payload"]["target"]["brightness"] == 60  # the off lamp's own brightness
 
@@ -369,7 +393,8 @@ def test_light_on_fades_by_default_and_logs_one_confirmed_event():
 def test_fade_zero_snaps_like_before():
     lan = StateLan(OFF)
     result = make(lan).apply(Change(on=True), apply=True, fade_seconds=0)
-    assert result.fade is None and result.commands == [build_turn(True)]
+    assert result.fade is None
+    assert result.commands == [build_turn(True)]
     assert store.recent_events()[0]["verb"] == "light"
 
 
@@ -377,7 +402,8 @@ def test_brightness_is_instant_unless_fade_seconds_given():
     lan = StateLan(ON_RED)
     assert make(lan).apply(Change(brightness=10), apply=True).fade is None
     result = make(StateLan(ON_RED)).apply(Change(brightness=10), apply=True, fade_seconds=2)
-    assert result.fade is not None and result.status == "confirmed"
+    assert result.fade is not None
+    assert result.status == "confirmed"
     assert store.recent_events()[0]["verb"] == "fade"
 
 
@@ -385,18 +411,23 @@ def test_fade_off_remembers_pre_fade_brightness_and_fade_on_restores_it():
     lan = StateLan(LampState(on=True, brightness=70, color=(255, 0, 0)))
     service = make(lan)
     off = service.apply(Change(on=False), apply=True)
-    assert off.status == "confirmed" and lan.state.on is False and lan.state.brightness == 1
+    assert off.status == "confirmed"
+    assert lan.state.on is False
+    assert lan.state.brightness == 1
     assert remembered_brightness(LAN_DEV.id) == 70
     on = service.apply(Change(on=True), apply=True)
-    assert on.status == "confirmed" and lan.state.brightness == 70
+    assert on.status == "confirmed"
+    assert lan.state.brightness == 70
     assert [e["verb"] for e in store.recent_events()] == ["fade_on", "fade_off"]
 
 
 def test_dry_run_returns_the_plan_without_sending():
     lan = StateLan(OFF)
     result = make(lan).apply(Change(on=True), fade_seconds=5)
-    assert result.applied is False and result.status == "dry_run"
-    assert result.fade.seconds == 5 and len(result.fade.steps) > 1
+    assert result.applied is False
+    assert result.status == "dry_run"
+    assert result.fade.seconds == 5
+    assert len(result.fade.steps) > 1
     assert lan.sent == []
     data = result.to_dict()
     assert data["fade"] == {
@@ -407,7 +438,8 @@ def test_dry_run_returns_the_plan_without_sending():
     }
     assert data["warnings"] == []
     (event,) = store.recent_events()
-    assert event["status"] == "dry_run" and event["verb"] == "fade_on"
+    assert event["status"] == "dry_run"
+    assert event["verb"] == "fade_on"
 
 
 def test_web_dry_run_fade_is_not_logged():
@@ -427,12 +459,14 @@ def test_foreground_keyboard_interrupt_stops_and_marks_cancelled():
         clock.sleep(seconds)
 
     service = LampService.direct(lan=lan, cloud=NoCloud(), clock=clock, sleep=sleep)
+    change = Change(brightness=1)
     with pytest.raises(KeyboardInterrupt):
-        service.apply(Change(brightness=1), apply=True, fade_seconds=10)
+        service.apply(change, apply=True, fade_seconds=10)
     sent = len(lan.sent)
     assert 0 < sent < 10
     (event,) = store.recent_events()
-    assert event["status"] == "sent" and event["payload"]["cancelled"] is True
+    assert event["status"] == "sent"
+    assert event["payload"]["cancelled"] is True
     assert service.active_fade() is None
 
 
@@ -442,7 +476,8 @@ def test_fade_needs_lan_and_degrades_to_instant_over_cloud():
     result = service.apply(Change(brightness=10), apply=True, fade_seconds=30)
     assert result.fade is None
     assert result.warnings == [CLOUD_FADE_WARNING]
-    assert [c.transport for c in result.commands] == ["cloud"] and len(cloud.sent) == 1
+    assert [c.transport for c in result.commands] == ["cloud"]
+    assert len(cloud.sent) == 1
     assert result.to_dict()["warnings"] == [CLOUD_FADE_WARNING]
 
 
@@ -450,7 +485,8 @@ def test_default_on_off_over_cloud_is_instant_without_warning():
     cloud = FakeTransport([CLOUD_DEV], state=ON_RED)
     service = LampService.direct(lan=FakeTransport([]), cloud=cloud, clock=FakeClock())
     result = service.apply(Change(on=False), apply=True)
-    assert result.fade is None and result.warnings == []
+    assert result.fade is None
+    assert result.warnings == []
 
 
 def test_dropped_packets_make_the_fade_unconfirmed():
@@ -494,11 +530,14 @@ def test_background_fade_returns_immediately_then_confirms():
         lan=lan, cloud=NoCloud(), clock=clock, sleep=gate, background_fades=True
     )
     result = service.apply(Change(on=True), apply=True, fade_seconds=3)
-    assert result.status == "sent" and result.fade is not None
+    assert result.status == "sent"
+    assert result.fade is not None
     assert gate.entered.wait(5)
     active = service.active_fade()
-    assert active["id"] == result.fade.id and active["seconds"] == 3
-    assert active["device"]["id"] == LAN_DEV.id and 0 <= active["progress"] <= 1
+    assert active["id"] == result.fade.id
+    assert active["seconds"] == 3
+    assert active["device"]["id"] == LAN_DEV.id
+    assert 0 <= active["progress"] <= 1
     assert active["target"] == {"on": True, "brightness": 60}
     gate.release.set()
     _wait_for(lambda: service.active_fade() is None)
@@ -522,7 +561,27 @@ def test_new_apply_cancels_the_running_fade():
     assert len(lan.sent) == before  # the cancelled fade sends nothing more
     events = store.recent_events()
     fade_event = next(e for e in events if e["verb"] == "fade")
-    assert fade_event["status"] == "sent" and fade_event["payload"]["cancelled"] is True
+    assert fade_event["status"] == "sent"
+    assert fade_event["payload"]["cancelled"] is True
+
+
+def test_fade_retries_a_lost_start_state_read_once():
+    # Found live: serve's first devStatus after a restart went unanswered, so `light on` snapped.
+    class FlakyLan(StateLan):
+        def __init__(self, state):
+            super().__init__(state)
+            self.reads = 0
+
+        def get_state(self, device):
+            self.reads += 1
+            if self.reads == 1:
+                raise LanError("no devStatus reply")
+            return super().get_state(device)
+
+    lan = FlakyLan(LampState(on=False, brightness=1))
+    result = make(lan).apply(Change(on=True), fade_seconds=3)
+    assert result.fade is not None
+    assert result.fade.n_steps > 1, "a ramp, not a snap"
 
 
 def test_concurrent_fades_leave_exactly_one_running():
@@ -567,7 +626,8 @@ def test_cancel_fade_and_dry_run_does_not_cancel():
     first = service.apply(Change(brightness=1), apply=True, fade_seconds=60)
     _wait_for(lambda: service.active_fade() is not None)
     dry = service.apply(Change(brightness=50))
-    assert dry.cancelled_fade is None and service.active_fade()["id"] == first.fade.id
+    assert dry.cancelled_fade is None
+    assert service.active_fade()["id"] == first.fade.id
     assert service.cancel_fade() is True
     assert service.active_fade() is None
     assert service.cancel_fade() is False
@@ -585,7 +645,8 @@ def test_scene_cancels_the_running_fade():
     first = service.apply(Change(brightness=1), apply=True, fade_seconds=60)
     _wait_for(lambda: service.active_fade() is not None)
     result = service.set_scene("Sunset", apply=True)
-    assert result.cancelled_fade == first.fade.id and result.fade is None
+    assert result.cancelled_fade == first.fade.id
+    assert result.fade is None
 
 
 def _wait_for(predicate, timeout: float = 5.0) -> None:
@@ -606,18 +667,22 @@ def test_lan_error_mid_fade_is_env_error_and_unconfirmed():
 
     lan = Flaky(ON_RED)
     service = make(lan)
+    change = Change(brightness=5)
     with pytest.raises(CliError) as exc:
-        service.apply(Change(brightness=5), apply=True, fade_seconds=2)
-    assert exc.value.code == 2 and len(lan.sent) == 2
+        service.apply(change, apply=True, fade_seconds=2)
+    assert exc.value.code == 2
+    assert len(lan.sent) == 2
     (event,) = store.recent_events()
-    assert event["status"] == "unconfirmed" and "unreachable" in event["payload"]["error"]
+    assert event["status"] == "unconfirmed"
+    assert "unreachable" in event["payload"]["error"]
     assert service.active_fade() is None
 
 
 def test_step_plan_lists_offsets_and_commands():
     plan = plan_fade(OFF, Change(on=True, brightness=3), 1)
     listing = plan.step_plan()
-    assert listing[0]["at"] == 0 and listing[0]["commands"][1]["verb"] == "turn"
+    assert listing[0]["at"] == 0
+    assert listing[0]["commands"][1]["verb"] == "turn"
     assert [s["at"] for s in listing] == sorted(s["at"] for s in listing)
     assert len(listing) == plan.to_dict()["steps"]
 
@@ -629,11 +694,13 @@ def test_snap_on_after_fade_out_restores_the_remembered_brightness():
     lan = StateLan(ON_RED)
     svc = make(lan)
     svc.apply(Change(on=False), apply=True)  # default fade-out: ramps to 1, turns off, remembers 60
-    assert lan.state.on is False and lan.state.brightness == 1
+    assert lan.state.on is False
+    assert lan.state.brightness == 1
     lan.sent.clear()
     result = svc.apply(Change(on=True), apply=True, fade_seconds=0)
     assert [c.verb for c in result.commands] == ["turn", "brightness"]
-    assert lan.state.on is True and lan.state.brightness == 60
+    assert lan.state.on is True
+    assert lan.state.brightness == 60
 
 
 def test_snap_on_keeps_the_lamps_own_brightness_when_it_was_not_faded_out():

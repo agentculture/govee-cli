@@ -84,8 +84,10 @@ def test_event_roundtrip_and_status_update():
     store.update_event_status(eid, "confirmed")
     ev = store.recent_events(limit=5)
     assert len(ev) == 1
-    assert ev[0]["status"] == "confirmed" and ev[0]["source"] == "cli"
-    assert ev[0]["payload"] == {"value": 50} and ev[0]["id"] == eid
+    assert ev[0]["status"] == "confirmed"
+    assert ev[0]["source"] == "cli"
+    assert ev[0]["payload"] == {"value": 50}
+    assert ev[0]["id"] == eid
 
 
 def test_invalid_source_and_status_rejected():
@@ -147,16 +149,20 @@ def test_day_samples_gaps():
     kinds = ["gap" if "gap" in e else "s" for e in out]
     # leading gap, s, s, gap (10:02 -> 10:30), s, trailing gap
     assert kinds == ["gap", "s", "s", "gap", "s", "gap"]
-    assert out[1]["on"] is True and out[1]["brightness"] == 80 and out[1]["rgb"] == [1, 2, 3]
+    assert out[1]["on"] is True
+    assert out[1]["brightness"] == 80
+    assert out[1]["rgb"] == [1, 2, 3]
     assert out[2]["kelvin"] == 4000
-    assert out[3]["gap"] is True and "ts" in out[3]
+    assert out[3]["gap"] is True
+    assert "ts" in out[3]
     # a gap is not an off sample
     assert all("on" not in e for e in out if e.get("gap"))
 
 
 def test_day_samples_empty_is_single_gap():
     out = store.day_samples(hours=24, now=NOW)
-    assert len(out) == 1 and out[0]["gap"] is True
+    assert len(out) == 1
+    assert out[0]["gap"] is True
 
 
 def test_heatmap_average_minutes():
@@ -231,7 +237,8 @@ def test_hours_per_day_buckets_by_local_midnight():
     store.record_sample(True, 50, None, None, now=utc(11, 4, 59))  # 23:59 local on the 10th
     in_utc = store.hours_per_day(days=2, now=NOW)
     local = store.hours_per_day(days=2, now=NOW, tz=EST)
-    assert in_utc[0]["hours"] == 0 and in_utc[1]["hours"] == pytest.approx(3 / 60)
+    assert in_utc[0]["hours"] == 0
+    assert in_utc[1]["hours"] == pytest.approx(3 / 60)
     assert [d["date"] for d in local] == ["2026-03-10", "2026-03-11"]
     assert local[0]["hours"] == pytest.approx(1 / 60)
     assert local[1]["hours"] == pytest.approx(2 / 60)
@@ -270,7 +277,8 @@ def test_tiles_use_local_midnight():
 def test_command_counts_use_local_week_start():
     # 2026-03-05 04:00 UTC is inside the UTC 7-day window but before local midnight of the 5th.
     store.record_event("mcp", "a", "on", None, "sent", now=utc(5, 4))
-    assert store.commands_7d(now=NOW) == 1 and store.agent_commands_7d(now=NOW) == 1
+    assert store.commands_7d(now=NOW) == 1
+    assert store.agent_commands_7d(now=NOW) == 1
     assert store.commands_7d(now=NOW, tz=EST) == 0
     assert store.agent_commands_7d(now=NOW, tz=EST) == 0
 

@@ -40,7 +40,8 @@ def test_actor_is_runner_on_spark():
     actor = _actor()
     assert actor["kind"] == "runner"
     assert actor["machine"] == "spark"
-    assert actor["id"] and actor["name"]
+    assert actor["id"]
+    assert actor["name"]
 
 
 def test_actor_has_the_eight_commands_with_params():
@@ -85,7 +86,8 @@ def test_unit_restarts_on_failure_with_env_file_outside_repo():
     assert env_lines
     for line in env_lines:
         path = line.split("=", 1)[1].lstrip("-")
-        assert path.startswith("%h/") and "git" not in path
+        assert path.startswith("%h/")
+        assert "git" not in path
     assert "ExecStart=%h/.local/bin/govee serve" in text
     assert "WantedBy=default.target" in text
 

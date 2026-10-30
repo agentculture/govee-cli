@@ -163,7 +163,8 @@ def test_dry_run_sends_nothing_and_returns_plan():
     assert result.applied is False
     assert result.status == "dry_run"
     assert result.commands == [build_turn(True), build_color((255, 106, 43))]
-    assert lan.sent == [] and cloud.sent == []
+    assert lan.sent == []
+    assert cloud.sent == []
     assert result.cli == ["govee light on --apply", "govee light color FF6A2B --apply"]
 
 
@@ -216,8 +217,9 @@ def test_scene_is_always_cloud_even_on_lan():
 
 
 def test_unknown_scene_is_user_error():
+    service = make(FakeTransport([LAN_DEV]), FakeCloud([CLOUD_DEV]))
     with pytest.raises(CliError) as exc:
-        make(FakeTransport([LAN_DEV]), FakeCloud([CLOUD_DEV])).set_scene("Nope")
+        service.set_scene("Nope")
     assert exc.value.code == 1
     assert "Sunset" in exc.value.remediation
 
@@ -244,7 +246,8 @@ def test_dry_run_is_logged_with_source_and_actor():
     events = store.recent_events()
     assert len(events) == 1
     assert events[0]["status"] == "dry_run"
-    assert events[0]["source"] == "mcp" and events[0]["actor"] == "agent-7"
+    assert events[0]["source"] == "mcp"
+    assert events[0]["actor"] == "agent-7"
     assert result.event_ids == [events[0]["id"]]
 
 
@@ -313,7 +316,8 @@ def test_event_is_logged_sent_before_verification():
             return LampState(on=True, brightness=5)
 
     make(Spy([LAN_DEV])).apply(Change(on=True), apply=True)
-    assert seen and seen[0] == "sent"
+    assert seen
+    assert seen[0] == "sent"
 
 
 # --- device selection ------------------------------------------------------------------------
@@ -329,15 +333,19 @@ def test_device_selection_by_name_and_id():
 
 def test_several_devices_without_selector_is_user_error():
     service = make(FakeTransport([]), FakeCloud([CLOUD_DEV, OTHER_CLOUD]))
+    change = Change(on=True)
     with pytest.raises(CliError) as exc:
-        service.apply(Change(on=True))
+        service.apply(change)
     assert exc.value.code == 1
-    assert "Desk Lamp" in exc.value.message and "Hall Lamp" in exc.value.message
+    assert "Desk Lamp" in exc.value.message
+    assert "Hall Lamp" in exc.value.message
 
 
 def test_unknown_device_is_user_error():
+    service = make()
+    change = Change(on=True)
     with pytest.raises(CliError) as exc:
-        make().apply(Change(on=True), device="garage")
+        service.apply(change, device="garage")
     assert exc.value.code == 1
 
 
@@ -355,7 +363,9 @@ def test_state_via_lan():
     data = status.to_dict()
     assert data["device"]["transport"] == "lan"
     assert data["reachable"] is True
-    assert data["mode"] == "white" and data["kelvin"] == 3000 and data["color"] is None
+    assert data["mode"] == "white"
+    assert data["kelvin"] == 3000
+    assert data["color"] is None
 
 
 def test_state_falls_back_to_cloud_when_lan_silent():
@@ -363,7 +373,8 @@ def test_state_falls_back_to_cloud_when_lan_silent():
     cloud = FakeCloud([CLOUD_DEV], state=LampState(on=True, brightness=5, color=(255, 0, 16)))
     data = make(lan, cloud).state().to_dict()
     assert data["device"]["transport"] == "cloud"
-    assert data["color"] == "#FF0010" and data["mode"] == "color"
+    assert data["color"] == "#FF0010"
+    assert data["mode"] == "color"
 
 
 def test_state_unreachable():
@@ -380,8 +391,10 @@ def test_missing_key_is_fine_while_lan_works():
 
 
 def test_no_device_found_is_env_error():
+    service = make(FakeTransport([]), RaisingCloud(MissingKey()))
+    change = Change(on=True)
     with pytest.raises(CliError) as exc:
-        make(FakeTransport([]), RaisingCloud(MissingKey())).apply(Change(on=True))
+        service.apply(change)
     assert exc.value.code == 2
     for hint in ("LAN Control", "4002", "GOVEE_LAN_INTERFACE", "GOVEE_API_KEY"):
         assert hint in exc.value.remediation
@@ -403,17 +416,21 @@ def test_failed_discovery_is_reused_briefly_then_retried():
     lan = CountingLan([])
     clock = FakeClock()
     service = make(lan, RaisingCloud(MissingKey()), clock=clock)
-    assert service.devices() == [] and service.devices() == []
+    assert service.devices() == []
+    assert service.devices() == []
     assert lan.scans == 1
-    assert service.devices(refresh=True) == [] and lan.scans == 2
+    assert service.devices(refresh=True) == []
+    assert lan.scans == 2
     lan.devices = [LAN_DEV]
     clock.t += MISS_TTL + 1
-    assert [d.id for d in service.devices()] == [LAN_DEV.id] and lan.scans == 3
+    assert [d.id for d in service.devices()] == [LAN_DEV.id]
+    assert lan.scans == 3
 
 
 def test_scene_without_key_is_env_error():
+    service = make(FakeTransport([LAN_DEV]), RaisingCloud(MissingKey()))
     with pytest.raises(CliError) as exc:
-        make(FakeTransport([LAN_DEV]), RaisingCloud(MissingKey())).set_scene("Sunset")
+        service.set_scene("Sunset")
     assert exc.value.code == 2
     assert "GOVEE_API_KEY" in exc.value.remediation
 
@@ -428,8 +445,10 @@ def test_scene_without_key_is_env_error():
 )
 def test_cloud_errors_map_to_exit_2(monkeypatch, exc, needle):
     monkeypatch.setenv("GOVEE_API_KEY", "super-secret-key-value")
+    service = make(FakeTransport([]), RaisingCloud(exc))
+    change = Change(on=True)
     with pytest.raises(CliError) as err:
-        make(FakeTransport([]), RaisingCloud(exc)).apply(Change(on=True))
+        service.apply(change)
     assert err.value.code == 2
     assert needle in err.value.message
     assert err.value.remediation
@@ -456,8 +475,9 @@ def test_port_busy_without_serve_exits_2(foreign_socket):
     lan = LanTransport("127.0.0.1", listen_host="127.0.0.1", listen_port=foreign_socket)
     service = LampService.connect("cli", "alice", lan=lan, cloud=RaisingCloud(MissingKey()))
     assert service.routed is False
+    change = Change(on=True)
     with pytest.raises(CliError) as exc:
-        service.apply(Change(on=True), apply=True)
+        service.apply(change, apply=True)
     assert exc.value.code == 2
     assert "already in use" in exc.value.message
     assert exc.value.remediation
@@ -603,16 +623,19 @@ def test_routes_apply_through_serve_with_headers(serve, monkeypatch):
     service = routed()
     assert service.routed is True
     result = service.apply(Change(color=(255, 106, 43)), apply=True)
-    assert result.applied is True and result.status == "confirmed"
+    assert result.applied is True
+    assert result.status == "confirmed"
     assert result.commands == [build_color((255, 106, 43))]
     assert result.cli == ["govee light color FF6A2B --apply"]
     (req,) = serve.api()
-    assert req["method"] == "POST" and req["path"] == "/api/light"
+    assert req["method"] == "POST"
+    assert req["path"] == "/api/light"
     assert req["body"] == {"color": "#FF6A2B", "apply": True}
     h = req["headers"]
     assert h["authorization"] == "Bearer client-secret"
     assert h["origin"] == serve.url
-    assert h["x-govee-source"] == "cli" and h["x-govee-actor"] == "alice"
+    assert h["x-govee-source"] == "cli"
+    assert h["x-govee-actor"] == "alice"
     assert store.recent_events() == []  # serve logs, not the client
 
 
@@ -624,10 +647,12 @@ def test_routed_reads_and_scene(serve, monkeypatch):
         Device("AA:BB", "Desk Lamp", "H6008", "192.0.2.10", ("lan", "cloud")),
     ]
     status = service.state(device="Desk Lamp")
-    assert status.state.color == (255, 106, 43) and status.transport == "lan"
+    assert status.state.color == (255, 106, 43)
+    assert status.transport == "lan"
     assert [s.name for s in service.scenes()] == ["Sunset"]
     result = service.set_scene("Sunset", device="AA:BB")
-    assert result.status == "dry_run" and result.applied is False
+    assert result.status == "dry_run"
+    assert result.applied is False
     paths = [(r["method"], r["path"]) for r in serve.api()]
     assert paths == [
         ("GET", "/api/devices"),
@@ -676,8 +701,10 @@ def test_serve_error_body_maps_to_cli_error(serve, monkeypatch):
         401,
         {"error": {"code": "unauthorized", "message": "invalid token", "remediation": "re-pair"}},
     )
+    service = routed()
+    change = Change(on=True)
     with pytest.raises(CliError) as exc:
-        routed().apply(Change(on=True), apply=True)
+        service.apply(change, apply=True)
     assert exc.value.code == 2
     assert "invalid token" in exc.value.message
     assert "bad-secret" not in exc.value.message + exc.value.remediation
@@ -689,8 +716,10 @@ def test_serve_bad_request_is_user_error(serve, monkeypatch):
         400,
         {"error": {"code": "bad_request", "message": "several devices", "remediation": "pick"}},
     )
+    service = routed()
+    change = Change(on=True)
     with pytest.raises(CliError) as exc:
-        routed().apply(Change(on=True))
+        service.apply(change)
     assert exc.value.code == 1
 
 
@@ -702,8 +731,9 @@ def test_foreign_http_service_is_not_mistaken_for_serve(serve):
 
 def test_non_loopback_http_serve_url_is_refused(monkeypatch):
     monkeypatch.setenv("GOVEE_SERVE_URL", "http://192.0.2.1:8742")
+    lan, cloud = FakeTransport(), FakeCloud()
     with pytest.raises(CliError) as exc:
-        LampService.connect("cli", "alice", lan=FakeTransport(), cloud=FakeCloud())
+        LampService.connect("cli", "alice", lan=lan, cloud=cloud)
     assert exc.value.code == 2
 
 
@@ -745,8 +775,11 @@ def test_routed_fade_sends_fade_seconds_and_parses_fade_fields(serve, monkeypatc
     result = routed().apply(Change(brightness=10), apply=True, fade_seconds=30)
     (req,) = serve.api()
     assert req["body"] == {"brightness": 10, "apply": True, "fade_seconds": 30.0}
-    assert result.fade is not None and result.fade.id == "f1" and result.fade.seconds == 30
-    assert result.warnings == ["something"] and result.cancelled_fade == "f0"
+    assert result.fade is not None
+    assert result.fade.id == "f1"
+    assert result.fade.seconds == 30
+    assert result.warnings == ["something"]
+    assert result.cancelled_fade == "f0"
     assert result.to_dict()["fade"] == fade
 
 
@@ -755,7 +788,9 @@ def test_routed_fade_omitted_when_not_given(serve, monkeypatch):
     result = routed().apply(Change(on=True), apply=True)
     (req,) = serve.api()
     assert "fade_seconds" not in req["body"]
-    assert result.fade is None and result.warnings == [] and result.cancelled_fade is None
+    assert result.fade is None
+    assert result.warnings == []
+    assert result.cancelled_fade is None
 
 
 def test_routed_active_and_cancel_fade(serve, monkeypatch):
@@ -774,14 +809,18 @@ def test_routed_active_and_cancel_fade(serve, monkeypatch):
     assert service.active_fade() == active
     assert service.cancel_fade(device="Desk Lamp") is True
     get, post = serve.api()
-    assert get["method"] == "GET" and get["path"] == "/api/fade"
-    assert post["path"] == "/api/fade/cancel" and post["body"] == {"device": "Desk Lamp"}
+    assert get["method"] == "GET"
+    assert get["path"] == "/api/fade"
+    assert post["path"] == "/api/fade/cancel"
+    assert post["body"] == {"device": "Desk Lamp"}
 
 
 def test_fade_seconds_validated_before_routing(serve, monkeypatch):
     monkeypatch.setenv("GOVEE_TOKEN", "client-secret")
+    service = routed()
+    change = Change(on=True)
     with pytest.raises(ValueError):
-        routed().apply(Change(on=True), apply=True, fade_seconds=-1)
+        service.apply(change, apply=True, fade_seconds=-1)
     assert serve.api() == []
 
 

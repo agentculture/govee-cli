@@ -161,7 +161,8 @@ def test_build_brightness_clamps_and_validates():
 
 def test_build_color_and_kelvin():
     c = lan.build_color((1, 2, 3))
-    assert c.verb == "colorwc" and c.transport == "lan"
+    assert c.verb == "colorwc"
+    assert c.transport == "lan"
     assert c.payload == {
         "msg": {
             "cmd": "colorwc",
@@ -189,7 +190,8 @@ def test_interface_argument_ip_wins_over_env(monkeypatch):
 def test_interface_from_env(monkeypatch):
     monkeypatch.setenv("GOVEE_LAN_INTERFACE", LOOPBACK)
     info = lan.interface_info()
-    assert info["ip"] == LOOPBACK and info["source"] == "env"
+    assert info["ip"] == LOOPBACK
+    assert info["source"] == "env"
 
 
 def test_interface_name_resolves_loopback(monkeypatch):
@@ -245,7 +247,8 @@ def test_scan_report_for_doctor():
 def test_scan_report_no_reply_and_port_busy():
     with FakeLanDevice(answer_scan=False) as dev:
         report = _transport(dev, scan_timeout=0.1).scan_report()
-        assert report["replied"] is False and report["devices"] == []
+        assert report["replied"] is False
+        assert report["devices"] == []
         holder = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         holder.bind((LOOPBACK, 0))
         try:
@@ -268,13 +271,15 @@ def test_port_busy_raises_typed_error():
             t = _transport(dev, listen_port=port)
             with pytest.raises(PortBusy) as exc:
                 t.discover()
+            device = _device()
             with pytest.raises(PortBusy):
-                t.get_state(_device())
+                t.get_state(device)
     finally:
         holder.close()
     assert isinstance(exc.value, LanError)
     assert exc.value.port == port
-    assert f"port {port}" in str(exc.value) and "in use" in str(exc.value)
+    assert f"port {port}" in str(exc.value)
+    assert "in use" in str(exc.value)
 
 
 def test_listener_does_not_share_port_with_reuseaddr_holder():
@@ -284,8 +289,9 @@ def test_listener_does_not_share_port_with_reuseaddr_holder():
     holder.bind((LOOPBACK, 0))
     try:
         with FakeLanDevice() as dev:
+            t = _transport(dev, listen_port=holder.getsockname()[1])
             with pytest.raises(PortBusy):
-                _transport(dev, listen_port=holder.getsockname()[1]).discover()
+                t.discover()
     finally:
         holder.close()
 

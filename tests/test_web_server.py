@@ -140,7 +140,8 @@ def test_reads_without_token_are_401(srv, path):
 @pytest.mark.parametrize("path", WRITES)
 def test_writes_without_token_are_401(srv, path):
     status, _, body = srv.call("POST", path, {"on": True, "apply": True})
-    assert status == 401 and _error_code(body) == "unauthorized"
+    assert status == 401
+    assert _error_code(body) == "unauthorized"
 
 
 @pytest.mark.parametrize(
@@ -148,7 +149,8 @@ def test_writes_without_token_are_401(srv, path):
 )
 def test_invalid_token_is_401(srv, token, auth):
     status, _, body = srv.call("GET", "/api/state", headers={"Authorization": auth})
-    assert status == 401 and _error_code(body) == "unauthorized"
+    assert status == 401
+    assert _error_code(body) == "unauthorized"
 
 
 def test_rejected_write_sends_nothing(srv):
@@ -161,7 +163,8 @@ def test_rejected_write_sends_nothing(srv):
 def test_unknown_api_route_needs_token_then_404(srv, token):
     assert srv.call("GET", "/api/nope")[0] == 401
     status, _, body = srv.call("GET", "/api/nope", token=token)
-    assert status == 404 and _error_code(body) == "not_found"
+    assert status == 404
+    assert _error_code(body) == "not_found"
 
 
 def test_health_needs_no_token_and_is_exact(srv):
@@ -187,7 +190,8 @@ def test_write_with_wrong_or_missing_origin_is_403(srv, token, origin):
     status, _, body = srv.call(
         "POST", "/api/light", {"on": False, "apply": True}, token=token, origin=origin
     )
-    assert status == 403 and _error_code(body) == "forbidden"
+    assert status == 403
+    assert _error_code(body) == "forbidden"
     assert lan.sent == []
 
 
@@ -222,7 +226,8 @@ def test_oversize_body_is_413_without_reading_it(srv, token):
         body = json.loads(resp.read())
     finally:
         conn.close()
-    assert resp.status == 413 and _error_code(body) == "too_large"
+    assert resp.status == 413
+    assert _error_code(body) == "too_large"
 
 
 def test_body_of_exactly_16k_is_accepted_size_wise(srv, token):
@@ -236,7 +241,8 @@ def test_body_of_exactly_16k_is_accepted_size_wise(srv, token):
 @pytest.mark.parametrize("raw", ["not json", "[1, 2]", '"x"', "null"])
 def test_body_must_be_a_json_object(srv, token, raw):
     status, _, body = srv.call("POST", "/api/light", raw, token=token)
-    assert status == 400 and _error_code(body) == "bad_request"
+    assert status == 400
+    assert _error_code(body) == "bad_request"
 
 
 def test_chunked_body_is_refused(srv, token):
@@ -268,7 +274,8 @@ def test_rotate_revokes_all_tokens_and_prints_fresh_link(srv, token):
     assert srv.call("GET", "/api/state", token=other)[0] == 401
     assert srv.call("GET", "/api/state", token=fresh)[0] == 200
     names = [t["name"] for t in tokens.list_tokens()]
-    assert len(names) == 1 and names[0].startswith("console-")
+    assert len(names) == 1
+    assert names[0].startswith("console-")
 
 
 def test_rotate_falls_back_to_loopback_when_no_route(monkeypatch):
@@ -422,7 +429,8 @@ def test_loopback_client_may_set_source_and_actor(srv, token):
         token=token,
         headers={"X-Govee-Source": "cli", "X-Govee-Actor": "bob"},
     )
-    assert status == 200 and body["status"] == "dry_run"
+    assert status == 200
+    assert body["status"] == "dry_run"
     ev = _last_event()
     assert (ev["source"], ev["actor"], ev["status"]) == ("cli", "bob", "dry_run")
 
@@ -449,7 +457,8 @@ def test_default_attribution_is_web_and_token_name(srv, token):
 
 def test_invalid_source_header_is_400(srv, token):
     status, _, body = srv.call("GET", "/api/state", token=token, headers={"X-Govee-Source": "root"})
-    assert status == 400 and _error_code(body) == "bad_request"
+    assert status == 400
+    assert _error_code(body) == "bad_request"
 
 
 @pytest.mark.parametrize(
@@ -473,8 +482,11 @@ def test_state(srv, token):
         "model": "H6076",
         "transport": "lan",
     }
-    assert body["reachable"] is True and body["on"] is True and body["brightness"] == 40
-    assert body["color"] == "#FF6A2B" and body["mode"] == "color"
+    assert body["reachable"] is True
+    assert body["on"] is True
+    assert body["brightness"] == 40
+    assert body["color"] == "#FF6A2B"
+    assert body["mode"] == "color"
     assert hdrs["cache-control"] == "no-store"
 
 
@@ -484,7 +496,8 @@ def test_unreachable_lamp_is_200_with_reachable_false(token):
         status, _, body = s.call("GET", "/api/state", token=token)
     finally:
         s.close()
-    assert status == 200 and body["reachable"] is False
+    assert status == 200
+    assert body["reachable"] is False
 
 
 def test_devices(srv, token):
@@ -509,11 +522,13 @@ def test_light_dry_run_sends_nothing_and_is_not_logged(srv, token):
         "POST", "/api/light", {"color": "#FF6A2B", "brightness": 50, "apply": False}, token=token
     )
     assert status == 200
-    assert body["applied"] is False and body["status"] == "dry_run"
+    assert body["applied"] is False
+    assert body["status"] == "dry_run"
     assert [c["verb"] for c in body["commands"]] == ["brightness", "colorwc"]
     assert all(c["transport"] == "lan" for c in body["commands"])
     assert any("--apply" in c for c in body["cli"])
-    assert body["warnings"] == [] and body["fade"] is None
+    assert body["warnings"] == []
+    assert body["fade"] is None
     assert lan.sent == []
     assert store.recent_events() == []  # d7: web dry runs are not logged
 
@@ -523,16 +538,19 @@ def test_light_apply_sends_the_previewed_commands(srv, token):
     req = {"color": "#00FF00", "apply": False}
     _, _, plan = srv.call("POST", "/api/light", req, token=token)
     status, _, body = srv.call("POST", "/api/light", {**req, "apply": True}, token=token)
-    assert status == 200 and body["applied"] is True
+    assert status == 200
+    assert body["applied"] is True
     assert body["status"] in ("sent", "confirmed", "unconfirmed")
     assert [c.payload for _, c in lan.sent] == [c["payload"] for c in plan["commands"]]
     ev = _last_event()
-    assert ev["source"] == "web" and ev["status"] != "dry_run"
+    assert ev["source"] == "web"
+    assert ev["status"] != "dry_run"
 
 
 def test_apply_defaults_to_dry_run(srv, token):
     _, _, body = srv.call("POST", "/api/light", {"on": False}, token=token)
-    assert body["applied"] is False and srv.service.backend.lan.sent == []
+    assert body["applied"] is False
+    assert srv.service.backend.lan.sent == []
 
 
 @pytest.mark.parametrize(
@@ -564,13 +582,15 @@ def test_light_validation_is_400(srv, token, body):
 
 def test_scenes_listing(srv, token):
     status, _, body = srv.call("GET", "/api/scenes", token=token)
-    assert status == 200 and body == {"scenes": [{"id": "7", "name": "Sunset"}]}
+    assert status == 200
+    assert body == {"scenes": [{"id": "7", "name": "Sunset"}]}
 
 
 @pytest.mark.parametrize("scene", ["7", "Sunset", "sunset"])
 def test_scene_by_id_or_name(srv, token, scene):
     status, _, body = srv.call("POST", "/api/scene", {"scene": scene, "apply": False}, token=token)
-    assert status == 200 and body["status"] == "dry_run"
+    assert status == 200
+    assert body["status"] == "dry_run"
     assert body["commands"][0]["transport"] == "cloud"
     assert "Sunset" in body["cli"][0]
 
@@ -578,14 +598,16 @@ def test_scene_by_id_or_name(srv, token, scene):
 def test_scene_apply_goes_over_cloud(srv, token):
     cloud = srv.service.backend.cloud
     status, _, body = srv.call("POST", "/api/scene", {"scene": "7", "apply": True}, token=token)
-    assert status == 200 and body["applied"] is True
+    assert status == 200
+    assert body["applied"] is True
     assert len(cloud.sent) == 1
 
 
 @pytest.mark.parametrize("body", [{"scene": "Nope", "apply": False}, {"apply": False}])
 def test_bad_scene_is_400(srv, token, body):
     status, _, resp = srv.call("POST", "/api/scene", body, token=token)
-    assert status == 400 and _error_code(resp) == "bad_request"
+    assert status == 400
+    assert _error_code(resp) == "bad_request"
 
 
 # --- fades (d11) ------------------------------------------------------------------------------
@@ -595,8 +617,10 @@ def test_fade_dry_run_returns_plan(srv, token):
     status, _, body = srv.call(
         "POST", "/api/light", {"brightness": 80, "fade_seconds": 2, "apply": False}, token=token
     )
-    assert status == 200 and body["applied"] is False
-    assert body["fade"]["seconds"] == 2.0 and body["fade"]["steps"] > 0
+    assert status == 200
+    assert body["applied"] is False
+    assert body["fade"]["seconds"] == 2.0
+    assert body["fade"]["steps"] > 0
     assert srv.service.backend.lan.sent == []
     assert srv.call("GET", "/api/fade", token=token)[2] == {"active": None}
 
@@ -605,12 +629,15 @@ def test_fade_runs_in_background_and_can_be_cancelled(srv, token):
     status, _, body = srv.call(
         "POST", "/api/light", {"brightness": 90, "fade_seconds": 30, "apply": True}, token=token
     )
-    assert status == 200 and body["applied"] is True and body["fade"]["id"]
+    assert status == 200
+    assert body["applied"] is True
+    assert body["fade"]["id"]
     _, _, fade = srv.call("GET", "/api/fade", token=token)
     assert fade["active"]["id"] == body["fade"]["id"]
     assert 0 <= fade["active"]["progress"] <= 1
     status, _, cancelled = srv.call("POST", "/api/fade/cancel", {}, token=token)
-    assert status == 200 and cancelled == {"cancelled": True}
+    assert status == 200
+    assert cancelled == {"cancelled": True}
     deadline = time.time() + 5
     while time.time() < deadline and srv.call("GET", "/api/fade", token=token)[2]["active"]:
         time.sleep(0.02)
@@ -639,7 +666,8 @@ def test_rate_limit_is_429(token):
         status, _, body = s.call("GET", "/api/state", token=token)
     finally:
         s.close()
-    assert status == 429 and _error_code(body) == "rate_limited"
+    assert status == 429
+    assert _error_code(body) == "rate_limited"
 
 
 def test_no_device_and_no_key_is_unreachable(token):
@@ -648,7 +676,8 @@ def test_no_device_and_no_key_is_unreachable(token):
         status, _, body = s.call("GET", "/api/state", token=token)
     finally:
         s.close()
-    assert status in (502, 503) and _error_code(body) == "unreachable"
+    assert status in (502, 503)
+    assert _error_code(body) == "unreachable"
     assert body["error"]["remediation"]
 
 
@@ -658,7 +687,8 @@ def test_unexpected_error_is_500_without_details(srv, token, monkeypatch):
 
     monkeypatch.setattr(srv.service, "state", boom)
     status, _, body = srv.call("GET", "/api/state", token=token)
-    assert status == 500 and _error_code(body) == "internal"
+    assert status == 500
+    assert _error_code(body) == "internal"
     assert "secret-internal-detail" not in json.dumps(body)
 
 
@@ -674,7 +704,8 @@ def test_events_have_summary_and_limit(srv, token):
     for b in (10, 20, 30):
         srv.call("POST", "/api/light", {"brightness": b, "apply": True}, token=token)
     status, _, body = srv.call("GET", "/api/events?limit=2", token=token)
-    assert status == 200 and len(body["events"]) == 2
+    assert status == 200
+    assert len(body["events"]) == 2
     ev = body["events"][0]
     assert {"ts", "source", "actor", "verb", "summary", "status"} <= set(ev)
     assert "30" in ev["summary"]
@@ -701,7 +732,8 @@ def test_stats_shape(srv, token):
     assert len(body["commands_by_source"]) == 7
     assert len(body["heatmap"]) == 7 * 24
     samples = [s for s in body["day_samples"] if not s.get("gap")]
-    assert samples and samples[-1]["rgb"] == "#FF0000"
+    assert samples
+    assert samples[-1]["rgb"] == "#FF0000"
     assert body["tiles"]["avg_brightness"] == 60
 
 
@@ -715,7 +747,8 @@ def test_stats_pass_the_server_local_timezone(srv, token, monkeypatch):
 
     monkeypatch.setattr(store, "hours_per_day", spy)
     srv.call("GET", "/api/stats", token=token)
-    assert seen and seen[0] is not None
+    assert seen
+    assert seen[0] is not None
     assert seen[0].utcoffset(None) is None or isinstance(seen[0].utcoffset(None), timedelta)
 
 
@@ -738,9 +771,12 @@ def test_index_served_with_security_headers(srv):
     assert hdrs["x-content-type-options"] == "nosniff"
     assert hdrs["referrer-policy"] == "no-referrer"
     csp = hdrs["content-security-policy"]
-    assert "default-src 'self'" in csp and "script-src 'self'" in csp
-    assert "https://fonts.googleapis.com" in csp and "https://fonts.gstatic.com" in csp
-    assert "unsafe-eval" not in csp and "frame-ancestors 'none'" in csp
+    assert "default-src 'self'" in csp
+    assert "script-src 'self'" in csp
+    assert "https://fonts.googleapis.com" in csp
+    assert "https://fonts.gstatic.com" in csp
+    assert "unsafe-eval" not in csp
+    assert "frame-ancestors 'none'" in csp
     assert b"app.js" in body
     assert "python" not in hdrs.get("server", "").lower()
 
@@ -751,7 +787,8 @@ def test_index_served_with_security_headers(srv):
 )
 def test_static_assets(srv, path, ctype):
     status, hdrs, _ = srv.raw("GET", path)
-    assert status == 200 and hdrs["content-type"].startswith(ctype)
+    assert status == 200
+    assert hdrs["content-type"].startswith(ctype)
     assert hdrs["x-content-type-options"] == "nosniff"
 
 
@@ -773,7 +810,8 @@ def test_static_assets(srv, path, ctype):
 def test_static_refuses_traversal_and_unknown(srv, path):
     status, _, body = srv.raw("GET", path)
     assert status == 404
-    assert b"import" not in body and b"root:" not in body
+    assert b"import" not in body
+    assert b"root:" not in body
 
 
 def test_static_query_string_is_ignored(srv):
@@ -805,9 +843,11 @@ def test_trusted_network_needs_no_token_but_writes_keep_the_origin_check():
     s = Running(make_service(), trusted=web.parse_trusted(["127.0.0.0/8"]))
     try:
         status, _, body = s.call("GET", "/api/state")
-        assert status == 200 and "on" in body
+        assert status == 200
+        assert "on" in body
         status, _, body = s.call("POST", "/api/light", {"on": True, "apply": True})
-        assert status == 200 and body["applied"] is True
+        assert status == 200
+        assert body["applied"] is True
         status, _, body = s.call("POST", "/api/light", {"on": True}, origin=None)
         assert status == 403
         wrong = "x" * 24
@@ -816,7 +856,8 @@ def test_trusted_network_needs_no_token_but_writes_keep_the_origin_check():
     finally:
         s.close()
     events = store.recent_events()
-    assert events and events[0]["actor"] == "trusted 127.0.0.1"
+    assert events
+    assert events[0]["actor"] == "trusted 127.0.0.1"
 
 
 def test_untrusted_network_still_needs_a_token(srv):
@@ -834,8 +875,10 @@ def test_parse_trusted_accepts_cidrs_and_keywords(monkeypatch):
     assert ipaddress.ip_network("192.0.2.0/24") in nets
     assert ipaddress.ip_network("100.64.0.0/10") in nets
     assert ipaddress.ip_network("10.1.0.0/16") in nets
-    assert web.in_networks("100.101.102.103", nets) and web.in_networks("::ffff:192.0.2.9", nets)
-    assert not web.in_networks("203.0.113.5", nets) and not web.in_networks("bogus", nets)
+    assert web.in_networks("100.101.102.103", nets)
+    assert web.in_networks("::ffff:192.0.2.9", nets)
+    assert not web.in_networks("203.0.113.5", nets)
+    assert not web.in_networks("bogus", nets)
     assert web.parse_trusted([""]) == []
     with pytest.raises(CliError) as exc:
         web.parse_trusted(["home"])

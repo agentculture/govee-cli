@@ -23,6 +23,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- Resolved the SonarCloud issues on PR #3 (308 code smells, no bugs or vulnerabilities): composite test assertions split, `pytest.raises` blocks narrowed, complex functions broken into helpers, duplicated literals made constants, and console script cleanups (no nested ternaries, optional chaining, native `<output>`/`<fieldset>` elements).
+- A fade retries its start-state read once, so a lost reply on serve's first command no longer turns a fade-on into a snap (found live).
+- CI fails a PR while SonarCloud shows any unresolved (OPEN or CONFIRMED) issue on it, via `scripts/sonar-pr-issues.py` cited from culture-rules as in culture-library; issues accepted or marked false positive in SonarCloud pass.
 - README, CLAUDE.md, AGENTS.override.md, AGENTS.colleague.md and QWEN.md now describe the shipped Govee domain instead of the template scaffold.
 - CI's teken rubric step sets GOVEE_DOCTOR_NO_SCAN=1 so CI never scans a runner's network.
 

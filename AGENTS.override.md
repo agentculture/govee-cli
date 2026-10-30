@@ -81,6 +81,8 @@ culture.yaml              mesh identity (suffix + backend) and test gate
   guildmaster. Never propose editing their scripts; the fix belongs upstream
   (`docs/skill-sources.md` has the re-sync procedure).
 - Every PR bumps the version (`version-bump` skill), and CI's `version-check`
-  job blocks merge otherwise.
+  job blocks merge otherwise. SonarCloud must also show no unresolved issue on the PR
+  (`scripts/sonar-pr-issues.py`): fix each one, or accept it in SonarCloud with a
+  reason; accepted and false-positive issues pass.
 - This file describes the repo **as it exists on disk today**. If you are
   asked to update it, keep claims grounded in checked-in reality.

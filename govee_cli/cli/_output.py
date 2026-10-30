@@ -13,6 +13,9 @@ from typing import Any, TextIO
 
 from govee_cli.cli._errors import CliError
 
+#: Help text for every verb's ``--json`` flag.
+JSON_HELP = "Emit structured JSON."
+
 
 def emit_result(data: Any, *, json_mode: bool, stream: TextIO | None = None) -> None:
     """Write a command result to stdout (or ``stream``)."""

@@ -123,8 +123,10 @@ def test_tools_list_schemas(factory):
     props = tools["set_light"]["inputSchema"]["properties"]
     assert set(props) == {"device", "on", "brightness", "color", "kelvin", "fade_seconds", "apply"}
     assert props["apply"]["default"] is False
-    assert props["brightness"]["minimum"] == 1 and props["brightness"]["maximum"] == 100
-    assert props["kelvin"]["minimum"] == 2000 and props["kelvin"]["maximum"] == 9000
+    assert props["brightness"]["minimum"] == 1
+    assert props["brightness"]["maximum"] == 100
+    assert props["kelvin"]["minimum"] == 2000
+    assert props["kelvin"]["maximum"] == 9000
     assert tools["set_scene"]["inputSchema"]["required"] == ["name"]
     for n in ("set_light", "set_scene"):
         assert "dry run" in tools[n]["description"].lower()
@@ -141,7 +143,8 @@ def test_dry_run_then_apply(factory, lan):
         ]
     )
     dry, applied = payload(r[1]), payload(r[2])
-    assert dry["applied"] is False and applied["applied"] is True
+    assert dry["applied"] is False
+    assert applied["applied"] is True
     assert len(lan.sent) == len(applied["commands"]) >= 1
     assert factory == [("mcp", "agent-x")]
     # content text mirrors structuredContent
@@ -221,7 +224,8 @@ def test_parse_error_and_blank_lines(factory):
     out = io.StringIO()
     server.run(stdin=io.StringIO("\n{not json\n"), stdout=out)
     resp = json.loads(out.getvalue())
-    assert resp["error"]["code"] == -32700 and resp["id"] is None
+    assert resp["error"]["code"] == -32700
+    assert resp["id"] is None
 
 
 def test_fade_tools(factory, lan):
@@ -252,7 +256,7 @@ def test_never_reads_api_key():
     assert "GOVEE_API_KEY" not in src.replace("Never read GOVEE_API_KEY", "")
 
 
-def test_subprocess_dry_run_then_apply(tmp_path):
+def test_subprocess_dry_run_then_apply(tmp_path, monkeypatch):
     env = dict(os.environ)
     env.update(
         GOVEE_MCP_TEST_FAKE="1",
@@ -288,9 +292,10 @@ def test_subprocess_dry_run_then_apply(tmp_path):
     assert applied["applied"] is True
     assert payload(r[6])["on"] is False  # the dry run sent nothing
     assert payload(r[5])["on"] is True
-    os.environ["XDG_STATE_HOME"] = str(tmp_path / "state")
+    monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path / "state"))
     events = [e for e in store.recent_events() if e["actor"] == "sub-client"]
-    assert events and all(e["source"] == "mcp" for e in events)
+    assert events
+    assert all(e["source"] == "mcp" for e in events)
 
 
 # --- t13: the paths t9 left untested (d18) ----------------------------------------------------
@@ -315,9 +320,12 @@ def test_running_fade_is_visible_and_cancellable_over_mcp(monkeypatch):
     finally:
         svc.cancel_fade()
     started = payload(r[1])
-    assert started["applied"] is True and started["fade"]["seconds"] == 30
+    assert started["applied"] is True
+    assert started["fade"]["seconds"] == 30
     active = payload(r[2])["fade"]
-    assert active is not None and active["seconds"] == 30 and 0 <= active["progress"] < 1
+    assert active is not None
+    assert active["seconds"] == 30
+    assert 0 <= active["progress"] < 1
     assert payload(r[3]) == {"cancelled": True}
     assert payload(r[4])["fade"] is None
     assert lamp.sent, "the fade sent at least its first step before the cancel"
@@ -370,10 +378,12 @@ def test_service_follows_serve_starting_and_stopping(monkeypatch):
     monkeypatch.setattr(server, "make_service", make)
     s = server.Server()
     direct = s.service()
-    assert s.service() is direct and len(built) == 1
+    assert s.service() is direct
+    assert len(built) == 1
     up["now"] = True
     routed = s.service()
-    assert routed is not direct and len(built) == 2
+    assert routed is not direct
+    assert len(built) == 2
     up["now"] = False
     assert s.service() is direct, "the in-process backend (and its fades) is kept"
 

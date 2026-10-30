@@ -29,7 +29,7 @@ import threading
 import time
 from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Optional, cast
 
 from govee_cli.cli._errors import EXIT_ENV_ERROR, EXIT_USER_ERROR, CliError
 from govee_cli.govee import cloud as cloud_mod
@@ -57,6 +57,7 @@ MISS_TTL = 15.0  # how long a failed discovery is reused before scanning again
 COLOR_TOLERANCE = 24  # per RGB channel; lamps quantise colour
 KELVIN_TOLERANCE = 150
 FADE_JOIN_TIMEOUT = 2.0  # how long a new write waits for a cancelled fade's thread to stop
+_REMEDIATION_LOG = "make the directory writable or point XDG_STATE_HOME elsewhere"
 
 
 def lan_commands(change: Change) -> list[Command]:
@@ -99,6 +100,11 @@ def state_matches(change: Change, state: Optional[LampState]) -> bool:
         return True  # an off lamp's other attributes are not observable
     if change.brightness is not None and state.brightness != change.brightness:
         return False
+    return _colour_matches(change, state)
+
+
+def _colour_matches(change: Change, state: LampState) -> bool:
+    """Colour within ``COLOR_TOLERANCE`` per channel, kelvin within ``KELVIN_TOLERANCE``."""
     if change.color is not None:
         if state.color is None or state.kelvin:
             return False
@@ -217,7 +223,9 @@ class DirectBackend:
             raise map_error(lan_error)
         return []
 
-    def devices(self, *, refresh: bool = False, source: str = "cli", actor: Any = None):
+    # Reads and fade control take the facade's ``source``/``actor`` keywords as ``**_ctx`` and
+    # ignore them (they log nothing); ``ServeBackend`` forwards them to ``govee serve``.
+    def devices(self, *, refresh: bool = False, **_ctx: Any):
         with self._cache_lock:
             now = self.clock()
             if not refresh and self._cache and now - self._cache[0] < self.cache_ttl:
@@ -251,9 +259,7 @@ class DirectBackend:
         except LanError:
             return None
 
-    def state(
-        self, device: Optional[str] = None, *, source: str = "cli", actor: Any = None
-    ) -> LampStatus:
+    def state(self, device: Optional[str] = None, **_ctx: Any) -> LampStatus:
         dev = self._device(device)
         state = self._lan_state(dev)
         if state is not None:
@@ -275,9 +281,7 @@ class DirectBackend:
         except CloudError as exc:
             raise map_error(exc) from None
 
-    def scenes(
-        self, device: Optional[str] = None, *, source: str = "cli", actor: Any = None
-    ) -> list[SceneInfo]:
+    def scenes(self, device: Optional[str] = None, **_ctx: Any) -> list[SceneInfo]:
         dev = self._device(device)
         return [SceneInfo(str(s.value.get("id", s.name)), s.name) for s in self._cloud_scenes(dev)]
 
@@ -350,7 +354,7 @@ class DirectBackend:
         state = self._lan_state(dev)
         if state is None or state.brightness > 1:
             return change
-        return replace(change, brightness=remembered)
+        return cast(Change, replace(change, brightness=remembered))
 
     def set_scene(
         self, name: str, *, apply: bool, device: Optional[str], source: str, actor: Any
@@ -378,9 +382,7 @@ class DirectBackend:
 
     # -- fades --
 
-    def active_fade(
-        self, device: Optional[str] = None, *, source: str = "cli", actor: Any = None
-    ) -> Optional[dict[str, Any]]:
+    def active_fade(self, device: Optional[str] = None, **_ctx: Any) -> Optional[dict[str, Any]]:
         """The running fade (of ``device``, else of any device) as a dict, or ``None``."""
         with self._fade_lock:
             fades = list(self._fades.values())
@@ -389,15 +391,15 @@ class DirectBackend:
             fades = [f for f in fades if f.device.id == dev.id]
         return fades[0].to_dict() if fades else None
 
-    def cancel_fade(
-        self, device: Optional[str] = None, *, source: str = "cli", actor: Any = None
-    ) -> bool:
+    def cancel_fade(self, device: Optional[str] = None, **_ctx: Any) -> bool:
         """Cancel the running fade of ``device`` (``None``: every device); True if one ran."""
         if device is not None:
             return self._cancel_device_fade(self._device(device)) is not None
         with self._fade_lock:
             devices = [f.device for f in self._fades.values()]
-        return any([self._cancel_device_fade(d) is not None for d in devices])
+        # Cancel every fade before answering: no short-circuit.
+        cancelled = [self._cancel_device_fade(d) for d in devices]
+        return any(c is not None for c in cancelled)
 
     def wait_for_fades(self) -> None:
         """Block until every background fade has ended (``govee mcp serve`` at EOF)."""
@@ -433,7 +435,9 @@ class DirectBackend:
         source: str,
         actor: Any,
     ) -> ApplyResult:
-        start = self._lan_state(dev)
+        # Without a start state the fade cannot ramp (the lamp might already be lit), so one lost
+        # devStatus reply would turn a fade into a snap; found live on serve's first command.
+        start = self._lan_state(dev) or self._lan_state(dev)
         remembered = fade_mod.remembered_brightness(dev.id) if change.on else None
         plan = fade_mod.plan_fade(start, change, seconds, remembered=remembered)
         commands = plan.commands()
@@ -613,7 +617,7 @@ def _record(source: str, actor: Any, verb: str, payload: dict, status: str) -> i
         raise CliError(
             EXIT_ENV_ERROR,
             f"cannot write the event log at {store.db_path()} ({type(exc).__name__})",
-            "make the directory writable or point XDG_STATE_HOME elsewhere",
+            _REMEDIATION_LOG,
         ) from None
 
 
@@ -624,7 +628,7 @@ def _update(event_id: int, status: str) -> None:
         raise CliError(
             EXIT_ENV_ERROR,
             f"cannot update the event log at {store.db_path()} ({type(exc).__name__})",
-            "make the directory writable or point XDG_STATE_HOME elsewhere",
+            _REMEDIATION_LOG,
         ) from None
 
 
@@ -635,5 +639,5 @@ def _update_payload(event_id: int, payload: dict) -> None:
         raise CliError(
             EXIT_ENV_ERROR,
             f"cannot update the event log at {store.db_path()} ({type(exc).__name__})",
-            "make the directory writable or point XDG_STATE_HOME elsewhere",
+            _REMEDIATION_LOG,
         ) from None

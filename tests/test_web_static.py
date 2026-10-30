@@ -120,7 +120,8 @@ def test_fade_control_offers_the_durations() -> None:
 def test_active_fade_bar_with_progress_and_stop_button() -> None:
     html = _read("index.html")
     bar = re.search(r'<div[^>]*id="fadeBar"[^>]*>', html)
-    assert bar and "hidden" in bar.group(0)
+    assert bar
+    assert "hidden" in bar.group(0)
     assert re.search(r'<progress[^>]*id="fadeProgress"', html)
     assert re.search(r'<button[^>]*id="fadeStop"[^>]*>Stop fade</button>', html)
 
@@ -129,4 +130,5 @@ def test_app_sends_fade_seconds_and_shows_warnings() -> None:
     js = _read("app.js")
     assert "fade_seconds" in js
     assert "warnings" in js
-    assert '"#fadeStop"' in js and '"#fadeProgress"' in js
+    assert '"#fadeStop"' in js
+    assert '"#fadeProgress"' in js
