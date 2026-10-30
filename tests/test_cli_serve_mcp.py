@@ -25,15 +25,21 @@ def test_serve_passes_args(monkeypatch):
         return 0
 
     fake_module(monkeypatch, "govee_cli.web.server", run)
-    assert main(["serve", "--host", "127.0.0.1", "--port", "9001", "--rotate-token"]) == 0
-    assert seen == {"host": "127.0.0.1", "port": 9001, "rotate_token": True}
+    argv = ["serve", "--host", "127.0.0.1", "--port", "9001", "--rotate-token"]
+    assert main([*argv, "--trust", "tailscale", "--trust", "10.0.0.0/8"]) == 0
+    assert seen == {
+        "host": "127.0.0.1",
+        "port": 9001,
+        "rotate_token": True,
+        "trust": ["tailscale", "10.0.0.0/8"],
+    }
 
 
 def test_serve_defaults_leave_host_to_server(monkeypatch):
     seen = {}
     fake_module(monkeypatch, "govee_cli.web.server", lambda **kw: seen.update(kw) or 0)
     assert main(["serve"]) == 0
-    assert seen == {"rotate_token": False}
+    assert seen == {"rotate_token": False, "trust": []}
 
 
 def test_serve_missing_module_is_env_error(monkeypatch, capsys):

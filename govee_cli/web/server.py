@@ -24,6 +24,7 @@ from __future__ import annotations
 import ipaddress
 import json
 import logging
+import os
 import re
 import signal
 import sys
@@ -31,7 +32,7 @@ import threading
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from typing import Any, Callable, Optional, TextIO
+from typing import Any, Callable, Iterable, Optional, TextIO, Union
 from urllib.parse import parse_qs, urlsplit
 
 from govee_cli.auth import tokens
@@ -134,6 +135,54 @@ def map_exception(exc: BaseException) -> ApiError:
 
 
 # --- helpers ---------------------------------------------------------------------------------
+
+
+Network = Union[ipaddress.IPv4Network, ipaddress.IPv6Network]
+ENV_TRUST = "GOVEE_TRUSTED_NETWORKS"  # comma-separated --trust values (for the systemd unit)
+TRUST_TAILSCALE = ("100.64.0.0/10", "fd7a:115c:a1e0::/48")  # Tailscale's address ranges
+
+
+def parse_trusted(specs: Iterable[str]) -> list[Network]:
+    """``--trust`` values as networks: CIDRs, ``lan`` (the default route's /24) or ``tailscale``.
+
+    Raises ``CliError(1)`` on a value that is none of those.
+    """
+    nets: list[Network] = []
+    for raw in specs:
+        for spec in (p.strip().lower() for p in str(raw).split(",")):
+            if not spec:
+                continue
+            if spec == "tailscale":
+                nets.extend(ipaddress.ip_network(n) for n in TRUST_TAILSCALE)
+                continue
+            if spec == "lan":
+                try:
+                    spec = f"{lan.default_route_ip()}/24"
+                except (OSError, lan.LanError) as exc:
+                    raise CliError(
+                        EXIT_ENV_ERROR,
+                        f"cannot find the LAN to trust ({exc})",
+                        "pass the network as a CIDR instead, e.g. --trust 192.168.1.0/24",
+                    ) from None
+            try:
+                nets.append(ipaddress.ip_network(spec, strict=False))
+            except ValueError:
+                raise CliError(
+                    EXIT_USER_ERROR,
+                    f"--trust {spec!r} is not a network",
+                    "use a CIDR such as 192.168.1.0/24, or the words lan or tailscale",
+                ) from None
+    return nets
+
+
+def in_networks(address: str, nets: Iterable[Network]) -> bool:
+    """True when ``address`` (IPv4-mapped included) is inside one of ``nets``."""
+    try:
+        ip = ipaddress.ip_address(str(address).split("%", 1)[0])
+    except ValueError:
+        return False
+    ip = getattr(ip, "ipv4_mapped", None) or ip
+    return any(ip.version == n.version and ip in n for n in nets)
 
 
 def is_loopback(address: str) -> bool:
@@ -472,10 +521,16 @@ class GoveeHandler(BaseHTTPRequestHandler):
     def _client_is_loopback(self) -> bool:
         return is_loopback(self.client_address[0])
 
+    def _client_is_trusted(self) -> bool:
+        return in_networks(self.client_address[0], self.server.trusted)
+
     def _authenticate(self) -> str:
         scheme, _, secret = (self.headers.get("Authorization") or "").partition(" ")
         secret = secret.strip()
         name = None
+        if not secret and self._client_is_trusted():
+            # `govee serve --trust`: a device on a network the owner trusts needs no token.
+            return f"trusted {self.client_address[0]}"[:64]
         if scheme.lower() == "bearer" and secret:
             try:
                 name = tokens.verify(secret)
@@ -630,7 +685,9 @@ class GoveeServer(ThreadingHTTPServer):
         address: tuple[str, int],
         service: LampService,
         static_dir: Path = STATIC_DIR,
+        trusted: Iterable[Network] = (),
     ) -> None:
+        self.trusted = list(trusted)
         if ":" in address[0]:
             import socket
 
@@ -653,10 +710,15 @@ def _static_whitelist(static_dir: Path) -> dict[str, Path]:
 
 
 def make_server(
-    host: str, port: int, service: LampService, *, static_dir: Path = STATIC_DIR
+    host: str,
+    port: int,
+    service: LampService,
+    *,
+    static_dir: Path = STATIC_DIR,
+    trusted: Iterable[Network] = (),
 ) -> GoveeServer:
     """Bind (but do not start) the server; ``port=0`` picks a free port (tests)."""
-    return GoveeServer((host, port), service, static_dir)
+    return GoveeServer((host, port), service, static_dir, trusted)
 
 
 # --- run / rotate ----------------------------------------------------------------------------
@@ -699,12 +761,22 @@ def _configure_logging() -> None:
         log.setLevel(logging.INFO)
 
 
-def run(host: str = DEFAULT_HOST, port: int = DEFAULT_PORT, *, rotate_token: bool = False) -> int:
-    """Serve the console and API until interrupted; ``govee serve`` calls this."""
+def run(
+    host: str = DEFAULT_HOST,
+    port: int = DEFAULT_PORT,
+    *,
+    rotate_token: bool = False,
+    trust: Iterable[str] = (),
+) -> int:
+    """Serve the console and API until interrupted; ``govee serve`` calls this.
+
+    ``trust`` (plus ``GOVEE_TRUSTED_NETWORKS``) names networks whose devices need no token.
+    """
+    trusted = parse_trusted([*trust, os.environ.get(ENV_TRUST, "")])
     _configure_logging()
     service = _build_service()
     try:
-        httpd = make_server(host, port, service)
+        httpd = make_server(host, port, service, trusted=trusted)
     except OSError as exc:
         raise CliError(
             EXIT_ENV_ERROR,
@@ -722,6 +794,8 @@ def run(host: str = DEFAULT_HOST, port: int = DEFAULT_PORT, *, rotate_token: boo
         poller = Poller(service)
         poller.start()
         log.info("govee serve listening on %s:%d (Ctrl-C to stop)", host, actual_port)
+        if trusted:
+            log.info("no token needed from: %s", ", ".join(str(n) for n in trusted))
         httpd.serve_forever()
     except KeyboardInterrupt:
         pass

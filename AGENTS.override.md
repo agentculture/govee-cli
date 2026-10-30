@@ -31,7 +31,8 @@ brightness, color, temp, scene, state, scenes, fade-status, fade-stop),
 stdio), plus the identity verbs (`whoami`, `learn`, `explain`, `overview`,
 `doctor`, `cli overview`). Every lamp operation goes through one module,
 `govee_cli/govee/service.py`. Writes are dry runs unless `--apply`; the web
-console needs a paired token for every call; schedules live in culture-rules,
+console needs a paired token for every call (except from networks the owner
+passes to `govee serve --trust`); schedules live in culture-rules,
 not here.
 
 ## Four harnesses, four files, no shared base

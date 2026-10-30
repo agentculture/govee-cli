@@ -64,7 +64,7 @@ live in culture-rules, not here: govee-cli has no timers of its own.
 | `light fade-status`, `light fade-stop` | Watch or stop a running fade. |
 | `stats` | On-time today and this week, commands, recent events. |
 | `token new --name N [--save]`, `token list`, `token revoke N` | Pair browsers, apps and MCP clients with `govee serve`. |
-| `serve [--host H] [--port P] [--rotate-token]` | Run the web console and API (default `0.0.0.0:8742`). |
+| `serve [--host H] [--port P] [--rotate-token] [--trust NET]` | Run the web console and API (default `0.0.0.0:8742`). |
 | `mcp serve` | Run the MCP server on stdio. |
 | `rules actor` | Print the culture-rules runner actor for this machine (read-only). |
 | `doctor [--no-scan]` | Health checks, including LAN interface, lamp discovery, API key presence and the stats database. |
@@ -106,6 +106,20 @@ never reaches the server's logs. Every API call, reads included, needs a
 paired device. The console shows the lamp, a dry-run "What will be sent"
 panel, fades, recent activity and usage charts. `govee serve
 --rotate-token` revokes every paired device.
+
+To share control with everyone at home without handing out tokens, trust the
+networks you consider safe:
+
+```bash
+govee serve --trust lan --trust tailscale   # or GOVEE_TRUSTED_NETWORKS=lan,tailscale
+```
+
+A device on a trusted network opens `http://<host>:8742/` and needs no token
+(it is logged as `trusted <ip>`). `lan` is the /24 of the default route,
+`tailscale` is 100.64.0.0/10 and its IPv6 range, and any CIDR works. Anyone on
+those networks (guests on the Wi-Fi, every device in the tailnet) can then
+control the lamp. Writes still need a same-origin request, and other
+networks still need a paired token.
 
 To keep it running, install the user unit in
 [`docs/systemd/govee-serve.service`](docs/systemd/govee-serve.service).

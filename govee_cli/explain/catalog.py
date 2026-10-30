@@ -386,11 +386,13 @@ _SERVE = """\
 Runs the web console and loopback API. While it runs, every lamp operation from
 the CLI and MCP routes through it, authenticated by `GOVEE_TOKEN` or the client
 token file (`govee token new --save`). `--rotate-token` mints a fresh pairing
-token at startup. Defaults come from the server (port 8742).
+token at startup. `--trust NET` (repeatable; `lan`, `tailscale` or a CIDR; also
+`GOVEE_TRUSTED_NETWORKS`) lets devices on that network use the console and API
+without a token. Defaults come from the server (port 8742).
 
 ## Usage
 
-    govee serve [--host H] [--port P] [--rotate-token]
+    govee serve [--host H] [--port P] [--rotate-token] [--trust NET]
 """
 
 _MCP = """\

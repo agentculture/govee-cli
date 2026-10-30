@@ -141,7 +141,9 @@ The CLI, the MCP server (`govee_cli/mcp/server.py`) and the web server
   `$XDG_STATE_HOME/govee-cli/stats.db`); web console dry runs are not logged.
 - **Auth.** `govee_cli/auth/tokens.py` stores named tokens as sha256 hashes
   (0600 file under `$XDG_CONFIG_HOME/govee-cli/`). Every `/api` route except
-  `/api/health` needs a bearer token; writes also need a same-origin `Origin`.
+  `/api/health` needs a bearer token, unless the client is on a network the
+  owner passed to `govee serve --trust` (or `GOVEE_TRUSTED_NETWORKS`; default
+  none); writes also need a same-origin `Origin`.
   `X-Govee-Source` / `X-Govee-Actor` are honoured only from loopback.
 
 Rules that keep it that way:

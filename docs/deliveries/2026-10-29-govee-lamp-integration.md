@@ -62,7 +62,7 @@ Quoted verbatim from the `devague summary` skeleton:
 ## Mid-work Decisions
 
 The deviations below are quoted from their records. The user approved
-`d1`–`d32` on 2026-10-30.
+`d1`–`d32` on 2026-10-30; `d33` (`--trust`) was the user's own request.
 
 - `d3` (approved) — while serve runs, every lamp operation goes through it,
   so only serve holds the key and UDP 4002. The reason: the culture-rules
@@ -183,8 +183,9 @@ have since been fixed.
 ## Remaining Work / Follow-up
 
 - `t14` follow-ups (`d26`). Owner: the user.
-  - The phone toggle over Wi-Fi or Tailscale.
-  - A visual check of whether the firmware smooths instant changes.
+  - ~~The phone toggle over Wi-Fi or Tailscale~~: done over Tailscale.
+  - ~~A visual check of whether the firmware smooths instant changes~~:
+    done at the lamp; it does not (`d32`).
   - `govee rules actor > /tmp/a.json`, then
     `culture-rules actors create --body @/tmp/a.json` as a dry run.
 - Adjudication — confirm or reject lapses `l1`–`l6`, evidence

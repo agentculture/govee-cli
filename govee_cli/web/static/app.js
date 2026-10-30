@@ -1,6 +1,6 @@
 /* govee-cli web console. Served by `govee serve`; talks only to its own /api.
-   Every /api call carries `Authorization: Bearer <token>` from localStorage.
-   No token, or any 401, shows only the pairing screen.
+   Every /api call carries `Authorization: Bearer <token>` from localStorage when there is one;
+   without one it goes out bare (answered on a network serve trusts). A 401 shows the pairing screen.
    This file is ASCII only: non-ASCII characters are written as \u escapes. */
 (() => {
   "use strict";
@@ -66,14 +66,23 @@
       this.status = status; this.code = e.code || "http_" + status; this.remediation = e.remediation || "";
     }
   }
-  async function api(path, body) {
-    const token = store.get();
-    if (!token) { showGate(); throw new Unauthorized(); }
-    const headers = { Authorization: "Bearer " + token, Accept: "application/json" };
+  // Without a token the request goes out bare: serve answers it when this device is on a network
+  // it was told to trust (`govee serve --trust`), else 401 shows the pairing screen.
+  async function send(path, body, token) {
+    const headers = { Accept: "application/json" };
+    if (token) headers.Authorization = "Bearer " + token;
     const init = { method: body ? "POST" : "GET", headers, cache: "no-store", credentials: "same-origin" };
     if (body) { headers["Content-Type"] = "application/json"; init.body = JSON.stringify(body); }
-    const res = await fetch(path, init);
-    if (res.status === 401) { store.clear(); showGate("That token was not accepted. Pair again with a fresh one."); throw new Unauthorized(); }
+    return fetch(path, init);
+  }
+  async function api(path, body) {
+    const token = store.get();
+    let res = await send(path, body, token);
+    if (res.status === 401 && token) { store.clear(); res = await send(path, body, ""); }
+    if (res.status === 401) {
+      showGate(token ? "That token was not accepted. Pair again with a fresh one." : undefined);
+      throw new Unauthorized();
+    }
     let data = null;
     try { data = await res.json(); } catch (e) { data = null; }
     if (!res.ok) throw new ApiError(res.status, data);
@@ -690,7 +699,6 @@
   // ---------- boot ----------
   async function boot() {
     takeTokenFromHash();
-    if (!store.get()) { showGate(); return; }
     let ok;
     try { fromState(await api("/api/state")); ok = true; } catch (e) {
       if (e instanceof Unauthorized) return;

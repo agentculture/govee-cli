@@ -19,6 +19,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Integration docs: culture-rules runner actor (`docs/culture-rules/`, commands log as source rules), `.mcp.json` and `docs/mcp.md`, a systemd user unit, and doctor checks for the LAN interface, lamp discovery, API key presence and the stats database.
 - devague spec, plan, approved split and deviation ledger for the build under `docs/specs/`, `docs/plans/` and `.devague/`.
 
+- `govee serve --trust NET` (`lan`, `tailscale` or a CIDR; also `GOVEE_TRUSTED_NETWORKS`): devices on networks the owner trusts use the console without a token. Off by default.
+
 ### Changed
 
 - README, CLAUDE.md, AGENTS.override.md, AGENTS.colleague.md and QWEN.md now describe the shipped Govee domain instead of the template scaffold.

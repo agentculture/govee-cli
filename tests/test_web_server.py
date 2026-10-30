@@ -58,9 +58,9 @@ def make_service(lan=None, cloud=None):
 
 
 class Running:
-    def __init__(self, service):
+    def __init__(self, service, trusted=()):
         self.service = service
-        self.httpd = web.make_server("127.0.0.1", 0, service)
+        self.httpd = web.make_server("127.0.0.1", 0, service, trusted=trusted)
         self.port = self.httpd.server_address[1]
         self.origin = f"http://127.0.0.1:{self.port}"
         self.thread = threading.Thread(target=self.httpd.serve_forever, args=(0.02,), daemon=True)
@@ -796,3 +796,57 @@ def test_access_log_never_contains_the_token(srv, token, caplog, capsys):
     assert "/api/state" in logged  # the request line is logged...
     assert token not in logged  # ...but never the token
     assert "Bearer" not in logged
+
+
+# --- trusted networks: `govee serve --trust` (the user shares control with the household) ------
+
+
+def test_trusted_network_needs_no_token_but_writes_keep_the_origin_check():
+    s = Running(make_service(), trusted=web.parse_trusted(["127.0.0.0/8"]))
+    try:
+        status, _, body = s.call("GET", "/api/state")
+        assert status == 200 and "on" in body
+        status, _, body = s.call("POST", "/api/light", {"on": True, "apply": True})
+        assert status == 200 and body["applied"] is True
+        status, _, body = s.call("POST", "/api/light", {"on": True}, origin=None)
+        assert status == 403
+        wrong = "x" * 24
+        status, _, body = s.call("GET", "/api/state", token=wrong)
+        assert status == 401, "a wrong token is still refused (the console then retries bare)"
+    finally:
+        s.close()
+    events = store.recent_events()
+    assert events and events[0]["actor"] == "trusted 127.0.0.1"
+
+
+def test_untrusted_network_still_needs_a_token(srv):
+    status, _, body = srv.call("GET", "/api/state")
+    assert status == 401
+
+
+def test_parse_trusted_accepts_cidrs_and_keywords(monkeypatch):
+    import ipaddress
+
+    from govee_cli.cli._errors import CliError
+
+    monkeypatch.setattr(web.lan, "default_route_ip", lambda: "192.0.2.57")
+    nets = web.parse_trusted(["lan", "tailscale,10.1.2.3/16"])
+    assert ipaddress.ip_network("192.0.2.0/24") in nets
+    assert ipaddress.ip_network("100.64.0.0/10") in nets
+    assert ipaddress.ip_network("10.1.0.0/16") in nets
+    assert web.in_networks("100.101.102.103", nets) and web.in_networks("::ffff:192.0.2.9", nets)
+    assert not web.in_networks("203.0.113.5", nets) and not web.in_networks("bogus", nets)
+    assert web.parse_trusted([""]) == []
+    with pytest.raises(CliError) as exc:
+        web.parse_trusted(["home"])
+    assert exc.value.code == 1
+
+
+def test_trusted_networks_also_come_from_the_environment(monkeypatch):
+    seen = {}
+    monkeypatch.setenv("GOVEE_TRUSTED_NETWORKS", "tailscale")
+    monkeypatch.setattr(web, "_build_service", lambda: (_ for _ in ()).throw(RuntimeError("stop")))
+    monkeypatch.setattr(web, "parse_trusted", lambda specs: seen.setdefault("specs", specs) and [])
+    with pytest.raises(RuntimeError):
+        web.run(host="127.0.0.1", port=0, trust=["lan"])
+    assert seen["specs"] == ["lan", "tailscale"]

@@ -16,7 +16,10 @@ def cmd_serve(args: argparse.Namespace) -> int:
             f"the web server is not available ({exc.__class__.__name__})",
             "reinstall govee-cli (the govee_cli.web package is part of it)",
         ) from None
-    kwargs: dict[str, object] = {"rotate_token": bool(args.rotate_token)}
+    kwargs: dict[str, object] = {
+        "rotate_token": bool(args.rotate_token),
+        "trust": list(args.trust or []),
+    }
     if args.host is not None:
         kwargs["host"] = args.host
     if args.port is not None:
@@ -30,6 +33,15 @@ def register(sub: argparse._SubParsersAction) -> None:
     p.add_argument("--port", type=int, help="Port (default 8742).")
     p.add_argument(
         "--rotate-token", action="store_true", help="Mint a fresh pairing token at startup."
+    )
+    p.add_argument(
+        "--trust",
+        action="append",
+        metavar="NETWORK",
+        help=(
+            "Let devices on NETWORK use the console and API without a token: a CIDR, 'lan' (the "
+            "default route's /24) or 'tailscale'. Repeatable; also GOVEE_TRUSTED_NETWORKS."
+        ),
     )
     p.add_argument("--json", action="store_true", help="Emit errors as JSON.")
     p.set_defaults(func=cmd_serve)

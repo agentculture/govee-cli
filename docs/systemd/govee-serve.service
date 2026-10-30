@@ -7,6 +7,7 @@ Wants=network-online.target
 Type=simple
 ExecStart=%h/.local/bin/govee serve
 EnvironmentFile=-%h/.config/govee-cli/env
+# To skip tokens on trusted networks, add GOVEE_TRUSTED_NETWORKS=lan,tailscale to the env file.
 Restart=on-failure
 RestartSec=5
 

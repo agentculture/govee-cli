@@ -2,7 +2,7 @@
   "plan_slug": "govee-lamp-integration",
   "schema_version": 2,
   "created": "2026-10-29T06:46:31Z",
-  "updated": "2026-10-29T23:56:46Z",
+  "updated": "2026-10-30T00:05:26Z",
   "deviations": [
     {
       "id": "d1",
@@ -431,6 +431,17 @@
       "status": "approved",
       "classification": "acceptable",
       "seq": 58
+    },
+    {
+      "id": "d33",
+      "what": "govee serve --trust NET (repeatable; 'lan' = the default route's /24, 'tailscale' = 100.64.0.0/10 + fd7a:115c:a1e0::/48, or a CIDR; also GOVEE_TRUSTED_NETWORKS) lets devices on those networks use the console and API without a token, logged as actor 'trusted <ip>'; default none, so the token-for-every-call contract holds unless the owner opts in. A wrong token is still 401; writes keep the same-origin check; the console tries a bare request when it has no token",
+      "task_ref": "t10",
+      "reason": "user, after pairing a phone over Tailscale: worried about not having the token at hand and wants to share with their wife; 'In network is safe to share control. Also in Tailscale'. Amends the earlier choice 'Token for reads too' for networks the owner names",
+      "affects": [],
+      "origin": "user",
+      "status": "approved",
+      "classification": "acceptable",
+      "seq": 59
     }
   ],
   "evidence": [
