@@ -136,12 +136,12 @@ The deviations below are quoted from their records. The user approved
   failed 3 of 3 runs without the write lock, and
   `tests/test_web_server.py::test_a_second_sigterm_during_shutdown_does_not_skip_the_cleanup`
   aborted the run without the signal guard.
-- evidence `e23`–`e26` (proposed) file the review-fix tests against `o9`,
+- evidence `e23`–`e26` file the review-fix tests against `o9`,
   `o12`, `o13` and `o14`, run at `e18f85b`, where every PR check passed and
   the Sonar gate was OK. Deltas `b14`–`b17` were filed for `d28`–`d31` once
   the user approved them.
 - evidence records `e1`–`e21` against obligations `o1`–`o19`. All pass. They
-  are filed as proposed, so they await the user's confirmation. The tests
+  were confirmed by the user on 2026-10-30, as were deltas `b1`–`b17`. The tests
   behind them are named in each record and were run at `ef5689d`.
 - sensitivity shown: `tests/test_stats_store.py::test_concurrent_first_connect_never_raises_locked`
   failed 3 of 3 runs before `115ea44`. The Playwright layout check failed
@@ -171,14 +171,14 @@ The deviations below are quoted from their records. The user approved
 | The console previews colour without a request, and the bulb never moves (`c26`) | high | `e11` (sensitivity, Playwright) |
 | A web toggle changes the lamp in under 2 s (`c22`) | medium | measured over loopback: 0.62–0.72 s API, 65 ms console tap. **A real phone on the LAN was not tested.** |
 | The stats charts render from sqlite rows and show an empty state when there are none (`c21`) | medium | `e8` is at coverage strength only. The queries and the API are tested; the rendering was only observed (t3 Playwright with a fake API). |
-| The culture-rules actor imports cleanly (`c25`, `c34`) | low | shape tests only (`e10`, `e18`). `culture-rules actors create` was never run; it needs the user's token (lapse `l3`, still proposed). |
+| The culture-rules actor imports cleanly (`c25`, `c34`) | low | shape tests only (`e10`, `e18`). `culture-rules actors create` was never run; it needs the user's token (lapse `l3`, approved). |
 | Cloud fallback, scenes and rate-limit handling (`c35`) | medium | `e19` against a fake HTTP server only. **No real key was available**, and the header names are unverified (risk `r2`). |
 | `systemd-analyze verify` passes on the shipped unit (`c36`) | high | `e21` · exit 0 after `uv tool install` |
 
-Lapse ledger: `l1`–`l6` are all **proposed**, so they await the user and are
-not yet evidence. If approved, `l3` caps `c25` (already low), `l2` bears on
-the token store's concurrency, and `l5`/`l6` record process failures that
-have since been fixed.
+Lapse ledger: the user approved `l1`–`l6` on 2026-10-30, so they now count
+as evidence. `l3` caps `c25` at low (it already was), `l2` bears on the token
+store's concurrency, and `l5`/`l6` record process failures that have since
+been fixed.
 
 ## Remaining Work / Follow-up
 
@@ -188,10 +188,6 @@ have since been fixed.
     done at the lamp; it does not (`d32`).
   - `govee rules actor > /tmp/a.json`, then
     `culture-rules actors create --body @/tmp/a.json` as a dry run.
-- Adjudication — confirm or reject lapses `l1`–`l6`, evidence
-  `e1`–`e26` and deltas `b1`–`b17` (`b14`–`b17` were filed once `d28`–`d31`
-  were approved).
-  Owner: the user, at gate 3.
 - `d16` — decide whether the devague-added `.gitignore` lines
   (`.devague/reviews/`, `.devague/questions/`) stay.
 - Cloud verification — once `GOVEE_API_KEY` is set, run `govee light scenes`

@@ -4,7 +4,7 @@
   "schema_version": 6,
   "status": "exported",
   "created": "2026-10-29T05:47:24Z",
-  "updated": "2026-10-29T08:05:15Z",
+  "updated": "2026-10-30T00:17:12Z",
   "claims": [
     {
       "id": "c1",
@@ -905,7 +905,7 @@
         "plan t1 / tests/test_govee_types.py"
       ],
       "origin": "llm",
-      "status": "proposed"
+      "status": "approved"
     },
     {
       "id": "l2",
@@ -916,7 +916,7 @@
         "t15 / govee_cli/auth/tokens.py"
       ],
       "origin": "llm",
-      "status": "proposed"
+      "status": "approved"
     },
     {
       "id": "l3",
@@ -927,7 +927,7 @@
         "t4 / docs/culture-rules/govee-actor.json"
       ],
       "origin": "llm",
-      "status": "proposed"
+      "status": "approved"
     },
     {
       "id": "l4",
@@ -938,7 +938,7 @@
         "risk r3 / LAN discovery"
       ],
       "origin": "llm",
-      "status": "proposed"
+      "status": "approved"
     },
     {
       "id": "l5",
@@ -949,7 +949,7 @@
         "tests/test_poller.py, tests/conftest.py, d15"
       ],
       "origin": "llm",
-      "status": "proposed"
+      "status": "approved"
     },
     {
       "id": "l6",
@@ -960,7 +960,7 @@
         "d3, d4, b2, b10, d11 text"
       ],
       "origin": "llm",
-      "status": "proposed"
+      "status": "approved"
     }
   ],
   "obligations": [
