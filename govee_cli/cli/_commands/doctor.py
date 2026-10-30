@@ -297,7 +297,8 @@ def _check_stats_db() -> dict[str, Any]:
         conn.close()
         probe = tempfile.NamedTemporaryFile(dir=path.parent, prefix=".doctor.")
         probe.close()
-    except Exception as exc:  # noqa: BLE001 - sqlite3.Error or OSError; report, never crash doctor
+    # sqlite3.Error or OSError: report it, never crash doctor.
+    except Exception as exc:  # noqa: BLE001
         return _check(
             "stats-db-writable",
             False,

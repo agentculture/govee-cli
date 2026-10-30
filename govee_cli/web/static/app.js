@@ -45,7 +45,7 @@
   const TOKEN_RE = /^[A-Za-z0-9_-]{16,128}$/;
   const validToken = v => typeof v === "string" && TOKEN_RE.test(v);
   const store = {
-    get() { try { const v = localStorage.getItem(TOKEN_KEY) || ""; return validToken(v) ? v : ""; } catch (e) { return ""; /* storage blocked (private mode): treat as unpaired */ } },
+    get() { try { const v = localStorage.getItem(TOKEN_KEY) || ""; return validToken(v) ? v : ""; } catch { return ""; /* storage blocked (private mode): treat as unpaired */ } },
     set(v) {
       if (!validToken(v)) {
         return false;
@@ -434,7 +434,7 @@
   }
   async function loadScenes() {
     let list = [];
-    try { const r = await api("/api/scenes"); list = Array.isArray(r.scenes) ? r.scenes : []; } catch (e) { list = []; /* no scenes: the chip row says so */ }
+    try { const r = await api("/api/scenes"); list = Array.isArray(r.scenes) ? r.scenes : []; } catch { list = []; /* no scenes: the chip row says so */ }
     scenes = list.filter(s => s?.id != null).map(s => ({ id: String(s.id), name: String(s.name || s.id) }));
     const sc = $("#scenes"); sc.innerHTML = "";
     if (!scenes.length) { sc.append(el("span", { class: "hint" }, "No scenes reported for this lamp.")); return; }
@@ -487,7 +487,7 @@
     try {
       await navigator.clipboard.writeText($("#mcpJson").textContent);
       toast("Copied .mcp.json");
-    } catch (e) {
+    } catch {
       // Clipboard blocked (plain-http origin or permission denied): select the text for a manual copy.
       const r = document.createRange(); r.selectNodeContents($("#mcpJson"));
       const s = getSelection(); s.removeAllRanges(); s.addRange(r);
